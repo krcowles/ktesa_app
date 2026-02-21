@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Create Offline Map</title> 
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Save a map for use offline" />
+    <meta name="author" content="Ken Cowles" />
+    <link href="../styles/bootstrap.min.css" rel="stylesheet" />
+    <link href="../styles/leaflet.css" rel="stylesheet" />
+    <link href="../styles/saveMap.css" rel="stylesheet" />
+</head>
+
+<body>
+<!-- body tag must be read prior to invoking bootstrap.js -->
+<script src="../scripts/popper.min.js"></script>
+<script src="../scripts/bootstrap.min.js"></script>
+
+<div id="map_grp1">
+    <button id="start1" type="button" class="redos btn btn-primary btn-sm">
+        Start Over
+    </button>
+    <button id="home" type="button" class="btn btn-success btn-sm">
+        Home
+    </button>
+</div>
+<div id="map_grp2">
+    <button id="start2" type="button" class="redos btn btn-primary btn-sm">
+        Start Over 
+    </button>
+    <button id="save2" type="button" class="save_btns btn btn-sm btn-success">
+        Save
+    </button>
+</div>
+<div id="map_grp3">
+    <button id="start3" type="button" class="redos btn btn-primary btn-sm">
+        Start Over 
+    </button>
+    <button id="clearrect" type="button" class="btn btn-warning btn-sm">
+        Clear
+    </button>
+    <button id="save3" type="button" class="save_btns btn btn-sm btn-success">
+        Save
+    </button>
+</div>
+<div id="map_grp4">
+    <button id="home4" type="button" class="btn btn-success btn-sm">
+        Home
+    </button>
+    <button id="start4" type="button" class="redos btn btn-primary btn-sm">
+        Start Over 
+    </button>
+    <button id="omap" type="button" class="btn btn-sm btn-info">
+        Use Map
+    </button>
+</div>
+<!-- Use a site hike topper-->
+<div id="imphike" class="ui-widget">
+    <style type="text/css">
+        ul.ui-widget {
+            width: 266px;
+            clear: both;
+            z-index: 1000;
+        }
+    </style>
+    <input id="search" class="search" placeholder="Search for a Hike" />
+    <span id="clear">X</span>
+</div>
+<!-- Import a gpx file topper-->
+<div id="impgpx">
+    <form id="form" enctype="multipart/form-data">
+        <button id="gpxfileImport" type="submit" class="btn btn-sm btn-success">
+        Import</button>&nbsp;
+        <input id="gpxfile" type="file" name="gpxfile" /> 
+    </form>
+</div>
+<!-- Draw a rectangle topper -->
+<div id="rect_btns">
+    <button id="setzoom" type="button" class="btn btn-primary
+        btn-sm" onclick="this.blur();">Set Zoom 13</button>&nbsp;&nbsp;
+    <span id="drawbtn">
+        <button id="rect" type="button" class="btn btn-primary
+        btn-sm" onclick="this.blur();">Draw</button>
+    </span>&nbsp;&nbsp;
+    <span id="rectr">
+        <button id="newctr" class="btn btn-primary btn-sm">
+            Locate Me
+        </button>
+    </span>
+</div>
+
+<dialog id="warning">
+    <p id="msg"></p>
+    <button id="ok" type="button" class="btn btn-sm btn-success">
+        OK
+    </button>
+</dialog>
+
+<div id="map"></div>
+<br /><br />
+
+<!-- MODALS -->
+<!-- Page Intro Modal -->
+<div id="intro" class="modal" tabindex="-1"
+    aria-labelledby="Set up save choices" aria-hidden="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Offline Maps</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="options">You will be prompted for a map name when you
+                    click to 'Save' the map.
+                </p>
+                <table>
+                    <tr>
+                        <td>
+                            <button id="rctg" type="button" class="btn btn-primary
+                                btn-sm">Draw</button>
+                        </td>
+                        <td>
+                            &nbsp;&nbsp;Rectangular Area
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <button id="site" type="button" class="btn btn-primary
+                                btn-sm">Site</button>
+                        </td>
+                        <td>
+                            &nbsp;&nbsp;Import Site Hike
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <button id="savegpx" type="button" class="btn btn-primary
+                                btn-sm">Gpx</button>
+                        </td>
+                        <td>
+                            &nbsp;&nbsp;Import GPX File
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Rectangle Instructions Modal -->
+<div id="rim" class="modal" tabindex="-1"
+    aria-labelledby="Map Save Status" aria-hidden="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Instructions</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h5 id="drawer">
+                    <span style="color:brown;"><em>
+                        NOTE: Set to level 13 or higher to draw;</em></span><br />
+                    <button id="begin" type="button" class="btn-sm btn-success">
+                        Begin</button>
+                </h5><br />
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Map Saver Modal -->
+<div id="map_save" class="modal" tabindex="-1"
+    aria-labelledby="Map Save Status" aria-hidden="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Save or Start Over</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Map Name:
+                <input id="map_name" type="text" /><br />
+                <button type="button" id="save_map" class="btn btn-success btn-sm">
+                    Save Map</button><br /><br />
+                <button id="restart" type="button" class="btn btn-sm
+                    btn-primary">Start Over</button>&nbsp;&nbsp;[Map not saved]
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Tile Save Status Modal -->
+<div id="stat" class="modal" tabindex="-1"
+    aria-labelledby="Map Save Status" aria-hidden="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Map Tile Save Status</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <span id="preloads"></span><br />
+                <span>Total Number of Map Tiles to be Saved: </span>
+                <span id="tcnt">0</span><br />
+                <div id="progress">
+                    <div id="bar"></div>
+                </div>
+                <p id="complete" style="display:none;color:brown;">SAVED!</p>
+                <p style="color:brown;">
+                To use offline maps, close this window and tap "Use Map", or
+                select <i>Tools->Use Offline</i> in the menu.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../scripts/bundle.js"></script>
+
+</body>
+</html>

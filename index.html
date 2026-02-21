@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <title>Nmhikes Offline</title>
+    <meta charset="utf-8" />
+    <meta name="description" content="Mobile app for offline maps" />
+    <meta name="author" content="Ken Cowles" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="./styles/bootstrap.min.css" rel="stylesheet" />
+    <link href="./styles/index.css" rel="stylesheet" />
+    <script src="./scripts/bootstrap.min.js"></script>
+</head>
+
+<body>
+<!-- Set TRUE when it's time for an app update! Users will lose map data -->
+<script type="text/javascript">
+    const app_update = false;
+</script>
+
+<div id="logo">
+    <div id="pattern"></div> <!-- ktesa pattern bar -->
+    <div id="leftside" class="logo_items">
+        <img id="hikers" src="./images/hikers.png" alt="hikers icon" />
+        <p id="logo_left">Hike</p>
+    </div>
+    <div id="ctr" class="logo_items">
+        <span id="trail">nmhikes Offline</span>
+    </div>
+    <div id="rightside" class="logo_items">
+        <img id="tmap" src="./images/trail.png" alt="trail map icon" />
+        <p id="logo_right">NM</p>
+    </div>
+</div>
+<div id="contents">
+    <div id="lead-in">
+        <div class="box">
+            <div class="inner">
+                <span id="box1">Welcome</span>
+            </div>
+            <div class="inner">
+                <span id="box2">Welcome</span>
+            </div>
+        </div>
+        <div id="text-content">
+            <p>This app allows you to import hikes from the
+                <span id="site"><a href="https://nmhikes.com"
+                    target="_self">nmhikes.com</a></span>
+                site or from a stored gpx file - or you can draw a rectangular
+                area for use offline.
+            </p>
+            <p>Once offline, you can turn on tracking and download your track file!
+            </p>
+        </div>
+        <div id="choices">
+            <div id="choose">What would you like to do?
+                <div id="btns">
+                    <button id="save" type="button" class="btn btn-primary"
+                        onclick="window.open('./pages/saveMap.html', '_self')">
+                        Save</button>&nbsp;a map for offline use; or<br />
+                    <span id="btn2"><button id="use" type="button" class="btn btn-primary"
+                        onclick="window.open('https://nmhikes.com/ktesa_app/appOffline.html', '_self')">
+                        Use&nbsp; <!-- invokes cached resources -->
+                    </button>&nbsp;a map offline</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

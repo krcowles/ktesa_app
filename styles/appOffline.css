@@ -1,0 +1,49 @@
+/* scss standard definitions */
+body {
+  background-color: #eaeaea;
+  margin: 0;
+  font-family: arial, verdana;
+  font-size: 16px;
+}
+@media only screen and (max-width: 600px) {
+  body {
+    width: 100%;
+  }
+}
+@media only screen and (min-width: 980px) {
+  body {
+    min-width: 960px;
+  }
+}
+
+.trackers, .savers {
+  position: absolute;
+  top: 8px;
+  z-index: 500;
+}
+.trackers {
+  left: 64px;
+}
+.savers {
+  left: 24px;
+}
+
+
+#map {
+  overflow: hidden;
+  position: absolute;
+  height: 100vh;
+  width: 100vw;
+  border: 1px solid #AAA;
+}
+
+.modal-header, .modal-footer {
+  background-color: #dfe9e3;
+  color: black;
+}
+
+#gpxname {
+  border: 1px solid brown;
+}
+
+/*# sourceMappingURL=useOffline.css.map */
