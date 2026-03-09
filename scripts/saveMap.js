@@ -175,6 +175,7 @@ const show_grp = (grpno) => {
             alert("Invalid button group number!");
     }
 };
+// Apparently jQuery cannot be used here:
 const saveClose = document.getElementById('stat');
 saveClose.addEventListener('hidden.bs.modal', () => {
     show_grp(4);
@@ -244,7 +245,7 @@ $('body').on('click', '#clearrect', function() {
     $('#rect').addClass('btn-primary');
 });
 $('body').on('click', '#omap', () => {
-    window.open('./offline.html', '_self');
+    window.open('../pages/offline.html', '_self');
 });
 
 /**

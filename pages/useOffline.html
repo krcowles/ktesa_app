@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <title>Use Offline Map</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description"
+          content="Use a saved offline map">
+    <meta name="author" content="Ken Cowles">
+    <meta name="robots" content="nofollow">
+    <link href="../styles/bootstrap.min.css" rel="stylesheet" />
+    <link href="../styles/leaflet.css" rel="stylesheet">
+    <link href="../styles/useOffline.css" rel="stylesheet">
+    <script src="../scripts/jquery.js"></script>
+</head>
+
+<body>
+
+<!-- body tag must be read prior to invoking bootstrap.js -->
+<script src="../scripts/popper.min.js"></script>
+<script src="../scripts/bootstrap.min.js"></script>
+
+<div id="track_btns">
+    <button id="back" type="button" class="btn btn-sm btn-primary">
+        Back
+    </button>&nbsp;
+</div>
+
+<div id="map"></div>
+
+<!-- Select a Saved Map for use offline -->
+<div id="use_offline" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Select Offline Map</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="available" style="font-size: 18px;">
+                    Select the map you wish to use offline&hellip;<br />
+                    <div>
+                        <select id="select_map" style="min-width:120px;">
+                        </select>&nbsp;&nbsp;
+                        Delete this map&nbsp;&nbsp;
+                        <button id="delmap" type="button" class="btn-sm btn-danger">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+                <div id="no_maps" style="display:none;">
+                    There are no offline maps saved: maps can be created 
+                    and saved either on a desktop/laptop or on your mobile
+                    device. Internet connection is required; 
+                     More than 1 map may be saved.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="use_map" type="button" class="btn btn-success">
+                    Use Map</button>
+                <button id="off_close" type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../scripts/ktesaOfflineDB.js"></script>
+<script src="../scripts/useOffline.js"></script>
+<script src="../scripts/leaflet.js"></script>
+
+</body>
+</html>

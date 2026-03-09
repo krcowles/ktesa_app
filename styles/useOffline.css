@@ -4,16 +4,7 @@ body {
   margin: 0;
   font-family: arial, verdana;
   font-size: 16px;
-}
-@media only screen and (max-width: 600px) {
-  body {
-    width: 100%;
-  }
-}
-@media only screen and (min-width: 980px) {
-  body {
-    min-width: 960px;
-  }
+  width: 100%;
 }
 
 .trackers, .savers {
@@ -28,12 +19,11 @@ body {
   left: 24px;
 }
 
-
 #map {
   overflow: hidden;
   position: absolute;
-  height: 100vh;
-  width: 100vw;
+  height: 98vh;
+  width: 98vw;
   border: 1px solid #AAA;
 }
 
@@ -45,5 +35,3 @@ body {
 #gpxname {
   border: 1px solid brown;
 }
-
-/*# sourceMappingURL=useOffline.css.map */
