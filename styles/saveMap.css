@@ -112,10 +112,8 @@ form {
 }
 
 /* Save Status Modal */
-#preloads {
-  display: none;
+#zot {
   color: brown;
-  font-size: 18px;
 }
 #progress {
   height: 48px;

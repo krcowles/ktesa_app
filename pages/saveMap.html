@@ -216,16 +216,20 @@
                     data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <span id="preloads"></span><br />
-                <span>Total Number of Map Tiles to be Saved: </span>
-                <span id="tcnt">0</span><br />
-                <div id="progress">
-                    <div id="bar"></div>
+                <div id="preloads">
+                    Zoom-out tiles: <span id="zot_cnt"></span><br />
+                    Loaded: <span id="zot">0</span>
                 </div>
-                <p id="complete" style="display:none;color:brown;">SAVED!</p>
-                <p style="color:brown;">
-                To use offline maps, close this window and tap "Use Map", or
-                select <i>Tools->Use Offline</i> in the menu.</p>
+                <div id="loads">
+                    Zoom-in tiles:  <span id="zin_cnt"></span><br />
+                    Loaded:
+                    <div id="progress">
+                        <div id="bar"></div>
+                    </div>
+                </div>
+                <p id="complete" style="display:none;color:darkgreen;">SAVED!</p>
+                <p style="color:brown;">To use offline maps, close this window
+                    and tap "Use Map" below.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary"

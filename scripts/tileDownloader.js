@@ -12,19 +12,22 @@ import { CapacitorHttp } from '@capacitor/core';
 class TileDownloader {
 
     /**
-     * Android requires permission to use 'Directory.Documents'
+     * Android requires permission to use 'Directory.Data'
      */
     async androidPermissions() {
         const permission_status = await Filesystem.requestPermissions();
         return permission_status;
     }
 
-    // NOTE: Directory.Documents only!!
+    /**
+     * Due to recent changes, Directory.Documents is no longer available,
+     * hence all file system access are to Directory.Data
+     */
     async docFileExists(path) {
         try {
             await Filesystem.stat({
                 path: path,
-                directory: Directory.Documents
+                directory: Directory.Data
             });
             return true;
         } catch (error) {
@@ -38,7 +41,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: "mapnames.txt",
                 data: mapnames,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8
             });
             return true;
@@ -51,7 +54,7 @@ class TileDownloader {
     async readMapnames() {
         const mapnames = await Filesystem.readFile({
             path: "mapnames.txt",
-            directory: Directory.Documents,
+            directory: Directory.Data,
             encoding: Encoding.UTF8
         });
         return mapnames;
@@ -63,7 +66,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: `${map}/tracks/track.json`,
                 data: polyline,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8,
                 recursive: true
             });
@@ -85,7 +88,7 @@ class TileDownloader {
     async removeData(path, dir) {
         return await Filesystem.rmdir({
             path: path,
-            directory: dir,  // Directory.Documemts | Directory.Data
+            directory: dir,
             recursive: true
         });
     }
@@ -110,9 +113,10 @@ class TileDownloader {
                 url: tileUrl,
                 headers: {
                     'User-Agent': 'MyMapApp/1.0'
-                }
+                },
+                responseType: 'blob'
             });
-            //console.log('HTTP response status:', response.status);
+            console.log('HTTP response status:', response.status);
             if (response.status !== 200) {
                 throw new Error(`HTTP ${response.status}: Failed`);
             }
@@ -158,8 +162,8 @@ class TileDownloader {
             zooms.push(zoomLevels[0] + i);
         }
         zooms.forEach(z => {
-            const minTile = this.latLngToTile(bounds.north, bounds.west, z);
-            const maxTile = this.latLngToTile(bounds.south, bounds.east, z);
+            const minTile = this.latLngToTile(bounds.n, bounds.w, z);
+            const maxTile = this.latLngToTile(bounds.s, bounds.e, z);
             
             for (let x = minTile.x; x <= maxTile.x; x++) {
                 for (let y = minTile.y; y <= maxTile.y; y++) {

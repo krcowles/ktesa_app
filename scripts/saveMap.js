@@ -2,7 +2,7 @@ import $ from 'jquery';
 import 'jquery-ui/ui/widgets/autocomplete';
 import 'jquery-ui/themes/base/all.css';
 import L from 'leaflet'
-import { CapacitorHttp } from '@capacitor/core';
+//import { CapacitorHttp } from '@capacitor/core';
 import { tileDownloader } from './tileDownloader'
 /**
  * @fileoverview Specify an area on the map, with or without a gpx track,
@@ -23,28 +23,11 @@ if (screen.orientation) {
         map.invalidateSize();
     });
 } else {
+    // allow for limited browser testing
     $(window).on('resize', () => {
         map.invalidateSize();
     });
 }
-
-/**
- * Dialog boxes are being used instead of alerts which may not 
- * show up, or show up with no content, on mobile devices
- */
-const warning = document.getElementById('warning');
-const msg     = document.getElementById('msg');
-const ok_btn  = document.getElementById('ok');
-ok_btn.addEventListener('click', () => {
-    warning.close();
-    if (saver) {
-        save_modal.show();
-    }
-});
-const notice = (message) => {
-    msg.textContent = message;
-    warning.showModal();
-};
 
 // Android requires certain priveleges
 const isAndroid = () => {
@@ -60,6 +43,26 @@ if (isAndroid) {
 } else { // testing only:
     androidReadWrite();
 }
+
+/**
+ * Dialog boxes are being used instead of alerts which may not 
+ * show up, or show up with no content, on mobile devices
+ */
+const warning = document.getElementById('warning');
+const msg     = document.getElementById('msg');
+const ok_btn  = document.getElementById('ok');
+ok_btn.addEventListener('click', () => {
+    warning.close();
+    if (saver) {
+        save_modal.show();
+    }
+    return;
+});
+const notice = (message) => {
+    msg.textContent = message;
+    warning.showModal();
+    return;
+};
 
 // DISPLAY THE MAP:
 var map = L.map('map', {
@@ -127,26 +130,28 @@ tile_coords[12] = [];
 tile_coords[13] = []; 
 tile_coords[14] = [];
 tile_coords[15] = [];
-
 /**
  * Establish map height based on whether or not #imphike or #impgpx is active
+ * Note: need above globals to already be established
  */
 function mapHeight() {
     var map_height = (viewingHeight - topArea);
     $('#map').height(map_height);
     map.invalidateSize();
 }
-// hide some display options; default display is #imphike
-$('#impgpx').hide();
-$('#rect_btns').hide();
-topArea = $('#imphike').outerHeight(true);
-mapHeight();
 
 // Note: the name 'opener' conflicts with a DOM lib element: hence 'iopener'
 var iopener  = new bootstrap.Modal(document.getElementById('intro'));
 var rectinst = new bootstrap.Modal(document.getElementById('rim'));
 var save_modal = new bootstrap.Modal(document.getElementById('map_save'));
 var saveStat = new bootstrap.Modal(document.getElementById('stat'));
+
+
+// hide some display options; default display is #imphike
+$('#impgpx').hide();
+$('#rect_btns').hide();
+topArea = $('#imphike').outerHeight(true);
+mapHeight();
 // which buttons to display:
 const show_grp = (grpno) => {
     $('#map_grp1').css('display', 'none');
@@ -170,11 +175,13 @@ const show_grp = (grpno) => {
             alert("Invalid button group number!");
     }
 };
-$('#stat').on('hidden.bs.modal', () => {
+const saveClose = document.getElementById('stat');
+saveClose.addEventListener('hidden.bs.modal', () => {
     show_grp(4);
+    return;
 });
-iopener.show();
 
+iopener.show();
 show_grp(1); // default display for 'imphike'
 
 const findMe = () => {
@@ -312,11 +319,12 @@ $('body').on('click', '#save_map', async function () {
     var maxZoomout = zoom_level - 1;
     var minZoomout = 10;
     var ul_start = ul_tile.slice();
+    var ZoomoutCnt = (maxZoomout - 9) * 16;
     loadZoomOutTiles(ul_start, maxZoomout, minZoomout);
     // download the loadZoomOutTiles
-    saveStat.show;
-    $('#preloads').css('display', 'inline');
-    $('#preloads').text("Initializing...");
+    saveStat.show();
+    $('#zot_cnt').text(ZoomoutCnt);
+    var loaded = 0;
     for (let k=minZoomout; k<zoom_level; k++) {
         var level_coords = tile_coords[k].slice();  // [] = {x.row, y.col}
         /**
@@ -329,6 +337,8 @@ $('body').on('click', '#save_map', async function () {
             var y = tile_obj.y;
             var turl = `${tile_str}/${k}/${x}/${y}.png`;
             var tileStat = await tileDownloader.downloadTile(k, x, y, turl, 'osm', mapName);
+            loaded++;
+            $('#zot').text(loaded);
             if (!tileStat) {
                 saver = true;
                 notice(`Could not download tile ${turl}`);
@@ -336,17 +346,20 @@ $('body').on('click', '#save_map', async function () {
             }
         }
     }
-    $('#preloads').css('display', 'none');
     await tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], 'osm', saveProgress);
 });
 /**
- * 'bar' is 2px wide => 1% of 'progress', hence (percent * 2px) is progress
+ * #progress is 200px wide; 
  */
 function saveProgress(complete, total) {
-    $('#tcnt').text(total);
-    let percent = parseInt(complete/total);
-    let progress = 2 * percent + 'px';
+    $('#zin_cnt').text(total);
+    let pixelsPerTile = 200/total;
+    let progress = complete * pixelsPerTile;
     $('#bar').css('width', progress);
+    if (complete === total) {
+        $('#complete').css('display', 'block');
+    }
+    return;
 }
 
 /**

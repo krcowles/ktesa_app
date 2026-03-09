@@ -30681,13 +30681,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var jquery_ui_themes_base_all_css__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! jquery-ui/themes/base/all.css */ "./node_modules/jquery-ui/themes/base/all.css");
 /* harmony import */ var leaflet__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! leaflet */ "./node_modules/leaflet/dist/leaflet-src.js");
 /* harmony import */ var leaflet__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(leaflet__WEBPACK_IMPORTED_MODULE_3__);
-/* harmony import */ var _capacitor_core__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @capacitor/core */ "./node_modules/@capacitor/core/dist/index.js");
-/* harmony import */ var _tileDownloader__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./tileDownloader */ "./www/scripts/tileDownloader.js");
+/* harmony import */ var _tileDownloader__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./tileDownloader */ "./www/scripts/tileDownloader.js");
 
 
 
 
-
+//import { CapacitorHttp } from '@capacitor/core';
 
 /**
  * @fileoverview Specify an area on the map, with or without a gpx track,
@@ -30708,29 +30707,27 @@ if (screen.orientation) {
         map.invalidateSize();
     });
 } else {
+    // allow for limited browser testing
     (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])(window).on('resize', () => {
         map.invalidateSize();
     });
 }
-/*
-const testTileFetch = async () => {
-    console.log('Test tile fetch starting');
-    try {
-        const response = await CapacitorHttp.get({
-            url: 'https://tile.openstreetmap.org/10/206/402.png',
-            headers: {
-                'User-Agent': 'MyMapApp/1.0'
-            }
-        });
-        console.log('Tile fetch status:', response.status);
-        console.log('Tile fetch data type:', typeof response.data);
-        console.log('Tile fetch data length:', response.data?.length);
-    } catch (error) {
-        console.error('Tile fetch error:', error);
+
+// Android requires certain priveleges
+const isAndroid = () => {
+    return /Android/i.test(navigator.userAgent);
+}
+async function androidReadWrite() {
+    if (await _tileDownloader__WEBPACK_IMPORTED_MODULE_4__.tileDownloader.androidPermissions() === 'denied') {
+        notice("This phone is not granting permission to write certain data");
     }
-};
-testTileFetch();
-*/
+}
+if (isAndroid) {
+    androidReadWrite();
+} else { // testing only:
+    androidReadWrite();
+}
+
 /**
  * Dialog boxes are being used instead of alerts which may not 
  * show up, or show up with no content, on mobile devices
@@ -30743,26 +30740,13 @@ ok_btn.addEventListener('click', () => {
     if (saver) {
         save_modal.show();
     }
+    return;
 });
 const notice = (message) => {
     msg.textContent = message;
     warning.showModal();
+    return;
 };
-
-// Android requires certain priveleges
-const isAndroid = () => {
-    return /Android/i.test(navigator.userAgent);
-}
-async function androidReadWrite() {
-    if (await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.androidPermissions() === 'denied') {
-        notice("This phone is not granting permission to write certain data");
-    }
-}
-if (isAndroid) {
-    androidReadWrite();
-} else { // testing only:
-    androidReadWrite();
-}
 
 // DISPLAY THE MAP:
 var map = leaflet__WEBPACK_IMPORTED_MODULE_3___default().map('map', {
@@ -30830,26 +30814,28 @@ tile_coords[12] = [];
 tile_coords[13] = []; 
 tile_coords[14] = [];
 tile_coords[15] = [];
-
 /**
  * Establish map height based on whether or not #imphike or #impgpx is active
+ * Note: need above globals to already be established
  */
 function mapHeight() {
     var map_height = (viewingHeight - topArea);
     (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#map').height(map_height);
     map.invalidateSize();
 }
-// hide some display options; default display is #imphike
-(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#impgpx').hide();
-(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#rect_btns').hide();
-topArea = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#imphike').outerHeight(true);
-mapHeight();
 
 // Note: the name 'opener' conflicts with a DOM lib element: hence 'iopener'
 var iopener  = new bootstrap.Modal(document.getElementById('intro'));
 var rectinst = new bootstrap.Modal(document.getElementById('rim'));
 var save_modal = new bootstrap.Modal(document.getElementById('map_save'));
 var saveStat = new bootstrap.Modal(document.getElementById('stat'));
+
+
+// hide some display options; default display is #imphike
+(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#impgpx').hide();
+(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#rect_btns').hide();
+topArea = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#imphike').outerHeight(true);
+mapHeight();
 // which buttons to display:
 const show_grp = (grpno) => {
     (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#map_grp1').css('display', 'none');
@@ -30873,11 +30859,13 @@ const show_grp = (grpno) => {
             alert("Invalid button group number!");
     }
 };
-(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#stat').on('hidden.bs.modal', () => {
+const saveClose = document.getElementById('stat');
+saveClose.addEventListener('hidden.bs.modal', () => {
     show_grp(4);
+    return;
 });
-iopener.show();
 
+iopener.show();
 show_grp(1); // default display for 'imphike'
 
 const findMe = () => {
@@ -30983,11 +30971,11 @@ savers.each( (i, btn) => {
         notice("You must specify a map name");
         return false;
     }
-    const fileExists = await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.docFileExists("mapnames.txt");
+    const fileExists = await _tileDownloader__WEBPACK_IMPORTED_MODULE_4__.tileDownloader.docFileExists("mapnames.txt");
     if (!fileExists) {
         names_list = [];
     } else {
-        const saved_names = await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.readMapnames(); // returns object
+        const saved_names = await _tileDownloader__WEBPACK_IMPORTED_MODULE_4__.tileDownloader.readMapnames(); // returns object
         const file_names = saved_names.data;
         var names_list = file_names.split(",");
     }
@@ -30999,11 +30987,11 @@ savers.each( (i, btn) => {
     } else {
         names_list.push(mapName);
         var new_list = names_list.join(",");
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.writeMapnames(new_list);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_4__.tileDownloader.writeMapnames(new_list);
     }
     if (saveType === "import") {
         bounds = getRectBounds();
-        const trackWrite = await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.writeTrack(mapName, track_string);
+        const trackWrite = await _tileDownloader__WEBPACK_IMPORTED_MODULE_4__.tileDownloader.writeTrack(mapName, track_string);
         if (!trackWrite) {
             saver = true;
             notice("Could not save the track for this hike");
@@ -31015,18 +31003,26 @@ savers.each( (i, btn) => {
     var maxZoomout = zoom_level - 1;
     var minZoomout = 10;
     var ul_start = ul_tile.slice();
+    var ZoomoutCnt = (maxZoomout - 9) * 16;
     loadZoomOutTiles(ul_start, maxZoomout, minZoomout);
     // download the loadZoomOutTiles
-    saveStat.show;
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#preloads').css('display', 'inline');
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#preloads').text("Initializing...");
+    saveStat.show();
+    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#zot_cnt').text(ZoomoutCnt);
+    var loaded = 0;
     for (let k=minZoomout; k<zoom_level; k++) {
         var level_coords = tile_coords[k].slice();  // [] = {x.row, y.col}
+        /**
+         * The for loop is critical to performance! I previously used a 
+         * forEach, and the download hung, apparently due to the loop
+         * causing a flood of requests swamping the Capacitor bridge.
+         */
         for (const tile_obj of level_coords) {
             var x = tile_obj.x;
             var y = tile_obj.y;
             var turl = `${tile_str}/${k}/${x}/${y}.png`;
-            var tileStat = await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadTile(k, x, y, turl, 'osm', mapName);
+            var tileStat = await _tileDownloader__WEBPACK_IMPORTED_MODULE_4__.tileDownloader.downloadTile(k, x, y, turl, 'osm', mapName);
+            loaded++;
+            (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#zot').text(loaded);
             if (!tileStat) {
                 saver = true;
                 notice(`Could not download tile ${turl}`);
@@ -31034,17 +31030,20 @@ savers.each( (i, btn) => {
             }
         }
     }
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#preloads').css('display', 'none');
-    await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], 'osm', saveProgress);
+    await _tileDownloader__WEBPACK_IMPORTED_MODULE_4__.tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], 'osm', saveProgress);
 });
 /**
- * 'bar' is 2px wide => 1% of 'progress', hence (percent * 2px) is progress
+ * #progress is 200px wide; 
  */
 function saveProgress(complete, total) {
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#tcnt').text(total);
-    let percent = parseInt(complete/total);
-    let progress = 2 * percent + 'px';
+    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#zin_cnt').text(total);
+    let pixelsPerTile = 200/total;
+    let progress = complete * pixelsPerTile;
     (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#bar').css('width', progress);
+    if (complete === total) {
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#complete').css('display', 'block');
+    }
+    return;
 }
 
 /**
@@ -31486,19 +31485,22 @@ __webpack_require__.r(__webpack_exports__);
 class TileDownloader {
 
     /**
-     * Android requires permission to use 'Directory.Documents'
+     * Android requires permission to use 'Directory.Data'
      */
     async androidPermissions() {
         const permission_status = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.requestPermissions();
         return permission_status;
     }
 
-    // NOTE: Directory.Documents only!!
+    /**
+     * Due to recent changes, Directory.Documents is no longer available,
+     * hence all file system access are to Directory.Data
+     */
     async docFileExists(path) {
         try {
             await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.stat({
                 path: path,
-                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents
+                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data
             });
             return true;
         } catch (error) {
@@ -31512,7 +31514,7 @@ class TileDownloader {
             await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.writeFile({
                 path: "mapnames.txt",
                 data: mapnames,
-                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents,
+                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data,
                 encoding: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Encoding.UTF8
             });
             return true;
@@ -31525,7 +31527,7 @@ class TileDownloader {
     async readMapnames() {
         const mapnames = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.readFile({
             path: "mapnames.txt",
-            directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents,
+            directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data,
             encoding: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Encoding.UTF8
         });
         return mapnames;
@@ -31537,7 +31539,7 @@ class TileDownloader {
             await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.writeFile({
                 path: `${map}/tracks/track.json`,
                 data: polyline,
-                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents,
+                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data,
                 encoding: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Encoding.UTF8,
                 recursive: true
             });
@@ -31559,7 +31561,7 @@ class TileDownloader {
     async removeData(path, dir) {
         return await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.rmdir({
             path: path,
-            directory: dir,  // Directory.Documemts | Directory.Data
+            directory: dir,
             recursive: true
         });
     }
@@ -31579,15 +31581,34 @@ class TileDownloader {
 
     // Download and cache tile: map must be specified by user
     async downloadTile(z, x, y, tileUrl, source='osm', map='initial') {
-        console.log('downloadTile entered with:', z, x, y, tileUrl);
         try {
-            console.log('Starting HTTP request to:', tileUrl);
             const response = await _capacitor_core__WEBPACK_IMPORTED_MODULE_1__.CapacitorHttp.get({
-                url: 'https://httpbin.org/get'  // hardcoded test URL
+                url: tileUrl,
+                headers: {
+                    'User-Agent': 'MyMapApp/1.0'
+                },
+                responseType: 'blob'
             });
             console.log('HTTP response status:', response.status);
-        } catch(error) {
-            console.error('Error:', error);
+            if (response.status !== 200) {
+                throw new Error(`HTTP ${response.status}: Failed`);
+            }
+            if (!response.data) {
+                throw new Error('No data in response');
+            }
+            const tilePath = this.getTilePath(z, x, y, source, map);
+            console.log('Writing to path:', tilePath);
+            await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.writeFile({
+                path: tilePath,
+                data: response.data,
+                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data,
+                recursive: true
+            });
+            //console.log('File written successfully');
+            return true;
+        } catch (error) {
+            console.error('Download tile failed:', error);
+            return false;
         }
     }
     // Bulk download for offline regions: source must be defined by caller
@@ -31614,8 +31635,8 @@ class TileDownloader {
             zooms.push(zoomLevels[0] + i);
         }
         zooms.forEach(z => {
-            const minTile = this.latLngToTile(bounds.north, bounds.west, z);
-            const maxTile = this.latLngToTile(bounds.south, bounds.east, z);
+            const minTile = this.latLngToTile(bounds.n, bounds.w, z);
+            const maxTile = this.latLngToTile(bounds.s, bounds.e, z);
             
             for (let x = minTile.x; x <= maxTile.x; x++) {
                 for (let y = minTile.y; y <= maxTile.y; y++) {
