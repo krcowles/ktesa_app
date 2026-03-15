@@ -6,7 +6,9 @@
       "module": "ESNext",                       /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', 'es2020', or 'ESNext'. */
       "lib": ["es2020", "DOM"],                 /* Specify library files to be included in the compilation. */
       "skipLibCheck": true,
-      "allowJs": false,                          /* Allow javascript files to be compiled. */
+      "allowJs": false,
+      "typeRoots":  ["./node_modules/@types"],
+      "types": [],                         /* Allow javascript files to be compiled. */
       // "checkJs": true,                       /* Report errors in .js files. */
       // "jsx": "preserve",                     /* Specify JSX code generation: 'preserve', 'react-native', or 'react'. */
       // "declaration": true,                   /* Generates corresponding '.d.ts' file. */
@@ -65,6 +67,9 @@
       //"forceConsistentCasingInFileNames": true  /* Disallow inconsistently-cased references to the same file. */
   },
   "files": [   /* .ts sources to be compiled */
-    "leafletIntegration.ts"
+    "./useOffline.ts",
+    "./leaflet-offline.d.ts",
+    "./definitions.d.ts",
+    "./tileDownloader.ts"
   ]
 }

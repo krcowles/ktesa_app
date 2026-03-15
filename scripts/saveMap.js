@@ -282,6 +282,7 @@ $('body').on('click', '#save_map', async function () {
         notice("Please use a minimum of zoom 13");
         return false;
     }
+    stored_zoom = zoom_level.toString();
     mapName = $('#map_name').val();
     if (mapName === '') {
         saver = true;
@@ -314,6 +315,18 @@ $('body').on('click', '#save_map', async function () {
             notice("Could not save the track for this hike");
             return false;
         }
+    }
+    var mapZoom = await tileDownloader.writeSavedZoom(mapName, stored_zoom);
+    if (!mapZoom) {
+        saver = false;
+        notice(`Failed to save ${mapName} zoom level`);
+    }
+    var ctr = JSON.stringify(map_center);
+    var ctr_write = await tileDownloader.writeCenter(mapName, ctr);
+    if (!ctr_write) {
+        saver = false;
+        notice(`Failure to write map_center: ${mapName}`);
+        return false;
     }
     // ensure ul and lr are defined and arranged nw to se:
     arrangeCorners();

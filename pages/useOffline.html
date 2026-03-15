@@ -20,13 +20,57 @@
 <script src="../scripts/popper.min.js"></script>
 <script src="../scripts/bootstrap.min.js"></script>
 
-<div id="track_btns">
-    <button id="back" type="button" class="btn btn-sm btn-primary">
-        Back
-    </button>&nbsp;
+<div id="tracking_icons">
+    <img id="gps_off" src="../images/BlackTrack.png" />
+    <img id="gps_on" src="../images/GreenTrack.png" />
+    <img id="no_save" src="../images/GraySave.png" />
+    <img id="save_trk" src="../images/GreenSave.png"/>
 </div>
 
+<dialog id="halt_restart">
+    You are currently offline and cannot return to the Save Maps page.
+    <button id="nogo" type="button" class="btn btn-sm btn-warning">OK</button>
+</dialog>
+<dialog id="error_info">
+    <p id="error_msg"></p>
+    <button id="got_it" type="button" class="btn btn-sm btn-warning">OK</button>
+</dialog>
+
 <div id="map"></div>
+
+<footer>
+    <div id="location">
+        <span id="lat"></span>&nbsp;&nbsp;<span id="lng"></span>
+    </div>
+</footer>
+
+<!-- GPX Track Saver -->
+<div id="save_gpx" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Save Track</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="map2save" style="font-size: 18px;">
+                    Enter a name for the file:
+                    &nbsp;&nbsp;<input id="dwnld_name" type="text" />
+                </div>
+            </div>
+            <div id="note">
+                <p>The GPX track file will be downloaded automatically</p>
+            </div>
+            <div class="modal-footer">
+                <button id="save_dwnld" type="button" class="btn btn-success">
+                    Save File</button>
+                <button id="off_close" type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Select a Saved Map for use offline -->
 <div id="use_offline" class="modal" tabindex="-1">
@@ -50,15 +94,20 @@
                     </div>
                 </div>
                 <div id="no_maps" style="display:none;">
-                    There are no offline maps saved: maps can be created 
-                    and saved either on a desktop/laptop or on your mobile
-                    device. Internet connection is required; 
-                     More than 1 map may be saved.
+                    There are no offline maps saved: maps can be saved by
+                    clicking on 'Save Maps' on the Welcome page of this app.
+                    Internet connection is required.
+                </div>
+                <div>
+                    <button id="restart" type="button" class="btn btn-sm btn-primary">
+                        Save Maps
+                    </button> [Internet required]&nbsp;&nbsp;<span id="connection"></span>
                 </div>
             </div>
             <div class="modal-footer">
                 <button id="use_map" type="button" class="btn btn-success">
-                    Use Map</button>
+                    Use Map
+                </button>
                 <button id="off_close" type="button" class="btn btn-secondary"
                     data-bs-dismiss="modal">Close</button>
             </div>
@@ -66,9 +115,8 @@
     </div>
 </div>
 
-<script src="../scripts/ktesaOfflineDB.js"></script>
-<script src="../scripts/useOffline.js"></script>
-<script src="../scripts/leaflet.js"></script>
+<!--<script src="../scripts/leaflet.js"></script>-->
+<script src="../dist/use/bundle.js"></script>
 
 </body>
 </html>
