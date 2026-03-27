@@ -11,14 +11,9 @@
     <link href="../styles/bootstrap.min.css" rel="stylesheet" />
     <link href="../styles/leaflet.css" rel="stylesheet">
     <link href="../styles/useOffline.css" rel="stylesheet">
-    <script src="../scripts/jquery.js"></script>
 </head>
 
 <body>
-
-<!-- body tag must be read prior to invoking bootstrap.js -->
-<script src="../scripts/popper.min.js"></script>
-<script src="../scripts/bootstrap.min.js"></script>
 
 <div id="tracking_icons">
     <img id="gps_off" src="../images/BlackTrack.png" />
@@ -40,7 +35,8 @@
 
 <footer>
     <div id="location">
-        <span id="lat"></span>&nbsp;&nbsp;<span id="lng"></span>
+        Current Loc: <span id="lat"></span>&nbsp;&nbsp;<span id="lng"></span>
+        <button class="restart" type="button" class="btn btn-sm btn-primary">Go to Save</button>
     </div>
 </footer>
 
@@ -99,8 +95,8 @@
                     Internet connection is required.
                 </div>
                 <div>
-                    <button id="restart" type="button" class="btn btn-sm btn-primary">
-                        Save Maps
+                    <button class="restart" type="button" class="btn btn-sm btn-primary">
+                        Go to Save
                     </button> [Internet required]&nbsp;&nbsp;<span id="connection"></span>
                 </div>
             </div>
@@ -115,8 +111,7 @@
     </div>
 </div>
 
-<!--<script src="../scripts/leaflet.js"></script>-->
-<script src="../dist/use/bundle.js"></script>
+<script src="../scripts/use.bundle.js"></script>
 
 </body>
 </html>

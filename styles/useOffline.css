@@ -19,7 +19,7 @@ img[id^=gps] {
 img[id*="save"] {
   right: 54px;
 }
-#gps_on, #save {
+#gps_on, #save_trk {
   display: none;
 }
 
@@ -34,6 +34,7 @@ footer, #location {
   position: fixed;
   bottom: 12px;
   left: 24px;
+  z-index: 9999;
 }
 
 .modal-header, .modal-footer {

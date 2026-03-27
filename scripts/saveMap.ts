@@ -1,10 +1,25 @@
 /// <reference types="jqueryui" />
+//declare var hikeSources: HikeObject[];
+interface HikeObject {
+    value: string;
+    label: StringConstructor;
+}
+interface LeafletGridPosition {
+    x: number;
+    y: number;
+}
+interface MapBounds {
+    n: number;
+    w: number;
+    s: number;
+    e: number;
+}
 import $ from 'jquery';
 import 'jquery-ui/ui/widgets/autocomplete';
 import 'jquery-ui/themes/base/all.css';
 import * as L from 'leaflet';
 import * as bootstrap from "bootstrap";
-import { tileDownloader } from './tileDownloader';
+import { tileDownloader } from './tileDownloader'
 /**
  * @fileoverview Specify an area on the map, with or without a gpx track,
  * and save the maptiles (zooming up to 18, and down to 10) and the track.
@@ -12,27 +27,28 @@ import { tileDownloader } from './tileDownloader';
  *  1. import a hike track from the site; track also displays on map
  *  2. import a gpx track and center the map display on it
  *  3. draw a rectangle on the map representing the area desired for offline
- *
+ * 
  * @author Ken Cowles
  * @version 1.0 Initial release
  */
+
 if (screen.orientation) {
     screen.orientation.addEventListener('change', () => {
         //const target = ev.target;
         //const type = target.type; // 'portatrait-primary', 'landcape-secondary'
         map.invalidateSize();
     });
-}
-else {
+} else {
     // allow for limited browser testing
     $(window).on('resize', () => {
         map.invalidateSize();
     });
 }
+
 // Android requires certain priveleges
 const isAndroid = () => {
     return /Android/i.test(navigator.userAgent);
-};
+}
 async function androidReadWrite() {
     if (await tileDownloader.androidPermissions() === 'denied') {
         notice("This phone is not granting permission to write certain data");
@@ -40,17 +56,17 @@ async function androidReadWrite() {
 }
 if (isAndroid()) {
     androidReadWrite();
-}
-else { // testing only:
+} else { // testing only:
     androidReadWrite();
 }
+
 /**
- * Dialog boxes are being used instead of alerts which may not
+ * Dialog boxes are being used instead of alerts which may not 
  * show up, or show up with no content, on mobile devices
  */
-const warning = document.getElementById('warning');
-const msg = document.getElementById('msg');
-const ok_btn = document.getElementById('ok');
+const warning = document.getElementById('warning') as HTMLDialogElement;
+const msg     = document.getElementById('msg') as HTMLParagraphElement;
+const ok_btn  = document.getElementById('ok') as HTMLButtonElement;
 ok_btn.addEventListener('click', () => {
     warning.close();
     if (saver) {
@@ -58,18 +74,19 @@ ok_btn.addEventListener('click', () => {
     }
     return;
 });
-const notice = (message) => {
+const notice = (message: string) => {
     msg.textContent = message;
     warning.showModal();
     return;
 };
+
 // DISPLAY THE MAP:
 var map = L.map('map', {
     center: [35.1, -106.65],
     minZoom: 6,
     maxZoom: 18,
     zoom: 10,
-    zoomSnap: 1 // no fractional zooms for zoomOptimizer
+    zoomSnap: 1  // no fractional zooms for zoomOptimizer
 });
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www,openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -84,14 +101,14 @@ map.on('locationfound', function (e) {
  * to identify tiles within the area selected for saving offline.
  */
 class GridDebug extends L.GridLayer {
-    createTile(coords) {
+    createTile(coords: L.Coords): HTMLElement {
         var tile = document.createElement("DIV");
         tile.style.outline = '1px solid azure'; //#e6e6e6
         tile.style.fontSize = '14pt';
         tile.style.color = "azure";
         tile.innerHTML = [coords.z, coords.x, coords.y].join('/');
         return tile;
-    }
+      }
 }
 /* Alternate typescript approach:
 (L.GridLayer as any).GridDebug = GridDebug;
@@ -101,50 +118,50 @@ class GridDebug extends L.GridLayer {
 map.addLayer((L.gridLayer as any).gridDebug());
 */
 map.addLayer(new GridDebug());
+
 /**
  * Globals [within this module]
  */
 var viewingHeight = window.innerHeight;
-var topArea; // any space on the top of the page consumed by buttons, etc.
-var saver = false; // boolean indicating whether or not to (re-)show the save modal
-var mapName = 'unassigned'; // user specifies
-var map_center;
-var track_string;
+var topArea: number; // any space on the top of the page consumed by buttons, etc.
+var saver = false;   // boolean indicating whether or not to (re-)show the save modal
+var mapName = 'unassigned';  // user specifies
+var map_center: L.LatLngExpression;
+var track_string: string;
 var track_colors = ['Red', 'Blue', 'DarkGreen', 'HotPink', 'DarkBlue',
     'Chocolate', 'DarkMagenta', 'Black'];
 var zoom_level = 10;
 var saveType = "unspecified";
-var hikeSources; // for searchbar autocomplete
-var bounds; // supplied to the tileDownloader for downloading regions
-var gpximport = document.getElementById('gpxfile');
-var useGpxFile;
-gpximport.addEventListener('change', (ev) => {
-    const target = ev.target;
+var hikeSources: HikeObject[]; // for searchbar autocomplete
+var bounds: MapBounds;  // supplied to the tileDownloader for downloading regions
+var gpximport = document.getElementById('gpxfile') as HTMLInputElement;
+var useGpxFile: File;
+gpximport.addEventListener('change', (ev: Event) => {
+    const target = ev.target as HTMLInputElement;
     const files = target.files;
     if (files && files.length > 0) {
         useGpxFile = files[0];
-    }
-    else if (typeof files === null) {
+    } else if (typeof files === null) {
         saver = false;
         notice("A gpx file has not been selected");
         return false;
     }
     return;
 });
-var startX; // lat of upper-left tile; ul[0]
-var startY; // lng of upper-left tile; ul[1]
-var endX; // lat of lower-right tile; lr[0]
-var endY; // lng of lower-right tile; lr[1]
-var rect;
-var ul_tile = [];
-var lr_tile = [];
+var startX: number;  // lat of upper-left tile; ul[0]
+var startY: number;  // lng of upper-left tile; ul[1]
+var endX: number;    // lat of lower-right tile; lr[0]
+var endY: number;    // lng of lower-right tile; lr[1]
+var rect: L.Rectangle;
+var ul_tile = [] as number[];
+var lr_tile = [] as number[];
 var tile_str = "https://tile.openstreetmap.org";
 // tile positions as object {x:tilex, y:tiley}:
-var tile_coords = [];
+var tile_coords = [] as LeafletGridPosition[][];
 tile_coords[10] = [];
 tile_coords[11] = [];
 tile_coords[12] = [];
-tile_coords[13] = [];
+tile_coords[13] = []; 
 tile_coords[14] = [];
 tile_coords[15] = [];
 /**
@@ -156,18 +173,21 @@ function mapHeight() {
     $('#map').height(map_height);
     map.invalidateSize();
 }
+
 // Note: the name 'opener' conflicts with a DOM lib element: hence 'iopener'
-var iopener = new bootstrap.Modal(document.getElementById('intro'));
-var rectinst = new bootstrap.Modal(document.getElementById('rim'));
-var save_modal = new bootstrap.Modal(document.getElementById('map_save'));
-var saveStat = new bootstrap.Modal(document.getElementById('stat'));
+var iopener  = new bootstrap.Modal(document.getElementById('intro') as HTMLDivElement);
+var rectinst = new bootstrap.Modal(document.getElementById('rim') as HTMLDivElement);
+var save_modal = new bootstrap.Modal(document.getElementById('map_save') as HTMLDivElement);
+var saveStat = new bootstrap.Modal(document.getElementById('stat') as HTMLDivElement);
+
+
 // hide some display options; default display is #imphike
 $('#impgpx').hide();
 $('#rect_btns').hide();
-topArea = $('#imphike').outerHeight(true);
+topArea = $('#imphike').outerHeight(true) as number;
 mapHeight();
 // which buttons to display:
-const show_grp = (grpno) => {
+const show_grp = (grpno: number) => {
     $('#map_grp1').css('display', 'none');
     $('#map_grp2').css('display', 'none');
     $('#map_grp3').css('display', 'none');
@@ -190,49 +210,53 @@ const show_grp = (grpno) => {
     }
 };
 // Apparently jQuery cannot be used here:
-const saveClose = document.getElementById('stat');
+const saveClose = document.getElementById('stat') as HTMLDivElement;
 saveClose.addEventListener('hidden.bs.modal', () => {
     show_grp(4);
     return;
 });
+
 iopener.show();
 show_grp(1); // default display for 'imphike'
+
 const findMe = () => {
-    map.locate({ enableHighAccuracy: true, setView: false, watch: false, maxZoom: 17 });
-};
+    map.locate({enableHighAccuracy: true, setView: false, watch: false, maxZoom: 17});
+}
+
 /**
  * The default state is to import a hike from the site;
  * The following represent buttons on the 'intro' modal
  */
-$('body').on('click', '#rctg', function () {
+$('body').on('click', '#rctg', function() {
     iopener.hide();
     $('#imphike').hide();
     $('#impgpx').hide();
     $('#rect_btns').show();
     show_grp(1);
-    topArea = $('#rect_btns').outerHeight(true);
+    topArea = $('#rect_btns').outerHeight(true) as number;
     mapHeight();
     rectinst.show();
 });
-$('body').on('click', "#site", function () {
+$('body').on('click', "#site", function() {
     iopener.hide();
     show_grp(1);
-    topArea = $('#imphike').outerHeight(true);
-    mapHeight();
+    topArea = $('#imphike').outerHeight(true) as number;
+    mapHeight(); 
 });
-$('body').on('click', '#savegpx', function () {
+$('body').on('click', '#savegpx', function() {
     iopener.hide();
     $('#imphike').hide();
     $('#impgpx').show();
     show_grp(1);
-    topArea = $('#impgpx').outerHeight(true);
+    topArea = $('#impgpx').outerHeight(true) as number;
     mapHeight();
 });
+
 /**
  * Button group actions
  */
 var redos = $('.redos'); // all the "Start Over" buttons
-redos.each((_i, btn) => {
+redos.each( (_i, btn) => {
     $(btn).on('click', () => {
         map.dragging.enable();
         window.open('./saveMap.html', '_self');
@@ -242,12 +266,12 @@ $('button[id^=home]').on('click', () => {
     window.open("../index.html", "_self");
 });
 var savers = $('.save_btns'); // all the "Save" buttons
-savers.each((_i, btn) => {
+savers.each( (_i, btn) => {
     $(btn).on('click', () => {
         save_modal.show();
-    });
+    });  
 });
-$('body').on('click', '#clearrect', function () {
+$('body').on('click', '#clearrect', function() {
     rect.removeFrom(map);
     // reset bootstrap draw button:
     $('#rect').prop('disabled', false);
@@ -257,10 +281,11 @@ $('body').on('click', '#clearrect', function () {
 $('body').on('click', '#omap', () => {
     window.open('../pages/useOffline.html', '_self');
 });
+
 /**
  * Buttons in modals
  */
-$('body').on('click', '#begin', function () {
+$('body').on('click', '#begin', function() {  // rim modal
     rectinst.hide();
 });
 $('body').on('click', '#restart', () => {
@@ -273,12 +298,13 @@ $('body').on('click', '#setzoom', () => {
     $('#setzoom').addClass('btn-secondary');
 });
 $('body').on('click', '#newctr', findMe);
+
 /**
  * Save the map (and track, if applicable);
  * Close the save modal first in case the dialog box is needed;
  * After a dialog box is invoked, it will be closed and then
  * the save modal will reappear.
- *
+ * 
  */
 $('body').on('click', '#save_map', async function () {
     save_modal.hide();
@@ -291,7 +317,7 @@ $('body').on('click', '#save_map', async function () {
         return false;
     }
     var stored_zoom = zoom_level.toString();
-    mapName = $('#map_name').val();
+    mapName = $('#map_name').val() as string;
     if (mapName === '') {
         saver = true;
         notice("You must specify a map name");
@@ -300,9 +326,8 @@ $('body').on('click', '#save_map', async function () {
     const fileExists = await tileDownloader.docFileExists("mapnames.txt");
     if (!fileExists) {
         names_list = [];
-    }
-    else {
-        const saved_names = await tileDownloader.readMapnames();
+    } else {
+        const saved_names = await tileDownloader.readMapnames() as string;
         var names_list = saved_names.split(",");
     }
     if (names_list.includes(mapName)) {
@@ -310,8 +335,7 @@ $('body').on('click', '#save_map', async function () {
         notice("This name is already used; please supply a new name");
         $('#map_name').val("");
         return false;
-    }
-    else {
+    } else {
         names_list.push(mapName);
         var new_list = names_list.join(",");
         await tileDownloader.writeMapnames(new_list);
@@ -348,10 +372,10 @@ $('body').on('click', '#save_map', async function () {
     saveStat.show();
     $('#zot_cnt').text(ZoomoutCnt);
     var loaded = 0;
-    for (let k = minZoomout; k < zoom_level; k++) {
-        var level_coords = tile_coords[k].slice(); // [] = {x.row, y.col}
+    for (let k=minZoomout; k<zoom_level; k++) {
+        var level_coords = tile_coords[k].slice();  // [] = {x.row, y.col}
         /**
-         * The for loop is critical to performance! I previously used a
+         * The for loop is critical to performance! I previously used a 
          * forEach, and the download hung, apparently due to the loop
          * causing a flood of requests swamping the Capacitor bridge.
          */
@@ -379,11 +403,11 @@ $('body').on('click', '#save_map', async function () {
     return;
 });
 /**
- * #progress is 200px wide;
+ * #progress is 200px wide; 
  */
-function saveProgress(complete, total) {
+function saveProgress(complete: number, total: number) {
     $('#zin_cnt').text(total);
-    let pixelsPerTile = 200 / total;
+    let pixelsPerTile = 200/total;
     let progress = complete * pixelsPerTile;
     $('#bar').css('width', progress);
     if (complete === total) {
@@ -391,6 +415,7 @@ function saveProgress(complete, total) {
     }
     return;
 }
+
 /**
  * This function is utilized by both import methods to display data
  * retrieved from the importHike.php utility. The ajax data retrieved
@@ -398,21 +423,18 @@ function saveProgress(complete, total) {
  * around it. The appropriate 'Save' buttons are displayed for next
  * steps.
  */
-function displayTrack(ajax_data, source) {
+function displayTrack(ajax_data: string, source: string) {
     saver = false;
     if (ajax_data === 'Upload') {
         notice("File upload error - please check the selected file");
         return false;
-    }
-    else if (ajax_data === 'Extension') {
+    } else if (ajax_data === 'Extension') {
         notice("Selected file does not have a gpx extension");
         return false;
-    }
-    else if (ajax_data.indexOf("There is an error") !== -1) {
+    } else if (ajax_data.indexOf("There is an error") !== -1) {
         notice(ajax_data);
         return false;
-    }
-    else {
+    } else {
         var result_array = JSON.parse(ajax_data);
         var ul = result_array[0];
         var lr = result_array[1];
@@ -423,37 +445,37 @@ function displayTrack(ajax_data, source) {
          * absolute values and convert back for longitudes
          * NOPTE: array [0] is lat value, [1] is lng value
          */
-        var latmarg = 0.10 * (nw[0] - se[0]) / 2;
+        var latmarg = 0.10*(nw[0] - se[0])/2;
         var abslng_west = Math.abs(nw[1]);
         var abslng_east = Math.abs(se[1]);
-        var absmarg = 0.20 * (abslng_west - abslng_east) / 2;
+        var absmarg = 0.20*(abslng_west - abslng_east)/2
         var lngmarg = -absmarg;
-        nw = [nw[0] + latmarg, nw[1] + lngmarg];
-        se = [se[0] - latmarg, se[1] - lngmarg];
+        nw = [nw[0]+latmarg, nw[1]+lngmarg];
+        se = [se[0]-latmarg, se[1]-lngmarg];
         var trkbounds = [nw, se];
         // bounds includes all tracks
-        L.rectangle(trkbounds, { color: 'darkgreen', fill: false, weight: 2 }).addTo(map);
+        L.rectangle(trkbounds, {color:'darkgreen', fill: false, weight: 2}).addTo(map);
         var lat = result_array[2][0];
         var lng = result_array[2][1];
         map_center = [lat, lng];
         // Create layers and add them before 'flyTo'
         var track_poly = result_array[3];
         track_string = JSON.stringify(track_poly);
-        let n = 0; // color pointer
-        track_poly.forEach(function (segment) {
-            L.polyline(segment, { color: track_colors[n++] }).addTo(map);
-        });
+        let n = 0;  // color pointer
+        track_poly.forEach(function(segment: L.LatLng[]) {
+            L.polyline(segment, {color: track_colors[n++]}).addTo(map);
+        })
         // tracks & bounds rectangle are added, now pan to center of map
-        map.flyTo(map_center, 13, { duration: 1.5 });
-        setTimeout(() => {
+        map.flyTo(map_center, 13, {duration: 1.5});
+        setTimeout( () => {
             map.invalidateSize();
             zoomOptimizer();
         }, 2000);
         // establish points on map representing area to be saved
         startX = nw[0];
         startY = nw[1];
-        endX = se[0];
-        endY = se[1];
+        endX   = se[0];
+        endY   = se[1];
         saveType = "import";
         $(source).hide();
         show_grp(2);
@@ -479,8 +501,8 @@ $.ajax({
         wait4ajax.reject();
     }
 });
-$.when(wait4ajax)
-    .then(() => {
+$.when( wait4ajax)
+.then( () => {
     // hikeSources should now be valid
     $(".search").autocomplete({
         source: hikeSources,
@@ -519,9 +541,10 @@ $.when(wait4ajax)
 // Clear searchbar contents when user clicks on the "X"
 $('#clear').on('click', function () {
     $('#search').val("");
-    var searchbox = document.getElementById('search');
+    var searchbox = document.getElementById('search') as HTMLInputElement;
     searchbox.focus();
 });
+
 /**
  * IMPORT A GPX FILE
  */
@@ -529,8 +552,8 @@ $('body').on('submit', '#form', (ev) => {
     ev.preventDefault();
     var src = '#impgpx';
     mapName = useGpxFile.name;
-    const gpxform = $('#form');
-    const formData = new FormData(gpxform[0]);
+    const gpxform = $('#form') as JQuery<HTMLFormElement>;
+    const formData = new FormData(gpxform[0])
     var url = "nmhikes.com/php/importGpx.php";
     $.ajax({
         url: url,
@@ -539,7 +562,7 @@ $('body').on('submit', '#form', (ev) => {
         dataType: "text",
         contentType: false,
         processData: false,
-        success: function (result) {
+        success: function(result) {
             displayTrack(result, src);
         },
         error: function (_jqXHR, _textStatus, _errorThrown) {
@@ -547,6 +570,7 @@ $('body').on('submit', '#form', (ev) => {
         }
     });
 });
+
 /**
  * DRAW A RECTANGLE DEFINING AREA TO BE SAVED
  */
@@ -564,23 +588,25 @@ $('body').on('click', '#rect', function () {
     if (typeof rect !== 'undefined') {
         rect.remove();
     }
+
     // Setup touch event handling
     map.dragging.disable();
     var container = map.getContainer();
-    L.DomEvent.on(container, 'touchstart', function (e) {
+    L.DomEvent.on(container, 'touchstart', function(e) {
         L.DomEvent.preventDefault(e);
         saveType = "draw";
         start_rect(e);
     });
-    L.DomEvent.on(container, 'touchmove', function (e) {
+    L.DomEvent.on(container, 'touchmove', function(e) {
         L.DomEvent.preventDefault(e);
-        draw_rect(e);
+        draw_rect(e)
     });
-    L.DomEvent.on(container, 'touchend', function (e) {
+    L.DomEvent.on(container, 'touchend', function(e) {
         L.DomEvent.preventDefault(e);
-        end_rect(e);
+        end_rect(e)
     });
-    function start_rect(ev) {
+
+    function start_rect(ev: any) {
         var touch = ev.touches[0];
         //var startRect = map.mouseEventToLatLng(ev.originalEvent);
         var startRect = map.mouseEventToLatLng(touch);
@@ -596,7 +622,7 @@ $('body').on('click', '#rect', function () {
         rect.addTo(map);
         //click_cnt = 1;
     }
-    function draw_rect(ev) {
+    function draw_rect(ev: any) {
         rect.removeFrom(map);
         var touch = ev.touches[0];
         var newRect = map.mouseEventToLatLng(touch);
@@ -610,17 +636,17 @@ $('body').on('click', '#rect', function () {
         rect = L.rectangle(latlngs, rectOpts);
         rect.addTo(map);
     }
-    function end_rect(ev) {
+    function end_rect(ev: any) {
         var touchlist = ev.changedTouches;
         var items = touchlist.length;
-        var touch = touchlist.item(items - 1);
+        var touch = touchlist.item(items-1);
         var endRect = map.mouseEventToLatLng(touch);
         //var endRect = map.mouseEventToLatLng(ev.originalEvent);
         endX = endRect.lat;
         endY = endRect.lng;
-        var lat_ctr = startX - (startX - endX) / 2;
-        var lng_ctr = startY + (endY - startY) / 2;
-        map_center = [lat_ctr, lng_ctr];
+        var lat_ctr = startX - (startX - endX)/2;
+        var lng_ctr = startY + (endY - startY)/2;
+        map_center = [lat_ctr, lng_ctr] as L.LatLngExpression;
         //map.dragging.enable();
         show_grp(3);
         bounds = getRectBounds();
@@ -630,12 +656,12 @@ $('body').on('click', '#rect', function () {
 });
 // track the zoom level on map
 const zctrl = document.createElement("DIV");
-const zsym = document.createTextNode("Z: ");
+const zsym  = document.createTextNode("Z: ");
 zctrl.style.marginLeft = "8px";
 zctrl.style.fontSize = "18px";
 zctrl.style.color = "brown";
 zctrl.style.fontWeight = "bold";
-const zval = document.createElement("SPAN");
+const zval  = document.createElement("SPAN");
 zval.id = "zval";
 zval.textContent = "10";
 zctrl.append(zsym, zval);
@@ -646,8 +672,7 @@ map.addEventListener("zoomend", () => {
     if (zoom_level < 13) {
         $('#setzoom').removeClass('btn-secondary');
         $('#setzoom').addClass('btn-primary');
-    }
-    else {
+    } else {
         $('#setzoom').removeClass('btn-primary');
         $('#setzoom').addClass('btn-secondary');
     }
@@ -665,23 +690,21 @@ function getRectBounds() {
     if (startX > endX) {
         north = startX;
         south = endX;
-    }
-    else {
+    } else {
         north = endX;
         south = startX;
     }
     if (Math.abs(startY) > Math.abs(endY)) {
         west = startY;
         east = endY;
-    }
-    else {
+    } else {
         west = endY;
         east = startY;
     }
-    var map_bounds = { n: north, w: west, s: south, e: east };
+    var map_bounds = {n: north, w: west, s: south, e: east};
     return map_bounds;
 }
-function getTileURL(lat, lng, zoom) {
+function getTileURL(lat: number, lng: number, zoom: number) {
     var latrad = lat * Math.PI / 180;
     var tileX = Math.floor((lng + 180) / 360 * (1 << zoom));
     var tileY = Math.floor((1 - Math.log(Math.tan(latrad)
@@ -696,7 +719,7 @@ function getTileURL(lat, lng, zoom) {
  */
 function arrangeCorners() {
     var corner1 = getTileURL(startX, startY, zoom_level); // = user start STRING
-    var corner2 = getTileURL(endX, endY, zoom_level); // = user end STRING
+    var corner2 = getTileURL(endX, endY, zoom_level);     // = user end STRING
     var XY1_Corner = corner1.split("/"); // array of strings
     var corner1XY = XY1_Corner.map(Number); // array:[0]=>zoom;[1]=>row;[2]=col: NUMERIC
     var XY2_Corner = corner2.split("/"); // array of strings
@@ -707,7 +730,7 @@ function arrangeCorners() {
         ul_tile[0] = corner1XY[1];
         lr_tile[0] = corner2XY[1];
     }
-    else {
+    else { 
         ul_tile[0] = corner2XY[1];
         lr_tile[0] = corner1XY[1];
     }
@@ -718,7 +741,7 @@ function arrangeCorners() {
     else {
         ul_tile[1] = corner2XY[2];
         lr_tile[1] = corner1XY[2];
-    }
+    } 
     const rangeX = lr_tile[0] - ul_tile[0]; // #rows - 1
     const rangeY = lr_tile[1] - ul_tile[1]; // #cols - 1
     if (rangeX > 2 || rangeY > 2) {
@@ -727,11 +750,12 @@ function arrangeCorners() {
     }
     return;
 }
-function loadZoomOutTiles(ul_corner, maxz, minz) {
+
+function loadZoomOutTiles(ul_corner: number[], maxz: number, minz: number) {
     /**
      * Assumption: the most tiles in a portrait display will be 4x2, but when
      * rotated the display will contain 2x4. Only the 2 in each display are common.
-     * [Refer to the diagram 'ZoomOutTiles.html'. A base set of four tiles [appearing
+     * [Refer to the diagram 'ZoomOutTiles.html'. A base set of four tiles [appearing 
      * in both landscape and portrait] forms the core of the next lower level.
      * Horizontal & portrait displays can be completely covered by a matrix of
      * 16 tiles at the next lower level ['Gang of 16']. All tiles can be derived from
@@ -741,20 +765,20 @@ function loadZoomOutTiles(ul_corner, maxz, minz) {
      */
     var row = ul_corner[0];
     var col = ul_corner[1];
-    for (let k = maxz; k > minz - 1; k--) {
+    for (let k=maxz; k>minz-1; k--) { 
         var zoom_minus1 = zoom_out_tile(row, col);
-        row = zoom_minus1.x - 1; // go from row-1 to row+2
-        col = zoom_minus1.y - 1; // go from col-1 to col+2
+        row = zoom_minus1.x - 1;  // go from row-1 to row+2
+        col = zoom_minus1.y - 1;  // go from col-1 to col+2
         // Fill out the Gang of 16:
-        for (let i = 0; i < 4; i++) {
-            for (let j = 0; j < 4; j++) {
-                var loc = { x: row + j, y: col + i };
+        for (let i=0; i<4; i++) {
+            for (let j=0; j<4; j++) {
+                var loc = { x: row+j, y: col+i };
                 tile_coords[k].push(loc);
             }
         }
     }
 }
-function zoom_out_tile(row, col) {
+function zoom_out_tile(row: number, col: number) {  // for all cases, (currZoom, outZoom, col, row)
     //const zoomDiff = currZoom - outZoom;
     //const divisor = Math.pow(2, zoomDiff);
     const divisor = 2; // for this routine only
@@ -763,8 +787,7 @@ function zoom_out_tile(row, col) {
         y: Math.floor(col / divisor),
         //zoom: outZoom
     };
-}
-;
+};
 /**
  * After a map area is specified, there may actually be sufficient
  * space to zoom in, which reduces memory load.
@@ -774,7 +797,7 @@ function zoomOptimizer() {
     const se = L.latLng(endX, endY);
     const rectBounds = L.latLngBounds(nw, se);
     map.fitBounds(rectBounds, {
-        padding: [6, 6],
+        padding: [6,6],
         maxZoom: 18,
         animate: false
     });

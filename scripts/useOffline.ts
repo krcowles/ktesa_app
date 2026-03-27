@@ -13,13 +13,26 @@ interface Track_Point {
     lng: number;
     ele: number;
 }
+// Eliminate issues with leaflet.js calls to 'alert':
+window.alert = window.alert || ((msg: string) => console.warn('Alert:', msg));
+if (typeof window !== 'undefined' && !window.alert) {
+    window.alert = (msg: string) => console.warn('Alert suppressed:', msg);
+}
 import $ from 'jquery';
 import * as bootstrap from "bootstrap";
 import * as L from "leaflet";
-import type { BackgroundGeolocationPlugin } from './definitions.d.ts'
-import { registerPlugin } from "@capacitor/core";
+import { BackgroundGeolocation } from '@capgo/background-geolocation';
 import { tileDownloader } from './tileDownloader';
 import type { ReadFileResult } from "@capacitor/filesystem";
+import { LocalNotifications } from '@capacitor/local-notifications';
+/**
+ * A conflict with webpack's jquery plugin required the following to 
+ * bypass "window.$ = assignments" [occurring in bootstrap] which
+ * resulted in errors when running emulation.
+ */
+const win = window as any;
+win['$'] = $;
+win['jQuery'] = $;
 type TileLayerOfflineClass = typeof L.TileLayer & {
     new(urlTemplate: string, options?: L.TileLayerOptions): L.TileLayer;
 };
@@ -31,17 +44,12 @@ type TileLayerOfflineClass = typeof L.TileLayer & {
  * @author Ken Cowles
  * @version 1.0 First release 
  */
-const BackgroundGeolocation
-    = registerPlugin<BackgroundGeolocationPlugin>("BackgroundGeolocation");
 var leaflet_map: L.Map // = map;
-var zoom = 10; // dynamically changes
-const maxZoom = 18;
 var marker: L.Marker | null;
 marker = null;  // initial state
 var zooming = false;
 var tracking = false;
 var track: string;
-var polyline: L.Polyline;
 const start_modal = document.getElementById('use_offline') as HTMLDivElement;
 const maps_available = new bootstrap.Modal(start_modal);
 const dwnld = document.getElementById('save_gpx') as HTMLDivElement;
@@ -74,7 +82,7 @@ if (navigator.onLine) {
 } else {
     connected = '🔴 Offline';
 }
-// If user cannot return to 'saveMaps.php' because he is offline...
+// If user cannot return to 'saveMaps.html' because he is offline...
 const dialog_box = document.getElementById('halt_restart') as HTMLDialogElement;
 $('#nogo').on('click', () => {
     dialog_box.close();
@@ -92,11 +100,11 @@ $('body').on('click', '#use_map', () => {
     displayMap(choice);
 });
 // Possibly return to 'save maps'...
-$('body').on('click', '#restart', () => {
+$('body').on('click', '.restart', () => {
     if (connected.includes("Offline")) {
         dialog_box.showModal();
     } else {
-        window.open('../pages/saveMap.php', "_self");
+        window.open('../pages/saveMap.html', "_self");
     }
 });
 $('body').on('click', '#gps_off', async function() {
@@ -172,31 +180,45 @@ const displayMap = async (map_name: string) => {
         const mapZoom = savedZoom.data as string;
         zoomSet = JSON.parse(mapZoom);
     }
-    leaflet_map = L.map('map');
-    // Define offline layer
+    // Define offline layer: createTile is used by leaflet - this overrides it:
     L.TileLayer.Offline = L.TileLayer.extend({
-        createTile: function(coords: Coords) {
+        createTile: function (coords: Coords) {
             const tile = document.createElement('img');
-            const url = tileDownloader.getTilePath(coords.z,
-                coords.x, coords.y, 'osm', coords.name);
+            // use maxNative zoom to clamp tile loads
+            const maxNativeZoom = (this.options as L.TileLayerOptions).maxNativeZoom;
+            const nativeZoom = maxNativeZoom !== undefined
+                ? Math.min(coords.z, maxNativeZoom)
+                : coords.z;
+            // If other coords shift, use this [replace getTilePath()]
+            /*
+            const zoomDiff = coords.z - nativeZoom;
+            const nativeX = Math.floor(coords.x / Math.pow(2, zoomDiff));
+            const nativeY = Math.floor(coords.y / Math.pow(2, zoomDiff));
+
+            const url = tileDownloader.getTilePath(
+                nativeZoom, nativeX, nativeY, 'osm', map_name
+            );
+            */
+            const url = tileDownloader.getTilePath(
+                nativeZoom, coords.x, coords.y, 'osm', map_name
+            );        
             tileDownloader.docFileExists(url)
-                .then ( (found: boolean) => {
+                .then((found) => {
                     if (found) {
                         return tileDownloader.getTile(url);
                     } else {
                         return false;
                     }
                 })
-                .then( (mapTile: any) => {
+                .then((mapTile) => {
                     if (mapTile) {
-                        tile.src = mapTile;
+                        tile.src = `data:image/png;base64,${mapTile.data ?? mapTile}`;
                     }
                 })
-                .catch( () => {
-                    alert(`Could not retrieve ${url}`);
+                .catch((err) => {
+                    console.error('Tile error:', err);
                 });
-            return tile; // return <img> initially empty
-            
+            return tile;
         }
     }) as unknown as TileLayerOfflineClass;
     // Create offline layer from definition
@@ -204,15 +226,19 @@ const displayMap = async (map_name: string) => {
         = function(url: string, options?: L.TileLayerOptions) {
         return new L.TileLayer.Offline(url, options);
     };
-    const mapopts = {
+    leaflet_map = L.map('map', {
         center: center,
         minZoom: 10,
-        maxZoom: maxZoom,
-        zoom: zoomSet,
-        attribution: '&copy; <a href="https://www,openstreetmap.org/copyright">OpenStreetMap</a>'
-    };
-    L.tileLayer.offline('https://tile.openstreetmap.org/{z}/{x}/{y}.png', 
-        mapopts).addTo(leaflet_map);
+        maxZoom: 18,
+        zoom: zoomSet
+    });
+    L.tileLayer.offline('', {
+        maxNativeZoom: 16,   // No tiles loaded after 16, just 'stretch' zooms
+        maxZoom: 18
+    }).addTo(leaflet_map);
+    L.tileLayer.offline('', {
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(leaflet_map);
     // point to the starting zoom level
     const zctrl = document.createElement("DIV");
     const zsym = document.createTextNode("Z: ");
@@ -222,7 +248,7 @@ const displayMap = async (map_name: string) => {
     zctrl.style.fontWeight = "bold";
     const zval = document.createElement("SPAN");
     zval.id = "zval";
-    zval.textContent = zoom.toString();
+    zval.textContent = leaflet_map.getZoom().toString();
     zctrl.append(zsym, zval);
     $('.leaflet-top.leaflet-left').append(zctrl);
     // debounce zoom: zoomend isn't working
@@ -243,49 +269,67 @@ const displayMap = async (map_name: string) => {
         iconAnchor: [8, 8]
     });
     if (track !== '') {
-        polyline = JSON.parse(track);
-        polyline.addTo(leaflet_map);
+        const latlng_arr = JSON.parse(track);
+        L.polyline(latlng_arr, {color: 'red'}).addTo(leaflet_map);
     }
-    // Show user location (always)
-    BackgroundGeolocation.addWatcher({
-        backgroundMessage: "Cancel to prevent battery drain.",
-        backgroundTitle: "Tracking",
-        requestPermissions: true,
-        stale: false,
-        distanceFilter: 10
-    },
-    function callback(position, error): void {
-        if (error) {
-            if (error.code === "NOT_AUTHORIZED") {
-                if (window.confirm(
-                    "This app needs your location, " +
-                    "but does not have permission.\n\n" +
-                    "Open settings now?"
-                )) {
-                    BackgroundGeolocation.openSettings();
+    leaflet_map.invalidateSize();
+    async function requestNotificationPermission() {
+        // Check the current status
+        let permStatus = await LocalNotifications.checkPermissions();
+        // If not already granted, request it
+        if (permStatus.display !== 'granted') {
+            permStatus = await LocalNotifications.requestPermissions();
+        }
+        if (permStatus.display === 'granted') {
+            console.log("Notification permission allowed. Persistent tracking will work.");
+            await BackgroundGeolocation.start({
+                backgroundMessage: "Tracking the hike",
+                backgroundTitle: "Your path is being recorded. Tap to return to app.",
+                requestPermissions: true,
+                stale: false,  // Always get fresh data
+                distanceFilter: 5  // Highest frequency updates
+            },
+            (position, error) => {
+                if (error) {
+                    if (error.code === "NOT_AUTHORIZED") {
+                        if (window.confirm(
+                            "This app needs your location, " +
+                            "but does not have permission.\n\n" +
+                            "Open settings now?"
+                        )) {
+                            BackgroundGeolocation.openSettings();
+                        }
+                    } else {
+                        const msg = "Error detecting position";
+                        $('#msg').text(msg);
+                        issue.showModal();
+                    }
                 }
-            } else {
-                const msg = "Error detecting position";
-                $('#msg').text(msg);
-                issue.showModal();
-            }
+                if (marker !== null) {
+                    marker.remove();
+                }
+                //const userLoc = position as Location;
+                const lat = position?.latitude as number;
+                const lng = position?.longitude as number;
+                const ele = position?.altitude as number;
+                $('#lat').text(lat);
+                $('#lng').text(lng);
+                const latlng = [lat, lng] as L.LatLngExpression
+                // Create marker with custom icon at user's location
+                marker = L.marker(latlng, { icon: customIcon }).addTo(leaflet_map);
+                if (tracking) {
+                    track_pt = {lat: lat, lng: lng, ele: ele} as Track_Point;
+                    gpx_pts.push(track_pt);
+                }
+                // await BackgroundGeolocation.stop();
+                return;
+            });
+        } else {
+            console.error("Notification permission denied. Background tracking may be throttled.");
         }
-        if (marker !== null) {
-            marker.remove();
-        }
-        //const userLoc = position as Location;
-        const lat = position?.latitude as number;
-        const lng = position?.longitude as number;
-        const ele = position?.altitude as number;
-        const latlng = [lat, lng] as L.LatLngExpression
-        // Create marker with custom icon at user's location
-        marker = L.marker(latlng, { icon: customIcon }).addTo(leaflet_map);
-        if (tracking) {
-            track_pt = {lat: lat, lng: lng, ele: ele} as Track_Point;
-            gpx_pts.push(track_pt);
-        }
-        return;
-    });
+    }
+    // turn on location tracking...
+    requestNotificationPermission();
     return;
 }
 // ---------- END MAP SETUP ---------
@@ -325,6 +369,7 @@ function createAndDownloadGPX(dwnld_name: string) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
     return;
 }
 

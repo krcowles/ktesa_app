@@ -30,7 +30,7 @@ class TileDownloader {
      */
     async androidPermissions() {
         const permission_status = await Filesystem.requestPermissions();
-        return permission_status;
+        return permission_status.publicStorage;
     }
 
     /**
@@ -46,7 +46,7 @@ class TileDownloader {
             });
             return true;
         } catch (error) {
-            console.error(`${path} does not exist`, error);
+            //console.error("File item or doc does not exist");
             return false;
         }
     }
@@ -63,7 +63,7 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            console.error('Could not create mapnames:', error);
+            //console.error('Could not create mapnames:', error);
             return false;
         }
     }
@@ -76,7 +76,7 @@ class TileDownloader {
             });
             return mapnames.data;
         } catch (error) {
-            console.error('Could not read mapnames:', error);
+            //console.error('Could not read mapnames:', error);
             return false;
         }
     }
@@ -94,7 +94,7 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            console.error(`Could not write ${map}/center:`, error);
+            //console.error(`Could not write ${map}/center:`, error);
             return false;
         }
     }
@@ -109,7 +109,7 @@ class TileDownloader {
             return center;
         }
         catch (error) {
-            console.error(`Could not read ${map}/center: `, error);
+            //console.error(`Could not read ${map}/center: `, error);
             return false;
         }
     }
@@ -127,7 +127,7 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            console.error(`Could not write ${map} @ zoom zoomLevel:`, error);
+            //console.error(`Could not write ${map} @ zoom zoomLevel:`, error);
             return false;
         }
     }
@@ -142,7 +142,7 @@ class TileDownloader {
             return zoom_level;
         }
         catch (error) {
-            console.error(`Could not read ${map} zoom levle `, error);
+            //console.error(`Could not read ${map} zoom levle `, error);
             return false;
         }
     }
@@ -160,7 +160,7 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            console.error(`Could not write ${map}/track:`, error);
+            //console.error(`Could not write ${map}/track:`, error);
             return false;
         }
     }
@@ -174,7 +174,7 @@ class TileDownloader {
             return poly;
         }
         catch (error) {
-            console.error(`Could not read ${map}/track: `, error);
+            //console.error(`Could not read ${map}/track: `, error);
             return false;
         }
     }
@@ -188,7 +188,7 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            console.error(`Could not delete ${path}`, error);
+            //console.error(`Could not delete ${path}`, error);
             return false;
         }
 
@@ -202,7 +202,7 @@ class TileDownloader {
             return dirFiles.files;
         }
         catch (error) {
-            console.error(`Could not read directory ${path}`, error);
+            //console.error(`Could not read directory ${path}`, error);
             return false;
         }
     }
@@ -218,7 +218,7 @@ class TileDownloader {
            
         }
         catch (error) {
-            console.error(`Could not remove data for ${path}`, error);
+            //console.error(`Could not remove data for ${path}`, error);
             return false;
         }
         
@@ -271,7 +271,7 @@ class TileDownloader {
                 },
                 responseType: 'blob'
             });
-            console.log('HTTP response status:', response.status);
+            //console.log('HTTP response status:', response.status);
             if (response.status !== 200) {
                 throw new Error(`HTTP ${response.status}: Failed`);
             }
@@ -279,7 +279,7 @@ class TileDownloader {
                 throw new Error('No data in response');
             }
             const tilePath = this.getTilePath(z, x, y, source, map);
-            console.log('Writing to path:', tilePath);
+            //console.log('Writing to path:', tilePath);
             await Filesystem.writeFile({
                 path: tilePath,
                 data: response.data,
@@ -289,7 +289,7 @@ class TileDownloader {
             //console.log('File written successfully');
             return true;
         } catch (error) {
-            console.error('Download tile failed:', error);
+            //console.error('Download tile failed:', error);
             return false;
         }
     }
