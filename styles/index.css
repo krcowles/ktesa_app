@@ -161,6 +161,9 @@ html, body {
     font-weight: bold;
     font-size: 1.2em;
 }
+#inst {
+    color: indianred;
+}
 #btns {
     position: relative;
     top: 6px;

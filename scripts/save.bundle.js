@@ -38263,13 +38263,6 @@ class GridDebug extends leaflet__WEBPACK_IMPORTED_MODULE_3__.GridLayer {
         return tile;
     }
 }
-/* Alternate typescript approach:
-(L.GridLayer as any).GridDebug = GridDebug;
-(L.gridLayer as any).gridDebug = function (opts?: GridDebugOptions): GridDebug {
-  return new GridDebug(opts);
-};
-map.addLayer((L.gridLayer as any).gridDebug());
-*/
 map.addLayer(new GridDebug());
 /**
  * Globals [within this module]
@@ -38508,7 +38501,7 @@ savers.each((_i, btn) => {
         return false;
     }
     // ensure ul and lr are defined and arranged nw to se:
-    arrangeCorners();
+    idTileCorners();
     var maxZoomout = zoom_level - 1;
     var minZoomout = 10;
     var ul_start = ul_tile.slice();
@@ -38540,11 +38533,39 @@ savers.each((_i, btn) => {
         }
     }
     /**
-     * In order to fill out phone screens, bounds needs to be expanded, as bounds
-     * represents only the enclosing rectangle.
+     * In order to fill out phone screens [only at the current zoom when loaded
+     * in useOffline], padding around the rectangle is required. 'bounds' is still
+     * used to generate zoomin tiles without the padding [see appSaveMap.html].
+     * For the current zoom_level [download each tile before doing bounds region]
+     * The number of tiles generated will be a relatively small number, so time
+     * consumed is not much.
      */
-    //const init_bounds
-    //    = {n: 1.001*bounds.n, w: 1.001*bounds.w, s: 0.999*bounds.s, e: 0.999*bounds.e} as MapBounds
+    const ur = ul_tile[0];
+    const uc = ul_tile[1];
+    const lr = lr_tile[0];
+    const lc = lr_tile[1];
+    // top row
+    for (let row = ur - 1, i = uc - 1; i <= lc + 1; i++) {
+        let turl = `${tile_str}/${zoom_level}/${row}/${i}.png`;
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadTile(zoom_level, row, i, turl, 'osm', mapName);
+    }
+    tile_coords[zoom_level];
+    // bottom row
+    for (let row = lr + 1, j = uc - 1; j <= lc + 1; j++) {
+        let turl = `${tile_str}/${zoom_level}/${row}/${j}.png`;
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadTile(zoom_level, row, j, turl, 'osm', mapName);
+    }
+    // left side
+    for (let col = uc - 1, k = ur; k <= lr; k++) {
+        let turl = `${tile_str}/${zoom_level}/${k}/${col}.png`;
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadTile(zoom_level, k, col, turl, 'osm', mapName);
+    }
+    // right side
+    for (let col = lc + 1, n = ur; n <= lr; n++) {
+        let turl = `${tile_str}/${zoom_level}/${n}/${col}.png`;
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadTile(zoom_level, n, col, turl, 'osm', mapName);
+    }
+    // dowload the zoomins for 'bounds'
     await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], 'osm', saveProgress);
     return;
 });
@@ -38861,10 +38882,11 @@ function getTileURL(lat, lng, zoom) {
 /**
  * User may draw from any corner, so establish matrix as if it were
  * drawn from upper left to lower right to simplify processing;
- * ul_tile, lr_tile are row, col arrays for upper left tile and lower
- * right tile.
+ * ul_tile, lr_tile are [row, col] arrays for upper left tile and lower
+ * right tile. [Note: arranging may be somewhat redundant since the
+ * change to 'getRectBounds', but conversion to tiles is necessary]
  */
-function arrangeCorners() {
+function idTileCorners() {
     var corner1 = getTileURL(startX, startY, zoom_level); // = user start STRING
     var corner2 = getTileURL(endX, endY, zoom_level); // = user end STRING
     var XY1_Corner = corner1.split("/"); // array of strings
@@ -38888,12 +38910,6 @@ function arrangeCorners() {
     else {
         ul_tile[1] = corner2XY[2];
         lr_tile[1] = corner1XY[2];
-    }
-    const rangeX = lr_tile[0] - ul_tile[0]; // #rows - 1
-    const rangeY = lr_tile[1] - ul_tile[1]; // #cols - 1
-    if (rangeX > 2 || rangeY > 2) {
-        alert("Too big: Please select a smaller area");
-        return false;
     }
     return;
 }
@@ -38948,6 +38964,10 @@ function zoomOptimizer() {
         maxZoom: 18,
         animate: false
     });
+    const new_zoom = map.getZoom();
+    if (new_zoom > 16) {
+        map.setZoom(16);
+    }
     return;
 }
 

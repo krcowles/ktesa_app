@@ -3,7 +3,7 @@
 <head>
     <title>Use Offline Map</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description"
           content="Use a saved offline map">
     <meta name="author" content="Ken Cowles">
@@ -35,8 +35,10 @@
 
 <footer>
     <div id="location">
-        Current Loc: <span id="lat"></span>&nbsp;&nbsp;<span id="lng"></span>
-        <button class="restart" type="button" class="btn btn-sm btn-primary">Go to Save</button>
+        Coords: <span id="lat"></span>, <span id="lng"></span><br />
+        <button type="button" class="btn btn-sm btn-primary restart">Save</button>
+        &nbsp;&nbsp;
+        <button id="resel" type="button" class="btn btn-sm btn-success">New Map</button>
     </div>
 </footer>
 
@@ -82,21 +84,22 @@
                     Select the map you wish to use offline&hellip;<br />
                     <div>
                         <select id="select_map" style="min-width:120px;">
-                        </select>&nbsp;&nbsp;
-                        Delete this map&nbsp;&nbsp;
+                        </select><br />
                         <button id="delmap" type="button" class="btn-sm btn-danger">
-                            Delete
+                            Delete Selected
                         </button>
                     </div>
                 </div>
                 <div id="no_maps" style="display:none;">
+                    <p>
                     There are no offline maps saved: maps can be saved by
-                    clicking on 'Save Maps' on the Welcome page of this app.
-                    Internet connection is required.
+                    clicking on 'Save Maps' on the Welcome page of this app,
+                    or click the 'Save' button below.Internet connection is required.
+                    </p>
                 </div>
                 <div>
-                    <button class="restart" type="button" class="btn btn-sm btn-primary">
-                        Go to Save
+                    <button type="button" class="btn btn-sm btn-primary restart">
+                        Save New Map
                     </button> [Internet required]&nbsp;&nbsp;<span id="connection"></span>
                 </div>
             </div>

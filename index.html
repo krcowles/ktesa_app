@@ -5,9 +5,14 @@
     <meta charset="utf-8" />
     <meta name="description" content="Mobile app for offline maps" />
     <meta name="author" content="Ken Cowles" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link href="./styles/bootstrap.min.css" rel="stylesheet" />
     <link href="./styles/index.css" rel="stylesheet" />
+    <style type="text/css">
+        body {
+            padding-top: env(safe-area-inset-top);
+        }
+    </style>
     <script src="./scripts/bootstrap.min.js"></script>
 </head>
 
@@ -31,6 +36,7 @@
         <p id="logo_right">NM</p>
     </div>
 </div>
+<br /><br />
 <div id="contents">
     <div id="lead-in">
         <div class="box">
@@ -42,17 +48,20 @@
             </div>
         </div>
         <div id="text-content">
-            <p>This app allows you to import hikes from the
+            <p><br />This app allows you to import hikes from the
                 <span id="site"><a href="https://nmhikes.com"
                     target="_self">nmhikes.com</a></span>
-                site or from a stored gpx file - or you can draw a rectangular
+                site, or from a stored gpx file - or you can draw a rectangular
                 area for use offline.
             </p>
-            <p>Once offline, you can turn on tracking and download your track file!
+            <p>With offline maps you can turn on tracking and later download
+                your track file - but make sure to allow notifications (Android)
+                and allow location tracking, or your phone may shut down tracking to 
+                save battery power! 
             </p>
         </div>
         <div id="choices">
-            <div id="choose">What would you like to do?
+            <div id="choose"><span id="inst">What would you like to do?</span>
                 <div id="btns">
                     <button id="save" type="button" class="btn btn-primary"
                         onclick="window.open('./pages/saveMap.html', '_self')">

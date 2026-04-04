@@ -44,7 +44,7 @@ type TileLayerOfflineClass = typeof L.TileLayer & {
  * @author Ken Cowles
  * @version 1.0 First release 
  */
-var leaflet_map: L.Map // = map;
+var leaflet_map: L.Map | null;
 var marker: L.Marker | null;
 marker = null;  // initial state
 var zooming = false;
@@ -56,9 +56,14 @@ const dwnld = document.getElementById('save_gpx') as HTMLDivElement;
 const save_gpx = new bootstrap.Modal(dwnld);
 var gpx_pts = [] as Track_Point[];
 var track_pt: Track_Point;
+const customIcon = L.icon({
+    iconUrl: "../images/geodot.png",
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+});
 
 const redraw = () => {
-    leaflet_map.invalidateSize({
+    (leaflet_map as L.Map).invalidateSize({
         animate: true,
         pan: true
     });
@@ -133,6 +138,7 @@ $('body').on('click', '#save_dwnld', function () {
 async function prepareMapNames() {
     const mapnamesFile = await tileDownloader.docFileExists('mapnames.txt');
     if (mapnamesFile) {
+        $('#select_map').empty();
         const savedMaps = await tileDownloader.readMapnames() as string;
         const userMaps = savedMaps.split(",");
         for (const map of userMaps) {
@@ -146,40 +152,23 @@ async function prepareMapNames() {
     }  
     return;
 }
-// Initial presentation to user for offline map selection
-prepareMapNames()
-.then( () => {
-    maps_available.show();
+function offlineSelect() {
+    // Presentation to user for offline map selection
+    prepareMapNames()
+    .then( () => {
+        maps_available.show();
+    });
+}
+offlineSelect();
+$('#resel').on('click', () => {
+    leaflet_map?.remove();
+    //leaflet_map = null;
+    requestNotificationPermission(false);
+    offlineSelect();
+    return;
 });
 
-const displayMap = async (map_name: string) => {
-    const mapCtr = await tileDownloader.readCenter(map_name) as ReadFileResult;
-    if (!mapCtr) {
-        const msg = `Could not read map center for ${map_name}`;
-        $('#msg').text(msg);
-        issue.showModal();
-        return false;
-    }
-    const leaflet_ctr = mapCtr.data as string;
-    const center = JSON.parse(leaflet_ctr) as L.LatLng;
-    const map_track = await tileDownloader.readTrack(map_name) as ReadFileResult;
-    if (!map_track) {
-        track = '';
-    } else {
-        track = map_track.data as string;
-    }
-    var zoomSet: number;
-    const savedZoom = await tileDownloader.readSavedZoom(map_name) as any;
-    if (!savedZoom) {
-        const msg = `Could not retrieve zoom level at which ${map_name} was saved`
-        + "\nMap will display at zoom level 10";
-        $('#msg').text(msg);
-        zoomSet = 10;
-        issue.showModal();
-    } else {
-        const mapZoom = savedZoom.data as string;
-        zoomSet = JSON.parse(mapZoom);
-    }
+const offlineLayer = (mapname: string) => {
     // Define offline layer: createTile is used by leaflet - this overrides it:
     L.TileLayer.Offline = L.TileLayer.extend({
         createTile: function (coords: Coords) {
@@ -200,7 +189,7 @@ const displayMap = async (map_name: string) => {
             );
             */
             const url = tileDownloader.getTilePath(
-                nativeZoom, coords.x, coords.y, 'osm', map_name
+                nativeZoom, coords.x, coords.y, 'osm', mapname
             );        
             tileDownloader.docFileExists(url)
                 .then((found) => {
@@ -226,11 +215,15 @@ const displayMap = async (map_name: string) => {
         = function(url: string, options?: L.TileLayerOptions) {
         return new L.TileLayer.Offline(url, options);
     };
+    return L.tileLayer.offline;
+}
+const offlineMap = (map_nme: string, map_ctr: L.LatLng, map_zoom: number, track: string) => {
+    L.tileLayer.offline = offlineLayer(map_nme);
     leaflet_map = L.map('map', {
-        center: center,
+        center: map_ctr,
         minZoom: 10,
         maxZoom: 18,
-        zoom: zoomSet
+        zoom: map_zoom
     });
     L.tileLayer.offline('', {
         maxNativeZoom: 16,   // No tiles loaded after 16, just 'stretch' zooms
@@ -256,24 +249,24 @@ const displayMap = async (map_name: string) => {
         if (!zooming) {
             zooming = true;
             setTimeout(() => {
-                var moving_zoom = leaflet_map.getZoom();
+                var moving_zoom = (leaflet_map as L.Map).getZoom();
                 $('#zval').text(" " + moving_zoom);
                 zooming = false;
             }, 100);
         }
     });
     marker = null;
-    const customIcon = L.icon({
-        iconUrl: "../images/geodot.png",
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-    });
     if (track !== '') {
         const latlng_arr = JSON.parse(track);
         L.polyline(latlng_arr, {color: 'red'}).addTo(leaflet_map);
     }
     leaflet_map.invalidateSize();
-    async function requestNotificationPermission() {
+    return;
+}
+async function requestNotificationPermission(enable: boolean) {
+    if (!enable) {
+        await BackgroundGeolocation.stop();
+    } else {
         // Check the current status
         let permStatus = await LocalNotifications.checkPermissions();
         // If not already granted, request it
@@ -305,6 +298,9 @@ const displayMap = async (map_name: string) => {
                         issue.showModal();
                     }
                 }
+                if (typeof marker === 'undefined') { // 1st time setting
+                    marker = null;
+                }
                 if (marker !== null) {
                     marker.remove();
                 }
@@ -312,31 +308,57 @@ const displayMap = async (map_name: string) => {
                 const lat = position?.latitude as number;
                 const lng = position?.longitude as number;
                 const ele = position?.altitude as number;
-                $('#lat').text(lat);
-                $('#lng').text(lng);
+                $('#lat').text(lat.toFixed(5));
+                $('#lng').text(lng.toFixed(5));
                 const latlng = [lat, lng] as L.LatLngExpression
                 // Create marker with custom icon at user's location
-                marker = L.marker(latlng, { icon: customIcon }).addTo(leaflet_map);
+                marker = L.marker(latlng, { icon: customIcon }).addTo(leaflet_map as L.Map);
                 if (tracking) {
                     track_pt = {lat: lat, lng: lng, ele: ele} as Track_Point;
                     gpx_pts.push(track_pt);
                 }
-                // await BackgroundGeolocation.stop();
                 return;
             });
         } else {
             console.error("Notification permission denied. Background tracking may be throttled.");
         }
     }
-    // turn on location tracking...
-    requestNotificationPermission();
+}
+const displayMap = async (map_name: string) => {
+    const mapCtr = await tileDownloader.readCenter(map_name) as ReadFileResult;
+    if (!mapCtr) {
+        const msg = `Could not read map center for ${map_name}`;
+        $('#msg').text(msg);
+        issue.showModal();
+        return false;
+    }
+    const leaflet_ctr = mapCtr.data as string;
+    const center = JSON.parse(leaflet_ctr) as L.LatLng;
+    const map_track = await tileDownloader.readTrack(map_name) as ReadFileResult;
+    if (!map_track) {
+        track = '';
+    } else {
+        track = map_track.data as string;
+    }
+    var zoomSet: number;
+    const savedZoom = await tileDownloader.readSavedZoom(map_name) as any;
+    if (!savedZoom) {
+        const msg = `Could not retrieve zoom level at which ${map_name} was saved`
+        + "\nMap will display at zoom level 10";
+        $('#msg').text(msg);
+        zoomSet = 10;
+        issue.showModal();
+    } else {
+        const mapZoom = savedZoom.data as string;
+        zoomSet = JSON.parse(mapZoom);
+    }
+    offlineMap(map_name, center, zoomSet, track);
+    requestNotificationPermission(true);
     return;
 }
 // ---------- END MAP SETUP ---------
 
-/**
- * Data for creating a downloadable GPX file:
- */
+// Data for creating GPX File
 var gpx_track = '<?xml version="1.0"?>' + "\n";
 gpx_track += 'gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
     'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.1" ' +
@@ -344,7 +366,6 @@ gpx_track += 'gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
     'http://www.topografix.com/GPX/1/1/gpx.xsd" creator="nmhikes.com">';
 gpx_track += "\n  <trk>\n    <name>USER</name>\n    <trkseg>\n";
 const gpx_eof = "    </trkseg>\n  </trk>\n<gpx>";
-// ---------- END GPX DATA ----------
 
 function createAndDownloadGPX(dwnld_name: string) {
     var gpx_xml = gpx_track; // beginning of xml file
@@ -374,15 +395,14 @@ function createAndDownloadGPX(dwnld_name: string) {
 }
 
 /**
- * When a user wishes, he may delete a saved map:
- * Obviously, at least one 'mapname' resides in
- * the 'mapnames.txt' file when 'delmap' is clicked.
+ * When a user wishes, he may delete a saved map: Obviously, at least one
+ * 'mapname' resides in the 'mapnames.txt' file when 'delmap' is clicked.
  */
 $('body').on('click', '#delmap', async function() {
     const choice = $('#select_map').val() as string;
     const choice_opt = "option[value=" + choice + "]";
     $("#select_map " + choice_opt).remove();
-    const stored_mapnames = await tileDownloader.readMapnames as unknown as string;
+    const stored_mapnames = await tileDownloader.readMapnames() as unknown as string;
     const map_list = stored_mapnames.split(",");
     const indx = map_list.indexOf(choice);
     if (indx !== -1) {

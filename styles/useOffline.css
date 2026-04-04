@@ -1,5 +1,6 @@
 /* scss standard definitions */
 body {
+  padding-top: env(safe-area-inset-top);
   background-color: #eaeaea;
   margin: 0;
   font-family: arial, verdana;
@@ -7,6 +8,12 @@ body {
   width: 100%;
 }
 
+.modal {
+  padding-top: env(safe-area-inset-top);
+}
+.modal-dialog {
+  margin-top: env(safe-area-inset-top);
+}
 img {
   position: absolute;
   top: 12px;
