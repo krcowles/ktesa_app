@@ -19,11 +19,14 @@ if (typeof window !== 'undefined' && !window.alert) {
     window.alert = (msg: string) => console.warn('Alert suppressed:', msg);
 }
 import $ from 'jquery';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory, Encoding, type ReadFileResult } from '@capacitor/filesystem';
 import * as bootstrap from "bootstrap";
 import * as L from "leaflet";
 import { BackgroundGeolocation } from '@capgo/background-geolocation';
 import { tileDownloader } from './tileDownloader';
-import type { ReadFileResult } from "@capacitor/filesystem";
+
 import { LocalNotifications } from '@capacitor/local-notifications';
 /**
  * A conflict with webpack's jquery plugin required the following to 
@@ -54,8 +57,12 @@ const start_modal = document.getElementById('use_offline') as HTMLDivElement;
 const maps_available = new bootstrap.Modal(start_modal);
 const dwnld = document.getElementById('save_gpx') as HTMLDivElement;
 const save_gpx = new bootstrap.Modal(dwnld);
-var gpx_pts = [] as Track_Point[];
 var track_pt: Track_Point;
+var gpx_pts = [] as Track_Point[];
+var map_pt: L.LatLng;
+var map_line = [] as L.LatLng[];
+var hike: L.Polyline;
+var miles: string;
 const customIcon = L.icon({
     iconUrl: "../images/geodot.png",
     iconSize: [16, 16],
@@ -131,7 +138,8 @@ $('body').on('click', '#save_trk', () => {
 });
 $('body').on('click', '#save_dwnld', function () {
     const gpx_name = $('#dwnld_name').val() as string;
-    createAndDownloadGPX(gpx_name);
+    const keep_tracking = $('#continue').val() as string;
+    createAndDownloadGPX(gpx_name, keep_tracking);
 });
 
 // Create modal selections for user
@@ -178,12 +186,10 @@ const offlineLayer = (mapname: string) => {
             const nativeZoom = maxNativeZoom !== undefined
                 ? Math.min(coords.z, maxNativeZoom)
                 : coords.z;
-            // If other coords shift, use this [replace getTilePath()]
-            /*
+            /* --- If other coords shift, use this [replace getTilePath()] ---
             const zoomDiff = coords.z - nativeZoom;
             const nativeX = Math.floor(coords.x / Math.pow(2, zoomDiff));
             const nativeY = Math.floor(coords.y / Math.pow(2, zoomDiff));
-
             const url = tileDownloader.getTilePath(
                 nativeZoom, nativeX, nativeY, 'osm', map_name
             );
@@ -258,9 +264,48 @@ const offlineMap = (map_nme: string, map_ctr: L.LatLng, map_zoom: number, track:
     marker = null;
     if (track !== '') {
         const latlng_arr = JSON.parse(track);
-        L.polyline(latlng_arr, {color: 'red'}).addTo(leaflet_map);
+        L.polyline(latlng_arr, {color: 'blue'}).addTo(leaflet_map);
     }
     leaflet_map.invalidateSize();
+    return;
+}
+function distInMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    var rads = Math.PI/180;
+    var R = 6371; // Radius of the earth in km
+    var dLat = (lat2-lat1) * rads;  // convert to radians
+    var dLon = (lon2-lon1) * rads;
+    var rlat1 = lat1 * rads;
+    var rlat2 = lat2 * rads;
+    var a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(rlat1) * Math.cos(rlat2) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2)
+        ; 
+    var b = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    var kilos = R * b; 
+    var miles = kilos / 1.609344
+    return miles;
+}
+function tracker(lat: number, lng: number, ele: number) {
+    track_pt = {lat: lat, lng: lng, ele: ele} as Track_Point;
+    gpx_pts.push(track_pt);
+    map_pt = L.latLng(lat, lng);
+    map_line.push(map_pt);
+    let pts = map_line.length;
+    if (pts > 1) {
+        if (pts > 2) {
+            hike.remove();
+            for (let i=1; i<=pts; i++) {
+                var dist = distInMiles(gpx_pts[i].lat, gpx_pts[i].lng,
+                    gpx_pts[i-1].lat, gpx_pts[i-1].lng);
+                    miles = dist.toFixed(2);
+                $('#miles').text(miles);
+            }
+        }
+        hike = L.polyline(map_line, {color: 'red'}).addTo(leaflet_map as L.Map);
+    }
+    
+    
     return;
 }
 async function requestNotificationPermission(enable: boolean) {
@@ -294,7 +339,7 @@ async function requestNotificationPermission(enable: boolean) {
                         }
                     } else {
                         const msg = "Error detecting position";
-                        $('#msg').text(msg);
+                        $('#error_msg').text(msg);
                         issue.showModal();
                     }
                 }
@@ -313,10 +358,7 @@ async function requestNotificationPermission(enable: boolean) {
                 const latlng = [lat, lng] as L.LatLngExpression
                 // Create marker with custom icon at user's location
                 marker = L.marker(latlng, { icon: customIcon }).addTo(leaflet_map as L.Map);
-                if (tracking) {
-                    track_pt = {lat: lat, lng: lng, ele: ele} as Track_Point;
-                    gpx_pts.push(track_pt);
-                }
+                if (tracking) tracker(lat, lng, ele);
                 return;
             });
         } else {
@@ -328,7 +370,7 @@ const displayMap = async (map_name: string) => {
     const mapCtr = await tileDownloader.readCenter(map_name) as ReadFileResult;
     if (!mapCtr) {
         const msg = `Could not read map center for ${map_name}`;
-        $('#msg').text(msg);
+        $('#error_msg').text(msg);
         issue.showModal();
         return false;
     }
@@ -345,7 +387,7 @@ const displayMap = async (map_name: string) => {
     if (!savedZoom) {
         const msg = `Could not retrieve zoom level at which ${map_name} was saved`
         + "\nMap will display at zoom level 10";
-        $('#msg').text(msg);
+        $('#error_msg').text(msg);
         zoomSet = 10;
         issue.showModal();
     } else {
@@ -367,30 +409,59 @@ gpx_track += 'gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
 gpx_track += "\n  <trk>\n    <name>USER</name>\n    <trkseg>\n";
 const gpx_eof = "    </trkseg>\n  </trk>\n<gpx>";
 
-function createAndDownloadGPX(dwnld_name: string) {
+async function createAndDownloadGPX(dwnld_name: string, keep_tracking: string) {
+    if (dwnld_name == '') {
+        const msg = "Please enter a name for the downloadfile";
+        $('#error_msg').text(msg);
+        issue.showModal();
+        return;
+    }
     var gpx_xml = gpx_track; // beginning of xml file
     for (let i=0; i<gpx_pts.length; i++) {
         var next_pt = '      <trkpt lat="' + gpx_pts[i].lat +  
             '" lon="' + gpx_pts[i].lng + '">';
-        var elev = "/n        <ele>" +  gpx_pts[i].ele +
+        var elev = "\n        <ele>" + gpx_pts[i].ele +
             "</ele>'\n      </trkpt>\n";
         gpx_xml += next_pt + elev;
     }
     gpx_xml += gpx_eof;
-    if (dwnld_name = '') {
-        const msg = "Please enter a name for the downloadfile";
-        $('#msg').text(msg);
-        issue.showModal();
-        return;
+    /**
+     * NOTE: the following Filesystem.writes will not work as is
+     * in an emulator environment, but it is not needed there anyway.
+     */
+    const platform = Capacitor.getPlatform();
+    if (platform === 'android') {
+        await Filesystem.writeFile({
+            path: `${dwnld_name}.gpx`,
+            data: gpx_xml,
+            directory: 'DOWNLOADS' as unknown as Directory,
+            encoding: Encoding.UTF8,
+            recursive: true
+        });
+    } else if (platform === 'ios') {
+        // Write to Documents, then share so user can save via Files app
+        const result = await Filesystem.writeFile({
+            path: `${dwnld_name}.gpx`,
+            data: gpx_xml,
+            directory: Directory.Documents,
+            encoding: Encoding.UTF8,
+            recursive: true
+        });
+        await Share.share({
+            title: 'Save GPX File',
+            url: result.uri,
+            dialogTitle: 'Save or share your file',
+        });
     }
-    // Download file w/user-selected name
-    const link = document.createElement('a');
-    link.href = gpx_xml;
-    link.download = dwnld_name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
+    save_gpx.hide();
+    if (keep_tracking === 'No') {
+        gpx_pts = [];
+        $('#gps_on').css('display', 'none');
+        $('#gps_off').css('display', 'inline');
+        $('#save_trk').css('display', 'none');
+        $('#no_save').css('display', 'inline');
+        tracking = false;
+    }
     return;
 }
 

@@ -1,4 +1,3 @@
-/* scss standard definitions */
 body {
   padding-top: env(safe-area-inset-top);
   background-color: #eaeaea;
@@ -9,10 +8,10 @@ body {
 }
 
 .modal {
-  padding-top: env(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top, 20px);
 }
 .modal-dialog {
-  margin-top: env(safe-area-inset-top);
+  margin-top: env(safe-area-inset-top, 20px);
 }
 img {
   position: absolute;
@@ -21,13 +20,29 @@ img {
   cursor: pointer;
 }
 img[id^=gps] {
+  top: calc(env(safe-area-inset-top, 20px) + 20px);
   right: 112px;
 }
 img[id*="save"] {
+  top: calc(env(safe-area-inset-top, 20px) + 20px);
   right: 54px;
 }
 #gps_on, #save_trk {
   display: none;
+}
+
+#select_map {
+  position: relative;
+  top: 2px;
+  height: 32px;
+}
+#batt {
+  font-weight: bold;
+  color: blue;
+}
+#delmap {
+  position: relative;
+  top: 10px;
 }
 
 #map {
@@ -37,7 +52,13 @@ img[id*="save"] {
   width: 100vw;
 }
 
+#dwnld_name {
+  border: 1px solid brown;
+  border-radius: 6px;
+}
 footer, #location {
+  color: brown;
+  font-weight: bold;
   position: fixed;
   bottom: 12px;
   left: 24px;

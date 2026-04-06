@@ -26,6 +26,7 @@
     You are currently offline and cannot return to the Save Maps page.
     <button id="nogo" type="button" class="btn btn-sm btn-warning">OK</button>
 </dialog>
+
 <dialog id="error_info">
     <p id="error_msg"></p>
     <button id="got_it" type="button" class="btn btn-sm btn-warning">OK</button>
@@ -35,10 +36,11 @@
 
 <footer>
     <div id="location">
-        Coords: <span id="lat"></span>, <span id="lng"></span><br />
-        <button type="button" class="btn btn-sm btn-primary restart">Save</button>
+        Coords: <span id="lat"></span>, <span id="lng"></span>; Dist:
+        <span id="miles">0.00</span> mis.<br />
+        <button type="button" class="btn btn-sm btn-primary restart">Save New Map</button>
         &nbsp;&nbsp;
-        <button id="resel" type="button" class="btn btn-sm btn-success">New Map</button>
+        <button id="resel" type="button" class="btn btn-sm btn-success">Use Diff. Map</button>
     </div>
 </footer>
 
@@ -54,11 +56,12 @@
             <div class="modal-body">
                 <div id="map2save" style="font-size: 18px;">
                     Enter a name for the file:
-                    &nbsp;&nbsp;<input id="dwnld_name" type="text" />
+                    &nbsp;&nbsp;<input id="dwnld_name" type="text" /><br />
+                    Continue tracking? <select id="continue">
+                        <option value="N">No</option>
+                        <option value="Y">Yes</option>
+                    </select>
                 </div>
-            </div>
-            <div id="note">
-                <p>The GPX track file will be downloaded automatically</p>
             </div>
             <div class="modal-footer">
                 <button id="save_dwnld" type="button" class="btn btn-success">
@@ -84,9 +87,12 @@
                     Select the map you wish to use offline&hellip;<br />
                     <div>
                         <select id="select_map" style="min-width:120px;">
-                        </select><br />
+                        </select>&nbsp;&nbsp;
+                        <button id="use_map" type="button" class="btn btn-sm btn-success">
+                            Use Map
+                        </button><br />
                         <button id="delmap" type="button" class="btn-sm btn-danger">
-                            Delete Selected
+                            Delete Selection
                         </button>
                     </div>
                 </div>
@@ -98,15 +104,16 @@
                     </p>
                 </div>
                 <div>
+                    <br />
                     <button type="button" class="btn btn-sm btn-primary restart">
                         Save New Map
                     </button> [Internet required]&nbsp;&nbsp;<span id="connection"></span>
+                    <br /><br />
+                    <span id="batt">*** When done, completely close this app to prevent
+                        battery drain.</span>
                 </div>
             </div>
             <div class="modal-footer">
-                <button id="use_map" type="button" class="btn btn-success">
-                    Use Map
-                </button>
                 <button id="off_close" type="button" class="btn btn-secondary"
                     data-bs-dismiss="modal">Close</button>
             </div>
