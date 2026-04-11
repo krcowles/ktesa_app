@@ -10,7 +10,10 @@
     <link href="./styles/index.css" rel="stylesheet" />
     <style type="text/css">
         body {
-            padding-top: env(safe-area-inset-top);
+            padding-top: calc(16px + env(safe-area-inset-top));
+            padding-bottom: calc(16px + env(safe-area-inset-bottom));
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
         }
     </style>
     <script src="./scripts/bootstrap.min.js"></script>

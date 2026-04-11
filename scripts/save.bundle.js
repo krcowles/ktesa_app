@@ -38676,14 +38676,6 @@ jquery__WEBPACK_IMPORTED_MODULE_0__["default"].when(wait4ajax)
     (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])(".search").autocomplete({
         source: hikeSources,
         minLength: 2
-        /*  -- debug --
-        search: function(event, ui) {
-            console.log('search triggered');
-        },
-        response: function(event, ui) {
-            console.log("Response received: ", ui.content)
-        }
-        */
     });
     // When user selects item from dropdown:
     (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])("#search").on("autocompleteselect", function (event, ui) {
@@ -38694,7 +38686,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0__["default"].when(wait4ajax)
         (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])(this).val(entry);
         var src = '#imphike';
         jquery__WEBPACK_IMPORTED_MODULE_0__["default"].ajax({
-            url: "https:nmhikes.com/php/importHike.php",
+            url: "https://nmhikes.com/ktesa_app/importHike.php",
             data: { hike: entry },
             dataType: "text",
             method: "post",
@@ -38722,7 +38714,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0__["default"].when(wait4ajax)
     mapName = useGpxFile.name;
     const gpxform = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#form');
     const formData = new FormData(gpxform[0]);
-    var url = "nmhikes.com/php/importGpx.php";
+    var url = "https://nmhikes.com/ktesa_app/importGpx.php";
     jquery__WEBPACK_IMPORTED_MODULE_0__["default"].ajax({
         url: url,
         method: "post",

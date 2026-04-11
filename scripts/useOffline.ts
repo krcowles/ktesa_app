@@ -62,9 +62,14 @@ var gpx_pts = [] as Track_Point[];
 var map_pt: L.LatLng;
 var map_line = [] as L.LatLng[];
 var hike: L.Polyline;
-var miles: string;
-const customIcon = L.icon({
-    iconUrl: "../images/geodot.png",
+var miles = 0;
+/**
+ * It is necessary to use divIcon in order to correctly apply
+ * the grow/shrink specified in useOffline.css
+ */
+const customIcon = L.divIcon({
+    className: '',
+    html: '<div class="pulsar"></div>',
     iconSize: [16, 16],
     iconAnchor: [8, 8]
 });
@@ -138,7 +143,7 @@ $('body').on('click', '#save_trk', () => {
 });
 $('body').on('click', '#save_dwnld', function () {
     const gpx_name = $('#dwnld_name').val() as string;
-    const keep_tracking = $('#continue').val() as string;
+    const keep_tracking = $('#disposition').val() as string;
     createAndDownloadGPX(gpx_name, keep_tracking);
 });
 
@@ -168,10 +173,9 @@ function offlineSelect() {
     });
 }
 offlineSelect();
-$('#resel').on('click', () => {
+$('#resel').on('click', async () => {
     leaflet_map?.remove();
-    //leaflet_map = null;
-    requestNotificationPermission(false);
+    await requestNotificationPermission(false);
     offlineSelect();
     return;
 });
@@ -289,23 +293,21 @@ function distInMiles(lat1: number, lon1: number, lat2: number, lon2: number): nu
 function tracker(lat: number, lng: number, ele: number) {
     track_pt = {lat: lat, lng: lng, ele: ele} as Track_Point;
     gpx_pts.push(track_pt);
-    map_pt = L.latLng(lat, lng);
+    map_pt = L.latLng(lat, lng); // => {lat: lat, lng: lng}
     map_line.push(map_pt);
     let pts = map_line.length;
-    if (pts > 1) {
-        if (pts > 2) {
-            hike.remove();
-            for (let i=1; i<=pts; i++) {
-                var dist = distInMiles(gpx_pts[i].lat, gpx_pts[i].lng,
-                    gpx_pts[i-1].lat, gpx_pts[i-1].lng);
-                    miles = dist.toFixed(2);
-                $('#miles').text(miles);
+        if (pts > 1) {
+            let dist_incr = distInMiles(
+                map_line[pts-1].lat, map_line[pts-1].lng,
+                map_line[pts-2].lat, map_line[pts-2].lng
+            )
+            miles += dist_incr;
+            $('#miles').text(miles.toFixed(2));
+            if (pts > 2) {
+                hike.remove();
             }
+            hike = L.polyline(map_line, {color: 'red'}).addTo(leaflet_map as L.Map);
         }
-        hike = L.polyline(map_line, {color: 'red'}).addTo(leaflet_map as L.Map);
-    }
-    
-    
     return;
 }
 async function requestNotificationPermission(enable: boolean) {
@@ -343,13 +345,11 @@ async function requestNotificationPermission(enable: boolean) {
                         issue.showModal();
                     }
                 }
-                if (typeof marker === 'undefined') { // 1st time setting
-                    marker = null;
-                }
+                /*
                 if (marker !== null) {
                     marker.remove();
                 }
-                //const userLoc = position as Location;
+                */
                 const lat = position?.latitude as number;
                 const lng = position?.longitude as number;
                 const ele = position?.altitude as number;
@@ -357,7 +357,10 @@ async function requestNotificationPermission(enable: boolean) {
                 $('#lng').text(lng.toFixed(5));
                 const latlng = [lat, lng] as L.LatLngExpression
                 // Create marker with custom icon at user's location
-                marker = L.marker(latlng, { icon: customIcon }).addTo(leaflet_map as L.Map);
+                if (marker === null) {
+                    marker = L.marker(latlng, { icon: customIcon }).addTo(leaflet_map as L.Map);
+                }
+                marker.setLatLng(latlng);
                 if (tracking) tracker(lat, lng, ele);
                 return;
             });
@@ -453,15 +456,24 @@ async function createAndDownloadGPX(dwnld_name: string, keep_tracking: string) {
             dialogTitle: 'Save or share your file',
         });
     }
-    save_gpx.hide();
-    if (keep_tracking === 'No') {
+    if (keep_tracking === 'Reset') {
+        tracking = false;
         gpx_pts = [];
+        miles = 0;
+        hike.remove();
+        map_line = [];
         $('#gps_on').css('display', 'none');
         $('#gps_off').css('display', 'inline');
         $('#save_trk').css('display', 'none');
         $('#no_save').css('display', 'inline');
+    } else if (keep_tracking === 'Pause') {
         tracking = false;
-    }
+        $('#gps_on').css('display', 'none');
+        $('#gps_off').css('display', 'inline');
+        $('#save_trk').css('display', 'none');
+        $('#no_save').css('display', 'inline');
+    } // else no change: keep incrementing pts & polyline & distance
+    save_gpx.hide();
     return;
 }
 

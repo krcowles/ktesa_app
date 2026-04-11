@@ -33113,9 +33113,14 @@ var gpx_pts = [];
 var map_pt;
 var map_line = [];
 var hike;
-var miles;
-const customIcon = leaflet__WEBPACK_IMPORTED_MODULE_5__.icon({
-    iconUrl: "../images/geodot.png",
+var miles = 0;
+/**
+ * It is necessary to use divIcon in order to correctly apply
+ * the grow/shrink specified in useOffline.css
+ */
+const customIcon = leaflet__WEBPACK_IMPORTED_MODULE_5__.divIcon({
+    className: '',
+    html: '<div class="pulsar"></div>',
     iconSize: [16, 16],
     iconAnchor: [8, 8]
 });
@@ -33189,7 +33194,7 @@ const issue = document.getElementById('error_info');
 });
 (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#save_dwnld', function () {
     const gpx_name = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#dwnld_name').val();
-    const keep_tracking = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#continue').val();
+    const keep_tracking = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#disposition').val();
     createAndDownloadGPX(gpx_name, keep_tracking);
 });
 // Create modal selections for user
@@ -33219,10 +33224,9 @@ function offlineSelect() {
     });
 }
 offlineSelect();
-(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#resel').on('click', () => {
+(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#resel').on('click', async () => {
     leaflet_map?.remove();
-    //leaflet_map = null;
-    requestNotificationPermission(false);
+    await requestNotificationPermission(false);
     offlineSelect();
     return;
 });
@@ -33336,17 +33340,15 @@ function distInMiles(lat1, lon1, lat2, lon2) {
 function tracker(lat, lng, ele) {
     track_pt = { lat: lat, lng: lng, ele: ele };
     gpx_pts.push(track_pt);
-    map_pt = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLng(lat, lng);
+    map_pt = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLng(lat, lng); // => {lat: lat, lng: lng}
     map_line.push(map_pt);
     let pts = map_line.length;
     if (pts > 1) {
+        let dist_incr = distInMiles(map_line[pts - 1].lat, map_line[pts - 1].lng, map_line[pts - 2].lat, map_line[pts - 2].lng);
+        miles += dist_incr;
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#miles').text(miles.toFixed(2));
         if (pts > 2) {
             hike.remove();
-            for (let i = 1; i <= pts; i++) {
-                var dist = distInMiles(gpx_pts[i].lat, gpx_pts[i].lng, gpx_pts[i - 1].lat, gpx_pts[i - 1].lng);
-                miles = dist.toFixed(2);
-                (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#miles').text(miles);
-            }
         }
         hike = leaflet__WEBPACK_IMPORTED_MODULE_5__.polyline(map_line, { color: 'red' }).addTo(leaflet_map);
     }
@@ -33386,13 +33388,11 @@ async function requestNotificationPermission(enable) {
                         issue.showModal();
                     }
                 }
-                if (typeof marker === 'undefined') { // 1st time setting
-                    marker = null;
-                }
+                /*
                 if (marker !== null) {
                     marker.remove();
                 }
-                //const userLoc = position as Location;
+                */
                 const lat = position?.latitude;
                 const lng = position?.longitude;
                 const ele = position?.altitude;
@@ -33400,7 +33400,10 @@ async function requestNotificationPermission(enable) {
                 (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#lng').text(lng.toFixed(5));
                 const latlng = [lat, lng];
                 // Create marker with custom icon at user's location
-                marker = leaflet__WEBPACK_IMPORTED_MODULE_5__.marker(latlng, { icon: customIcon }).addTo(leaflet_map);
+                if (marker === null) {
+                    marker = leaflet__WEBPACK_IMPORTED_MODULE_5__.marker(latlng, { icon: customIcon }).addTo(leaflet_map);
+                }
+                marker.setLatLng(latlng);
                 if (tracking)
                     tracker(lat, lng, ele);
                 return;
@@ -33499,15 +33502,25 @@ async function createAndDownloadGPX(dwnld_name, keep_tracking) {
             dialogTitle: 'Save or share your file',
         });
     }
-    save_gpx.hide();
-    if (keep_tracking === 'No') {
+    if (keep_tracking === 'Reset') {
+        tracking = false;
         gpx_pts = [];
+        miles = 0;
+        hike.remove();
+        map_line = [];
         (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_on').css('display', 'none');
         (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_off').css('display', 'inline');
         (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#save_trk').css('display', 'none');
         (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#no_save').css('display', 'inline');
-        tracking = false;
     }
+    else if (keep_tracking === 'Pause') {
+        tracking = false;
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_on').css('display', 'none');
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_off').css('display', 'inline');
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#save_trk').css('display', 'none');
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#no_save').css('display', 'inline');
+    } // else no change: keep incrementing pts & polyline & distance
+    save_gpx.hide();
     return;
 }
 /**

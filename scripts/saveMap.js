@@ -506,14 +506,6 @@ $.when(wait4ajax)
     $(".search").autocomplete({
         source: hikeSources,
         minLength: 2
-        /*  -- debug --
-        search: function(event, ui) {
-            console.log('search triggered');
-        },
-        response: function(event, ui) {
-            console.log("Response received: ", ui.content)
-        }
-        */
     });
     // When user selects item from dropdown:
     $("#search").on("autocompleteselect", function (event, ui) {
@@ -524,7 +516,7 @@ $.when(wait4ajax)
         $(this).val(entry);
         var src = '#imphike';
         $.ajax({
-            url: "https:nmhikes.com/php/importHike.php",
+            url: "https://nmhikes.com/ktesa_app/importHike.php",
             data: { hike: entry },
             dataType: "text",
             method: "post",
@@ -552,7 +544,7 @@ $('body').on('submit', '#form', (ev) => {
     mapName = useGpxFile.name;
     const gpxform = $('#form');
     const formData = new FormData(gpxform[0]);
-    var url = "nmhikes.com/php/importGpx.php";
+    var url = "https://nmhikes.com/ktesa_app/importGpx.php";
     $.ajax({
         url: url,
         method: "post",

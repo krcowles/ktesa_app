@@ -1,5 +1,8 @@
 body {
-  padding-top: env(safe-area-inset-top);
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
   background-color: #eaeaea;
   margin: 0;
   font-family: arial, verdana;
@@ -52,10 +55,46 @@ img[id*="save"] {
   width: 100vw;
 }
 
+.pulsar {
+  /* added */
+  width: 16px !important;
+  height: 16px !important;
+  background-image: url('../images/red_dot.png');
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position: center center;
+  /* end add */
+  transform-origin: center center;
+  animation: pulse-animation 2s infinite ease-in-out;
+}
+@keyframes pulse-animation {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.8;  /* Slight fade looks more natural */
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+/* Save GPX Modal */
 #dwnld_name {
   border: 1px solid brown;
   border-radius: 6px;
 }
+#track_stat {
+  text-decoration: underline;
+}
+select {
+  border: 1px solid blue;
+  border-radius: 4px;
+  padding: 4px;
+}
+
 footer, #location {
   color: brown;
   font-weight: bold;
