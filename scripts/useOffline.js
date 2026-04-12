@@ -108,6 +108,9 @@ $('body').on('click', '.restart', () => {
         window.open('../pages/saveMap.html', "_self");
     }
 });
+$('body').on('click', '#home', function () {
+    window.open('../index.html', '_self');
+});
 $('body').on('click', '#gps_off', async function () {
     $(this).css('display', 'none');
     $('#gps_on').css('display', 'inline');
@@ -125,11 +128,20 @@ $('body').on('click', '#gps_on', async function () {
 $('body').on('click', '#save_trk', () => {
     save_gpx.show();
 });
-$('body').on('click', '#save_dwnld', function () {
+// Attempting better response from clicking 'Save Track' button:
+const save_button = document.getElementById('save_dwnld');
+save_button.addEventListener('touchstart', () => {
     const gpx_name = $('#dwnld_name').val();
     const keep_tracking = $('#disposition').val();
     createAndDownloadGPX(gpx_name, keep_tracking);
 });
+/*
+$('body').on('click', '#save_dwnld', function () {
+    const gpx_name = $('#dwnld_name').val() as string;
+    const keep_tracking = $('#disposition').val() as string;
+    createAndDownloadGPX(gpx_name, keep_tracking);
+});
+*/
 // Create modal selections for user
 async function prepareMapNames() {
     const mapnamesFile = await tileDownloader.docFileExists('mapnames.txt');
@@ -301,8 +313,8 @@ async function requestNotificationPermission(enable) {
         if (permStatus.display === 'granted') {
             console.log("Notification permission allowed. Persistent tracking will work.");
             await BackgroundGeolocation.start({
-                backgroundMessage: "Tracking the hike",
-                backgroundTitle: "Your path is being recorded. Tap to return to app.",
+                backgroundMessage: "",
+                backgroundTitle: "Tracking...",
                 requestPermissions: true,
                 stale: false, // Always get fresh data
                 distanceFilter: 5 // Highest frequency updates

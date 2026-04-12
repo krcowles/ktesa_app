@@ -19,6 +19,7 @@ if (typeof window !== 'undefined' && !window.alert) {
     window.alert = (msg: string) => console.warn('Alert suppressed:', msg);
 }
 import $ from 'jquery';
+import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding, type ReadFileResult } from '@capacitor/filesystem';
@@ -66,14 +67,46 @@ var miles = 0;
 /**
  * It is necessary to use divIcon in order to correctly apply
  * the grow/shrink specified in useOffline.css
- */
 const customIcon = L.divIcon({
     className: '',
     html: '<div class="pulsar"></div>',
     iconSize: [16, 16],
     iconAnchor: [8, 8]
 });
-
+*/
+/*
+// On app load, set initial state for the welcome/home page
+history.replaceState({ page: 'home' }, '', '#home');
+function navigateTo(page, data = {}) {
+    history.pushState({ page, ...data }, '', `#${page}`);
+    renderPage(page, data);
+  }
+  
+  // Handles iOS swipe-back AND Android back button
+window.addEventListener('popstate', (event) => {
+if (event.state) {
+    renderPage(event.state.page, event.state);
+} else {
+    // Fallback: no state means we're at the beginning of history
+    renderPage('home');
+}
+}); 
+// Android hardware back button only
+if (Capacitor.getPlatform() === 'android') {
+App.addListener('backButton', ({ canGoBack }) => {
+    if (canGoBack) {
+    window.history.back(); // triggers popstate above
+    } else {
+    App.exitApp(); // exit when on home with no history left
+    }
+});
+}
+*/
+const customIcon = L.icon({
+    iconUrl: '../images/red_dot.png',
+    iconSize: [16,16],
+    iconAnchor: [8, 8]
+});
 const redraw = () => {
     (leaflet_map as L.Map).invalidateSize({
         animate: true,
@@ -124,6 +157,9 @@ $('body').on('click', '.restart', () => {
         window.open('../pages/saveMap.html', "_self");
     }
 });
+$('body').on('click', '#home', function() {
+    window.open('../index.html', '_self');
+});
 $('body').on('click', '#gps_off', async function() {
     $(this).css('display', 'none');
     $('#gps_on').css('display', 'inline');
@@ -141,11 +177,20 @@ $('body').on('click', '#gps_on', async function() {
 $('body').on('click', '#save_trk', () => {
     save_gpx.show();
 });
+// Attempting better response from clicking 'Save Track' button:
+const save_button = document.getElementById('save_dwnld') as HTMLButtonElement;
+save_button.addEventListener('touchstart', () => {
+    const gpx_name = $('#dwnld_name').val() as string;
+    const keep_tracking = $('#disposition').val() as string;
+    createAndDownloadGPX(gpx_name, keep_tracking);
+});
+/*
 $('body').on('click', '#save_dwnld', function () {
     const gpx_name = $('#dwnld_name').val() as string;
     const keep_tracking = $('#disposition').val() as string;
     createAndDownloadGPX(gpx_name, keep_tracking);
 });
+*/
 
 // Create modal selections for user
 async function prepareMapNames() {
@@ -323,8 +368,8 @@ async function requestNotificationPermission(enable: boolean) {
         if (permStatus.display === 'granted') {
             console.log("Notification permission allowed. Persistent tracking will work.");
             await BackgroundGeolocation.start({
-                backgroundMessage: "Tracking the hike",
-                backgroundTitle: "Your path is being recorded. Tap to return to app.",
+                backgroundMessage: "",
+                backgroundTitle: "Tracking...",
                 requestPermissions: true,
                 stale: false,  // Always get fresh data
                 distanceFilter: 5  // Highest frequency updates

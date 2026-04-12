@@ -55,15 +55,14 @@ img[id*="save"] {
   width: 100vw;
 }
 
+/* ----- Grow/Shrink geodot
 .pulsar {
-  /* added */
   width: 16px !important;
   height: 16px !important;
   background-image: url('../images/red_dot.png');
   background-size: 16px 16px;
   background-repeat: no-repeat;
   background-position: center center;
-  /* end add */
   transform-origin: center center;
   animation: pulse-animation 2s infinite ease-in-out;
 }
@@ -74,13 +73,15 @@ img[id*="save"] {
   }
   50% {
     transform: scale(1.35);
-    opacity: 0.8;  /* Slight fade looks more natural */
+    opacity: 0.8;
   }
   100% {
     transform: scale(1);
     opacity: 1;
   }
 }
+*/
+
 /* Save GPX Modal */
 #dwnld_name {
   border: 1px solid brown;

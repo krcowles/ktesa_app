@@ -33175,6 +33175,9 @@ const issue = document.getElementById('error_info');
         window.open('../pages/saveMap.html', "_self");
     }
 });
+(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#home', function () {
+    window.open('../index.html', '_self');
+});
 (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#gps_off', async function () {
     (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])(this).css('display', 'none');
     (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_on').css('display', 'inline');
@@ -33192,11 +33195,20 @@ const issue = document.getElementById('error_info');
 (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#save_trk', () => {
     save_gpx.show();
 });
-(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#save_dwnld', function () {
+// Attempting better response from clicking 'Save Track' button:
+const save_button = document.getElementById('save_dwnld');
+save_button.addEventListener('touchstart', () => {
     const gpx_name = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#dwnld_name').val();
     const keep_tracking = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#disposition').val();
     createAndDownloadGPX(gpx_name, keep_tracking);
 });
+/*
+$('body').on('click', '#save_dwnld', function () {
+    const gpx_name = $('#dwnld_name').val() as string;
+    const keep_tracking = $('#disposition').val() as string;
+    createAndDownloadGPX(gpx_name, keep_tracking);
+});
+*/
 // Create modal selections for user
 async function prepareMapNames() {
     const mapnamesFile = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.docFileExists('mapnames.txt');
@@ -33368,8 +33380,8 @@ async function requestNotificationPermission(enable) {
         if (permStatus.display === 'granted') {
             console.log("Notification permission allowed. Persistent tracking will work.");
             await _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_6__.BackgroundGeolocation.start({
-                backgroundMessage: "Tracking the hike",
-                backgroundTitle: "Your path is being recorded. Tap to return to app.",
+                backgroundMessage: "",
+                backgroundTitle: "Tracking...",
                 requestPermissions: true,
                 stale: false, // Always get fresh data
                 distanceFilter: 5 // Highest frequency updates
