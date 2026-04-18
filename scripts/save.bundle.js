@@ -1,6 +1,43 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ "./node_modules/@capacitor/app/dist/esm/definitions.js"
+/*!*************************************************************!*\
+  !*** ./node_modules/@capacitor/app/dist/esm/definitions.js ***!
+  \*************************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/// <reference types="@capacitor/cli" />
+
+//# sourceMappingURL=definitions.js.map
+
+/***/ },
+
+/***/ "./node_modules/@capacitor/app/dist/esm/index.js"
+/*!*******************************************************!*\
+  !*** ./node_modules/@capacitor/app/dist/esm/index.js ***!
+  \*******************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   App: () => (/* binding */ App)
+/* harmony export */ });
+/* harmony import */ var _capacitor_core__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @capacitor/core */ "./node_modules/@capacitor/core/dist/index.js");
+/* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./definitions */ "./node_modules/@capacitor/app/dist/esm/definitions.js");
+
+const App = (0,_capacitor_core__WEBPACK_IMPORTED_MODULE_0__.registerPlugin)('App', {
+    web: () => __webpack_require__.e(/*! import() */ "node_modules_capacitor_app_dist_esm_web_js").then(__webpack_require__.bind(__webpack_require__, /*! ./web */ "./node_modules/@capacitor/app/dist/esm/web.js")).then((m) => new m.AppWeb()),
+});
+
+
+//# sourceMappingURL=index.js.map
+
+/***/ },
+
 /***/ "./node_modules/@capacitor/core/dist/index.js"
 /*!****************************************************!*\
   !*** ./node_modules/@capacitor/core/dist/index.js ***!
@@ -38164,11 +38201,15 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var jquery_ui_ui_widgets_autocomplete__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! jquery-ui/ui/widgets/autocomplete */ "./node_modules/jquery-ui/ui/widgets/autocomplete.js");
 /* harmony import */ var jquery_ui_ui_widgets_autocomplete__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(jquery_ui_ui_widgets_autocomplete__WEBPACK_IMPORTED_MODULE_1__);
 /* harmony import */ var jquery_ui_themes_base_all_css__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! jquery-ui/themes/base/all.css */ "./node_modules/jquery-ui/themes/base/all.css");
-/* harmony import */ var leaflet__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! leaflet */ "./node_modules/leaflet/dist/leaflet-src.js");
-/* harmony import */ var leaflet__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(leaflet__WEBPACK_IMPORTED_MODULE_3__);
-/* harmony import */ var bootstrap__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! bootstrap */ "./node_modules/bootstrap/dist/js/bootstrap.esm.js");
-/* harmony import */ var _tileDownloader__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./tileDownloader */ "./www/scripts/tileDownloader.js");
+/* harmony import */ var _capacitor_app__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @capacitor/app */ "./node_modules/@capacitor/app/dist/esm/index.js");
+/* harmony import */ var _capacitor_core__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @capacitor/core */ "./node_modules/@capacitor/core/dist/index.js");
+/* harmony import */ var leaflet__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! leaflet */ "./node_modules/leaflet/dist/leaflet-src.js");
+/* harmony import */ var leaflet__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__webpack_require__.n(leaflet__WEBPACK_IMPORTED_MODULE_5__);
+/* harmony import */ var bootstrap__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! bootstrap */ "./node_modules/bootstrap/dist/js/bootstrap.esm.js");
+/* harmony import */ var _tileDownloader__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./tileDownloader */ "./www/scripts/tileDownloader.js");
 /// <reference types="jqueryui" />
+
+
 
 
 
@@ -38186,10 +38227,15 @@ __webpack_require__.r(__webpack_exports__);
  * @author Ken Cowles
  * @version 1.0 Initial release
  */
+// Handle back navigation
+if (_capacitor_core__WEBPACK_IMPORTED_MODULE_4__.Capacitor.getPlatform() === 'android') {
+    _capacitor_app__WEBPACK_IMPORTED_MODULE_3__.App.addListener('backButton', () => {
+        window.history.back();
+    });
+}
+// iOS swipe-back gesture works automatically via browser history
 if (screen.orientation) {
     screen.orientation.addEventListener('change', () => {
-        //const target = ev.target;
-        //const type = target.type; // 'portatrait-primary', 'landcape-secondary'
         map.invalidateSize();
     });
 }
@@ -38204,7 +38250,7 @@ const isAndroid = () => {
     return /Android/i.test(navigator.userAgent);
 };
 async function androidReadWrite() {
-    if (await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.androidPermissions() === 'denied') {
+    if (await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.androidPermissions() === 'denied') {
         notice("This phone is not granting permission to write certain data");
     }
 }
@@ -38234,14 +38280,14 @@ const notice = (message) => {
     return;
 };
 // DISPLAY THE MAP:
-var map = leaflet__WEBPACK_IMPORTED_MODULE_3__.map('map', {
+var map = leaflet__WEBPACK_IMPORTED_MODULE_5__.map('map', {
     center: [35.1, -106.65],
     minZoom: 6,
     maxZoom: 18,
     zoom: 10,
     zoomSnap: 1 // no fractional zooms for zoomOptimizer
 });
-leaflet__WEBPACK_IMPORTED_MODULE_3__.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+leaflet__WEBPACK_IMPORTED_MODULE_5__.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www,openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
 // For the 'Find Me' button:
@@ -38253,7 +38299,7 @@ map.on('locationfound', function (e) {
  * supplied in each tile. This is primarily used for debug in order
  * to identify tiles within the area selected for saving offline.
  */
-class GridDebug extends leaflet__WEBPACK_IMPORTED_MODULE_3__.GridLayer {
+class GridDebug extends leaflet__WEBPACK_IMPORTED_MODULE_5__.GridLayer {
     createTile(coords) {
         var tile = document.createElement("DIV");
         tile.style.outline = '1px solid azure'; //#e6e6e6
@@ -38320,10 +38366,10 @@ function mapHeight() {
     map.invalidateSize();
 }
 // Note: the name 'opener' conflicts with a DOM lib element: hence 'iopener'
-var iopener = new bootstrap__WEBPACK_IMPORTED_MODULE_4__.Modal(document.getElementById('intro'));
-var rectinst = new bootstrap__WEBPACK_IMPORTED_MODULE_4__.Modal(document.getElementById('rim'));
-var save_modal = new bootstrap__WEBPACK_IMPORTED_MODULE_4__.Modal(document.getElementById('map_save'));
-var saveStat = new bootstrap__WEBPACK_IMPORTED_MODULE_4__.Modal(document.getElementById('stat'));
+var iopener = new bootstrap__WEBPACK_IMPORTED_MODULE_6__.Modal(document.getElementById('intro'));
+var rectinst = new bootstrap__WEBPACK_IMPORTED_MODULE_6__.Modal(document.getElementById('rim'));
+var save_modal = new bootstrap__WEBPACK_IMPORTED_MODULE_6__.Modal(document.getElementById('map_save'));
+var saveStat = new bootstrap__WEBPACK_IMPORTED_MODULE_6__.Modal(document.getElementById('stat'));
 // hide some display options; default display is #imphike
 (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#impgpx').hide();
 (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#rect_btns').hide();
@@ -38460,12 +38506,12 @@ savers.each((_i, btn) => {
         notice("You must specify a map name");
         return false;
     }
-    const fileExists = await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.docFileExists("mapnames.txt");
+    const fileExists = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.docFileExists("mapnames.txt");
     if (!fileExists) {
         names_list = [];
     }
     else {
-        const saved_names = await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.readMapnames();
+        const saved_names = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.readMapnames();
         var names_list = saved_names.split(",");
     }
     if (names_list.includes(mapName)) {
@@ -38477,24 +38523,24 @@ savers.each((_i, btn) => {
     else {
         names_list.push(mapName);
         var new_list = names_list.join(",");
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.writeMapnames(new_list);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.writeMapnames(new_list);
     }
     if (saveType === "import") {
         bounds = getRectBounds();
-        const trackWrite = await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.writeTrack(mapName, track_string);
+        const trackWrite = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.writeTrack(mapName, track_string);
         if (!trackWrite) {
             saver = true;
             notice("Could not save the track for this hike");
             return false;
         }
     }
-    var mapZoom = await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.writeSavedZoom(mapName, stored_zoom);
+    var mapZoom = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.writeSavedZoom(mapName, stored_zoom);
     if (!mapZoom) {
         saver = false;
         notice(`Failed to save ${mapName} zoom level`);
     }
     var ctr = JSON.stringify(map_center);
-    var ctr_write = await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.writeCenter(mapName, ctr);
+    var ctr_write = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.writeCenter(mapName, ctr);
     if (!ctr_write) {
         saver = false;
         notice(`Failure to write map_center: ${mapName}`);
@@ -38522,7 +38568,7 @@ savers.each((_i, btn) => {
             var x = tile_obj.x;
             var y = tile_obj.y;
             var turl = `${tile_str}/${k}/${x}/${y}.png`;
-            var tileStat = await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadTile(k, x, y, turl, 'osm', mapName);
+            var tileStat = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.downloadTile(k, x, y, turl, 'osm', mapName);
             if (!tileStat) {
                 saver = true;
                 notice(`Could not download tile ${turl}`);
@@ -38547,26 +38593,26 @@ savers.each((_i, btn) => {
     // top row
     for (let row = ur - 1, i = uc - 1; i <= lc + 1; i++) {
         let turl = `${tile_str}/${zoom_level}/${row}/${i}.png`;
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadTile(zoom_level, row, i, turl, 'osm', mapName);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.downloadTile(zoom_level, row, i, turl, 'osm', mapName);
     }
     tile_coords[zoom_level];
     // bottom row
     for (let row = lr + 1, j = uc - 1; j <= lc + 1; j++) {
         let turl = `${tile_str}/${zoom_level}/${row}/${j}.png`;
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadTile(zoom_level, row, j, turl, 'osm', mapName);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.downloadTile(zoom_level, row, j, turl, 'osm', mapName);
     }
     // left side
     for (let col = uc - 1, k = ur; k <= lr; k++) {
         let turl = `${tile_str}/${zoom_level}/${k}/${col}.png`;
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadTile(zoom_level, k, col, turl, 'osm', mapName);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.downloadTile(zoom_level, k, col, turl, 'osm', mapName);
     }
     // right side
     for (let col = lc + 1, n = ur; n <= lr; n++) {
         let turl = `${tile_str}/${zoom_level}/${n}/${col}.png`;
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadTile(zoom_level, n, col, turl, 'osm', mapName);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.downloadTile(zoom_level, n, col, turl, 'osm', mapName);
     }
     // dowload the zoomins for 'bounds'
-    await _tileDownloader__WEBPACK_IMPORTED_MODULE_5__.tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], 'osm', saveProgress);
+    await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], 'osm', saveProgress);
     return;
 });
 /**
@@ -38623,7 +38669,7 @@ function displayTrack(ajax_data, source) {
         se = [se[0] - latmarg, se[1] - lngmarg];
         var trkbounds = [nw, se];
         // bounds includes all tracks
-        leaflet__WEBPACK_IMPORTED_MODULE_3__.rectangle(trkbounds, { color: 'darkgreen', fill: false, weight: 2 }).addTo(map);
+        leaflet__WEBPACK_IMPORTED_MODULE_5__.rectangle(trkbounds, { color: 'darkgreen', fill: false, weight: 2 }).addTo(map);
         var lat = result_array[2][0];
         var lng = result_array[2][1];
         map_center = [lat, lng];
@@ -38632,7 +38678,7 @@ function displayTrack(ajax_data, source) {
         track_string = JSON.stringify(track_poly);
         let n = 0; // color pointer
         track_poly.forEach(function (segment) {
-            leaflet__WEBPACK_IMPORTED_MODULE_3__.polyline(segment, { color: track_colors[n++] }).addTo(map);
+            leaflet__WEBPACK_IMPORTED_MODULE_5__.polyline(segment, { color: track_colors[n++] }).addTo(map);
         });
         // tracks & bounds rectangle are added, now pan to center of map
         map.flyTo(map_center, 13, { duration: 1.5 });
@@ -38750,17 +38796,17 @@ jquery__WEBPACK_IMPORTED_MODULE_0__["default"].when(wait4ajax)
     // Setup touch event handling
     map.dragging.disable();
     var container = map.getContainer();
-    leaflet__WEBPACK_IMPORTED_MODULE_3__.DomEvent.on(container, 'touchstart', function (e) {
-        leaflet__WEBPACK_IMPORTED_MODULE_3__.DomEvent.preventDefault(e);
+    leaflet__WEBPACK_IMPORTED_MODULE_5__.DomEvent.on(container, 'touchstart', function (e) {
+        leaflet__WEBPACK_IMPORTED_MODULE_5__.DomEvent.preventDefault(e);
         saveType = "draw";
         start_rect(e);
     });
-    leaflet__WEBPACK_IMPORTED_MODULE_3__.DomEvent.on(container, 'touchmove', function (e) {
-        leaflet__WEBPACK_IMPORTED_MODULE_3__.DomEvent.preventDefault(e);
+    leaflet__WEBPACK_IMPORTED_MODULE_5__.DomEvent.on(container, 'touchmove', function (e) {
+        leaflet__WEBPACK_IMPORTED_MODULE_5__.DomEvent.preventDefault(e);
         draw_rect(e);
     });
-    leaflet__WEBPACK_IMPORTED_MODULE_3__.DomEvent.on(container, 'touchend', function (e) {
-        leaflet__WEBPACK_IMPORTED_MODULE_3__.DomEvent.preventDefault(e);
+    leaflet__WEBPACK_IMPORTED_MODULE_5__.DomEvent.on(container, 'touchend', function (e) {
+        leaflet__WEBPACK_IMPORTED_MODULE_5__.DomEvent.preventDefault(e);
         end_rect(e);
     });
     function start_rect(ev) {
@@ -38771,11 +38817,11 @@ jquery__WEBPACK_IMPORTED_MODULE_0__["default"].when(wait4ajax)
         startY = startRect.lng;
         var rectX = startX + 0.005;
         var rectY = startY + 0.005;
-        var crnr1 = leaflet__WEBPACK_IMPORTED_MODULE_3__.latLng(startX, startY);
-        var crnr2 = leaflet__WEBPACK_IMPORTED_MODULE_3__.latLng(rectX, rectY);
-        var latlngs = leaflet__WEBPACK_IMPORTED_MODULE_3__.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
+        var crnr1 = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLng(startX, startY);
+        var crnr2 = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLng(rectX, rectY);
+        var latlngs = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
         var rectOpts = { color: 'Green', weight: 1 };
-        rect = leaflet__WEBPACK_IMPORTED_MODULE_3__.rectangle(latlngs, rectOpts);
+        rect = leaflet__WEBPACK_IMPORTED_MODULE_5__.rectangle(latlngs, rectOpts);
         rect.addTo(map);
         //click_cnt = 1;
     }
@@ -38786,11 +38832,11 @@ jquery__WEBPACK_IMPORTED_MODULE_0__["default"].when(wait4ajax)
         //var newRect = map.mouseEventToLatLng(ev.originalEvent);
         var rectX = newRect.lat;
         var rectY = newRect.lng;
-        var crnr1 = leaflet__WEBPACK_IMPORTED_MODULE_3__.latLng(startX, startY);
-        var crnr2 = leaflet__WEBPACK_IMPORTED_MODULE_3__.latLng(rectX, rectY);
-        var latlngs = leaflet__WEBPACK_IMPORTED_MODULE_3__.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
+        var crnr1 = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLng(startX, startY);
+        var crnr2 = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLng(rectX, rectY);
+        var latlngs = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
         var rectOpts = { color: 'Green', weight: 1 };
-        rect = leaflet__WEBPACK_IMPORTED_MODULE_3__.rectangle(latlngs, rectOpts);
+        rect = leaflet__WEBPACK_IMPORTED_MODULE_5__.rectangle(latlngs, rectOpts);
         rect.addTo(map);
     }
     function end_rect(ev) {
@@ -38948,9 +38994,9 @@ function zoom_out_tile(row, col) {
  * space to zoom in, which reduces memory load.
  */
 function zoomOptimizer() {
-    const nw = leaflet__WEBPACK_IMPORTED_MODULE_3__.latLng(startX, startY);
-    const se = leaflet__WEBPACK_IMPORTED_MODULE_3__.latLng(endX, endY);
-    const rectBounds = leaflet__WEBPACK_IMPORTED_MODULE_3__.latLngBounds(nw, se);
+    const nw = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLng(startX, startY);
+    const se = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLng(endX, endY);
+    const rectBounds = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLngBounds(nw, se);
     map.fitBounds(rectBounds, {
         padding: [6, 6],
         maxZoom: 18,

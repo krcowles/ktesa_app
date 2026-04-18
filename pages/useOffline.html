@@ -16,25 +16,10 @@
 <body>
 
 <div id="tracking_icons">
-    <img id="gps_off" src="../images/play.png" />
-    <img id="gps_on" src="../images/red_stop_record.png" />
-    <img id="no_save" src="../images/GraySave.png" />
-    <img id="save_trk" src="../images/GreenSave.png"/>
+    <img id="play" class=" overlay tracking" src="../images/play.png" />
+    <img id="recording" class="overlay tracking" src="../images/red_stop_record.png" />
 </div>
-
-<dialog id="halt_restart">
-    You are currently offline and cannot return to the Save Maps page.
-    <button id="nogo" type="button" class="btn btn-sm btn-warning">OK</button>
-</dialog>
-
-<dialog id="error_info">
-    <p id="error_msg"></p>
-    <button id="got_it" type="button" class="btn btn-sm btn-warning">OK</button>
-</dialog>
-
-<div id="map"></div>
-
-<footer>
+<footer class="overlay">
     <div id="location">
         Coords: <span id="lat"></span>, <span id="lng"></span>; Dist:
         <span id="miles">0.00</span> mis.<br />
@@ -46,30 +31,32 @@
     </div>
 </footer>
 
+<div id="map"></div>
+
 <!-- GPX Track Saver -->
 <div id="save_gpx" class="modal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Save Track</h5>
+                <h5 class="modal-title">Tracking Options</h5>
                 <button type="button" class="btn-close"
                     data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <span id="track_stat">Tracking Options:</span>
+                <select id="disposition">
+                    <option value="Continue">Continue</option>
+                    <option value="Pause">Pause</option>
+                    <option value="Reset">Reset</option>
+                </select><br /><br />
                 <div id="map2save" style="font-size: 18px;">
-                    Enter a name for the file:
+                    To save, enter a unique name:
                     &nbsp;&nbsp;<input id="dwnld_name" type="text" /><br /><br />
-                    <span id="track_stat">Tracking:</span>
-                    <select id="disposition">
-                        <option value="Continue">Continue</option>
-                        <option value="Pause">Pause</option>
-                        <option value="Reset">Reset</option>
-                    </select>
                 </div>
             </div>
             <div class="modal-footer">
                 <button id="save_dwnld" type="button" class="btn btn-success">
-                    Save File</button>
+                    Go</button>
                 <button id="off_close" type="button" class="btn btn-secondary"
                     data-bs-dismiss="modal">Close</button>
             </div>
@@ -124,6 +111,15 @@
         </div>
     </div>
 </div>
+
+<dialog id="halt_restart">
+    You are currently offline and cannot return to the Save Maps page.
+    <button id="nogo" type="button" class="btn btn-sm btn-warning">OK</button>
+</dialog>
+<dialog id="error_info">
+    <p id="error_msg"></p>
+    <button id="got_it" type="button" class="btn btn-sm btn-warning">OK</button>
+</dialog>
 
 <script src="../scripts/use.bundle.js"></script>
 

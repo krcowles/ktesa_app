@@ -17,6 +17,8 @@ interface MapBounds {
 import $ from 'jquery';
 import 'jquery-ui/ui/widgets/autocomplete';
 import 'jquery-ui/themes/base/all.css';
+import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import * as L from 'leaflet';
 import * as bootstrap from "bootstrap";
 import { tileDownloader } from './tileDownloader'
@@ -31,11 +33,15 @@ import { tileDownloader } from './tileDownloader'
  * @author Ken Cowles
  * @version 1.0 Initial release
  */
-
+// Handle back navigation
+if (Capacitor.getPlatform() === 'android') {
+    App.addListener('backButton', () => {
+        window.history.back();
+    });
+}
+// iOS swipe-back gesture works automatically via browser history
 if (screen.orientation) {
     screen.orientation.addEventListener('change', () => {
-        //const target = ev.target;
-        //const type = target.type; // 'portatrait-primary', 'landcape-secondary'
         map.invalidateSize();
     });
 } else {

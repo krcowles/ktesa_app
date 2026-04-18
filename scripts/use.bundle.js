@@ -1,6 +1,43 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ "./node_modules/@capacitor/app/dist/esm/definitions.js"
+/*!*************************************************************!*\
+  !*** ./node_modules/@capacitor/app/dist/esm/definitions.js ***!
+  \*************************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/// <reference types="@capacitor/cli" />
+
+//# sourceMappingURL=definitions.js.map
+
+/***/ },
+
+/***/ "./node_modules/@capacitor/app/dist/esm/index.js"
+/*!*******************************************************!*\
+  !*** ./node_modules/@capacitor/app/dist/esm/index.js ***!
+  \*******************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   App: () => (/* binding */ App)
+/* harmony export */ });
+/* harmony import */ var _capacitor_core__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @capacitor/core */ "./node_modules/@capacitor/core/dist/index.js");
+/* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./definitions */ "./node_modules/@capacitor/app/dist/esm/definitions.js");
+
+const App = (0,_capacitor_core__WEBPACK_IMPORTED_MODULE_0__.registerPlugin)('App', {
+    web: () => __webpack_require__.e(/*! import() */ "node_modules_capacitor_app_dist_esm_web_js").then(__webpack_require__.bind(__webpack_require__, /*! ./web */ "./node_modules/@capacitor/app/dist/esm/web.js")).then((m) => new m.AppWeb()),
+});
+
+
+//# sourceMappingURL=index.js.map
+
+/***/ },
+
 /***/ "./node_modules/@capacitor/core/dist/index.js"
 /*!****************************************************!*\
   !*** ./node_modules/@capacitor/core/dist/index.js ***!
@@ -836,6 +873,45 @@ __webpack_require__.r(__webpack_exports__);
 
 const Filesystem = (0,_capacitor_core__WEBPACK_IMPORTED_MODULE_0__.registerPlugin)('Filesystem', {
     web: () => __webpack_require__.e(/*! import() */ "vendors-node_modules_capacitor_filesystem_dist_esm_web_js").then(__webpack_require__.bind(__webpack_require__, /*! ./web */ "./node_modules/@capacitor/filesystem/dist/esm/web.js")).then((m) => new m.FilesystemWeb()),
+});
+(0,_capacitor_synapse__WEBPACK_IMPORTED_MODULE_1__.exposeSynapse)();
+
+
+//# sourceMappingURL=index.js.map
+
+/***/ },
+
+/***/ "./node_modules/@capacitor/geolocation/dist/esm/definitions.js"
+/*!*********************************************************************!*\
+  !*** ./node_modules/@capacitor/geolocation/dist/esm/definitions.js ***!
+  \*********************************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+
+//# sourceMappingURL=definitions.js.map
+
+/***/ },
+
+/***/ "./node_modules/@capacitor/geolocation/dist/esm/index.js"
+/*!***************************************************************!*\
+  !*** ./node_modules/@capacitor/geolocation/dist/esm/index.js ***!
+  \***************************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   Geolocation: () => (/* binding */ Geolocation)
+/* harmony export */ });
+/* harmony import */ var _capacitor_core__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @capacitor/core */ "./node_modules/@capacitor/core/dist/index.js");
+/* harmony import */ var _capacitor_synapse__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @capacitor/synapse */ "./node_modules/@capacitor/synapse/dist/synapse.mjs");
+/* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./definitions */ "./node_modules/@capacitor/geolocation/dist/esm/definitions.js");
+
+
+const Geolocation = (0,_capacitor_core__WEBPACK_IMPORTED_MODULE_0__.registerPlugin)('Geolocation', {
+    web: () => __webpack_require__.e(/*! import() */ "node_modules_capacitor_geolocation_dist_esm_web_js").then(__webpack_require__.bind(__webpack_require__, /*! ./web */ "./node_modules/@capacitor/geolocation/dist/esm/web.js")).then((m) => new m.GeolocationWeb()),
 });
 (0,_capacitor_synapse__WEBPACK_IMPORTED_MODULE_1__.exposeSynapse)();
 
@@ -33056,23 +33132,20 @@ const tileDownloader = new TileDownloader();
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! jquery */ "./node_modules/jquery/dist-module/jquery.module.js");
-/* harmony import */ var _capacitor_core__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @capacitor/core */ "./node_modules/@capacitor/core/dist/index.js");
-/* harmony import */ var _capacitor_share__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @capacitor/share */ "./node_modules/@capacitor/share/dist/esm/index.js");
-/* harmony import */ var _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @capacitor/filesystem */ "./node_modules/@capacitor/filesystem/dist/esm/index.js");
-/* harmony import */ var bootstrap__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! bootstrap */ "./node_modules/bootstrap/dist/js/bootstrap.esm.js");
-/* harmony import */ var leaflet__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! leaflet */ "./node_modules/leaflet/dist/leaflet-src.js");
-/* harmony import */ var leaflet__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__webpack_require__.n(leaflet__WEBPACK_IMPORTED_MODULE_5__);
-/* harmony import */ var _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! @capgo/background-geolocation */ "./node_modules/@capgo/background-geolocation/dist/esm/index.js");
-/* harmony import */ var _tileDownloader__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./tileDownloader */ "./www/scripts/tileDownloader.js");
-/* harmony import */ var _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! @capacitor/local-notifications */ "./node_modules/@capacitor/local-notifications/dist/esm/index.js");
+/* harmony import */ var _capacitor_app__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @capacitor/app */ "./node_modules/@capacitor/app/dist/esm/index.js");
+/* harmony import */ var _capacitor_core__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @capacitor/core */ "./node_modules/@capacitor/core/dist/index.js");
+/* harmony import */ var _capacitor_geolocation__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @capacitor/geolocation */ "./node_modules/@capacitor/geolocation/dist/esm/index.js");
+/* harmony import */ var _capacitor_share__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @capacitor/share */ "./node_modules/@capacitor/share/dist/esm/index.js");
+/* harmony import */ var _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! @capacitor/filesystem */ "./node_modules/@capacitor/filesystem/dist/esm/index.js");
+/* harmony import */ var bootstrap__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! bootstrap */ "./node_modules/bootstrap/dist/js/bootstrap.esm.js");
+/* harmony import */ var leaflet__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! leaflet */ "./node_modules/leaflet/dist/leaflet-src.js");
+/* harmony import */ var leaflet__WEBPACK_IMPORTED_MODULE_7___default = /*#__PURE__*/__webpack_require__.n(leaflet__WEBPACK_IMPORTED_MODULE_7__);
+/* harmony import */ var _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! @capgo/background-geolocation */ "./node_modules/@capgo/background-geolocation/dist/esm/index.js");
+/* harmony import */ var _tileDownloader__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./tileDownloader */ "./www/scripts/tileDownloader.js");
+/* harmony import */ var _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! @capacitor/local-notifications */ "./node_modules/@capacitor/local-notifications/dist/esm/index.js");
 /// <reference types="jquery" />
 /// <reference types="leaflet" />
 /// <reference path="./leaflet-offline.d.ts" />
-// Eliminate issues with leaflet.js calls to 'alert':
-window.alert = window.alert || ((msg) => console.warn('Alert:', msg));
-if (typeof window !== 'undefined' && !window.alert) {
-    window.alert = (msg) => console.warn('Alert suppressed:', msg);
-}
 
 
 
@@ -33082,14 +33155,8 @@ if (typeof window !== 'undefined' && !window.alert) {
 
 
 
-/**
- * A conflict with webpack's jquery plugin required the following to
- * bypass "window.$ = assignments" [occurring in bootstrap] which
- * resulted in errors when running emulation.
- */
-const win = window;
-win['$'] = jquery__WEBPACK_IMPORTED_MODULE_0__["default"];
-win['jQuery'] = jquery__WEBPACK_IMPORTED_MODULE_0__["default"];
+
+
 /**
  * NOTE: Satisfying typescript for Offline was a monstrous effort, and
  * would not have been possible without the help of AI (Claude).
@@ -33098,32 +33165,41 @@ win['jQuery'] = jquery__WEBPACK_IMPORTED_MODULE_0__["default"];
  * @author Ken Cowles
  * @version 1.0 First release
  */
-var leaflet_map;
-var marker;
-marker = null; // initial state
-var zooming = false;
-var tracking = false;
-var track;
-const start_modal = document.getElementById('use_offline');
-const maps_available = new bootstrap__WEBPACK_IMPORTED_MODULE_4__.Modal(start_modal);
-const dwnld = document.getElementById('save_gpx');
-const save_gpx = new bootstrap__WEBPACK_IMPORTED_MODULE_4__.Modal(dwnld);
-var track_pt;
-var gpx_pts = [];
-var map_pt;
-var map_line = [];
-var hike;
-var miles = 0;
+// Eliminate issues with leaflet.js calls to 'alert':
+window.alert = window.alert || ((msg) => console.warn('Alert:', msg));
+if (typeof window !== 'undefined' && !window.alert) {
+    window.alert = (msg) => console.warn('Alert suppressed:', msg);
+}
 /**
- * It is necessary to use divIcon in order to correctly apply
- * the grow/shrink specified in useOffline.css
+ * A conflict with webpack's jquery plugin required the following to
+ * bypass "window.$ = assignments" [occurring in bootstrap] which
+ * resulted in errors when running emulation.
  */
-const customIcon = leaflet__WEBPACK_IMPORTED_MODULE_5__.divIcon({
-    className: '',
-    html: '<div class="pulsar"></div>',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
-});
+const win = window;
+win['$'] = jquery__WEBPACK_IMPORTED_MODULE_0__["default"];
+win['jQuery'] = jquery__WEBPACK_IMPORTED_MODULE_0__["default"];
+// Back navigation: iOS swipe-back gesture works automatically via browser history
+if (_capacitor_core__WEBPACK_IMPORTED_MODULE_2__.Capacitor.getPlatform() === 'android') {
+    let backPressedOnce = false;
+    _capacitor_app__WEBPACK_IMPORTED_MODULE_1__.App.addListener('backButton', ({ canGoBack }) => {
+        if (canGoBack) {
+            window.history.back();
+            backPressedOnce = false; // reset if they navigated away
+        }
+        else {
+            if (backPressedOnce) {
+                _capacitor_app__WEBPACK_IMPORTED_MODULE_1__.App.exitApp();
+            }
+            else {
+                backPressedOnce = true;
+                // Show a toast or snackbar here
+                //console.log('Press back again to exit');
+                setTimeout(() => (backPressedOnce = false), 2000); // reset after 2s
+            }
+        }
+    });
+}
+// Handle screen orientation
 const redraw = () => {
     leaflet_map.invalidateSize({
         animate: true,
@@ -33141,6 +33217,35 @@ else { // initial testing on browser
         redraw();
     });
 }
+// Globals
+var page_body = document.body;
+var leaflet_map;
+var marker;
+var zooming = false;
+var tracking = false;
+var track;
+const start_modal = document.getElementById('use_offline');
+const maps_available = new bootstrap__WEBPACK_IMPORTED_MODULE_6__.Modal(start_modal);
+const dwnld = document.getElementById('save_gpx');
+const save_gpx = new bootstrap__WEBPACK_IMPORTED_MODULE_6__.Modal(dwnld);
+const timeoutDelay = 10000;
+var timer;
+var track_pt;
+var gpx_pts = [];
+var map_pt;
+var map_line = [];
+var hike;
+var miles = 0;
+/**
+ * It is necessary to use divIcon in order to correctly apply
+ * the grow/shrink specified in useOffline.css
+ */
+const customIcon = leaflet__WEBPACK_IMPORTED_MODULE_7__.divIcon({
+    className: '',
+    html: '<div class="pulsar"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+});
 // Display internet connection on 'maps_available' modal
 const connection = document.getElementById('connection');
 var connected = connection.textContent;
@@ -33160,13 +33265,53 @@ const issue = document.getElementById('error_info');
 (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#got_it', function () {
     issue.close();
 });
-// icon/button clicking
-(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#use_map', () => {
-    let choice = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#select_map').val();
-    maps_available.hide();
-    displayMap(choice);
+/**
+ * The tracking button begins in an off state. When it is clicked
+ * to turn on, the button will stay visible for about 10 seconds,
+ * then it will be hidden and the map will take up the entire phone
+ * screen. When the screen is tapped by the user, a modal will appear
+ * with available options.
+ */
+function hideOverlay() {
+    timer = setTimeout(() => {
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('.overlay').hide();
+        page_body.addEventListener('touchstart', showTimedOverlay);
+    }, timeoutDelay);
+}
+function showTimedOverlay() {
+    page_body.removeEventListener('touchstart', showTimedOverlay);
+    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('.overlay').show();
+    // ensure the 'recording' button is showing
+    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#play').css('display', 'none');
+    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#recording').css('display', 'inline');
+    hideOverlay();
+}
+(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#play', async function () {
+    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])(this).css('display', 'none');
+    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#recording').css('display', 'inline');
+    tracking = true;
+    hideOverlay();
 });
-// Possibly return to 'save maps'...
+(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#recording', async function () {
+    /**
+     * Overlay had to be showing in order to click on 'recording'
+     * Timeout will still be in effect...
+     */
+    clearTimeout(timer);
+    tracking = false;
+    save_gpx.show();
+});
+// Bottom-of-page buttons:
+(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#resel').on('click', async () => {
+    leaflet_map?.remove();
+    tracking = false;
+    gpx_pts = [];
+    miles = 0;
+    map_line = [];
+    await requestNotificationPermission(false);
+    offlineSelect();
+    return;
+});
 (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '.restart', () => {
     if (connected.includes("Offline")) {
         dialog_box.showModal();
@@ -33178,22 +33323,13 @@ const issue = document.getElementById('error_info');
 (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#home', function () {
     window.open('../index.html', '_self');
 });
-(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#gps_off', async function () {
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])(this).css('display', 'none');
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_on').css('display', 'inline');
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#no_save').css('display', 'none');
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#save_trk').css('display', 'inline');
-    tracking = true;
-});
-(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#gps_on', async function () {
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])(this).css('display', 'none');
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_off').css('display', 'inline');
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#save_trk').css('display', 'none');
-    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#no_save').css('display', 'inline');
-    tracking = false;
-});
-(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#save_trk', () => {
-    save_gpx.show();
+// User selects map to use from 'maps_available' modal
+(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('body').on('click', '#use_map', () => {
+    let choice = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#select_map').val();
+    maps_available.hide();
+    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('.overlay').css('display', 'block');
+    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#recording').hide();
+    displayMap(choice);
 });
 // Attempting better response from clicking 'Save Track' button:
 const save_button = document.getElementById('save_dwnld');
@@ -33202,19 +33338,12 @@ save_button.addEventListener('touchstart', () => {
     const keep_tracking = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#disposition').val();
     createAndDownloadGPX(gpx_name, keep_tracking);
 });
-/*
-$('body').on('click', '#save_dwnld', function () {
-    const gpx_name = $('#dwnld_name').val() as string;
-    const keep_tracking = $('#disposition').val() as string;
-    createAndDownloadGPX(gpx_name, keep_tracking);
-});
-*/
-// Create modal selections for user
+// Create modal offline map selections for user
 async function prepareMapNames() {
-    const mapnamesFile = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.docFileExists('mapnames.txt');
+    const mapnamesFile = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.docFileExists('mapnames.txt');
     if (mapnamesFile) {
         (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#select_map').empty();
-        const savedMaps = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.readMapnames();
+        const savedMaps = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readMapnames();
         const userMaps = savedMaps.split(",");
         for (const map of userMaps) {
             const option = `<option value="${map}">${map}</option>`;
@@ -33236,35 +33365,20 @@ function offlineSelect() {
     });
 }
 offlineSelect();
-(0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#resel').on('click', async () => {
-    leaflet_map?.remove();
-    await requestNotificationPermission(false);
-    offlineSelect();
-    return;
-});
 const offlineLayer = (mapname) => {
     // Define offline layer: createTile is used by leaflet - this overrides it:
-    leaflet__WEBPACK_IMPORTED_MODULE_5__.TileLayer.Offline = leaflet__WEBPACK_IMPORTED_MODULE_5__.TileLayer.extend({
+    leaflet__WEBPACK_IMPORTED_MODULE_7__.TileLayer.Offline = leaflet__WEBPACK_IMPORTED_MODULE_7__.TileLayer.extend({
         createTile: function (coords) {
             const tile = document.createElement('img');
             // use maxNative zoom to clamp tile loads
             const maxNativeZoom = this.options.maxNativeZoom;
-            const nativeZoom = maxNativeZoom !== undefined
-                ? Math.min(coords.z, maxNativeZoom)
-                : coords.z;
-            /* --- If other coords shift, use this [replace getTilePath()] ---
-            const zoomDiff = coords.z - nativeZoom;
-            const nativeX = Math.floor(coords.x / Math.pow(2, zoomDiff));
-            const nativeY = Math.floor(coords.y / Math.pow(2, zoomDiff));
-            const url = tileDownloader.getTilePath(
-                nativeZoom, nativeX, nativeY, 'osm', map_name
-            );
-            */
-            const url = _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.getTilePath(nativeZoom, coords.x, coords.y, 'osm', mapname);
-            _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.docFileExists(url)
+            const nativeZoom = maxNativeZoom !== undefined ?
+                Math.min(coords.z, maxNativeZoom) : coords.z;
+            const url = _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getTilePath(nativeZoom, coords.x, coords.y, 'osm', mapname);
+            _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.docFileExists(url)
                 .then((found) => {
                 if (found) {
-                    return _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.getTile(url);
+                    return _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getTile(url);
                 }
                 else {
                     return false;
@@ -33282,25 +33396,25 @@ const offlineLayer = (mapname) => {
         }
     });
     // Create offline layer from definition
-    leaflet__WEBPACK_IMPORTED_MODULE_5__.tileLayer.offline
+    leaflet__WEBPACK_IMPORTED_MODULE_7__.tileLayer.offline
         = function (url, options) {
-            return new leaflet__WEBPACK_IMPORTED_MODULE_5__.TileLayer.Offline(url, options);
+            return new leaflet__WEBPACK_IMPORTED_MODULE_7__.TileLayer.Offline(url, options);
         };
-    return leaflet__WEBPACK_IMPORTED_MODULE_5__.tileLayer.offline;
+    return leaflet__WEBPACK_IMPORTED_MODULE_7__.tileLayer.offline;
 };
 const offlineMap = (map_nme, map_ctr, map_zoom, track) => {
-    leaflet__WEBPACK_IMPORTED_MODULE_5__.tileLayer.offline = offlineLayer(map_nme);
-    leaflet_map = leaflet__WEBPACK_IMPORTED_MODULE_5__.map('map', {
+    leaflet__WEBPACK_IMPORTED_MODULE_7__.tileLayer.offline = offlineLayer(map_nme);
+    leaflet_map = leaflet__WEBPACK_IMPORTED_MODULE_7__.map('map', {
         center: map_ctr,
         minZoom: 10,
         maxZoom: 18,
         zoom: map_zoom
     });
-    leaflet__WEBPACK_IMPORTED_MODULE_5__.tileLayer.offline('', {
+    leaflet__WEBPACK_IMPORTED_MODULE_7__.tileLayer.offline('', {
         maxNativeZoom: 16, // No tiles loaded after 16, just 'stretch' zooms
         maxZoom: 18
     }).addTo(leaflet_map);
-    leaflet__WEBPACK_IMPORTED_MODULE_5__.tileLayer.offline('', {
+    leaflet__WEBPACK_IMPORTED_MODULE_7__.tileLayer.offline('', {
         attribution: '&copy; OpenStreetMap'
     }).addTo(leaflet_map);
     // point to the starting zoom level
@@ -33326,10 +33440,9 @@ const offlineMap = (map_nme, map_ctr, map_zoom, track) => {
             }, 100);
         }
     });
-    marker = null;
     if (track !== '') {
         const latlng_arr = JSON.parse(track);
-        leaflet__WEBPACK_IMPORTED_MODULE_5__.polyline(latlng_arr, { color: 'blue' }).addTo(leaflet_map);
+        leaflet__WEBPACK_IMPORTED_MODULE_7__.polyline(latlng_arr, { color: 'blue' }).addTo(leaflet_map);
     }
     leaflet_map.invalidateSize();
     return;
@@ -33352,7 +33465,7 @@ function distInMiles(lat1, lon1, lat2, lon2) {
 function tracker(lat, lng, ele) {
     track_pt = { lat: lat, lng: lng, ele: ele };
     gpx_pts.push(track_pt);
-    map_pt = leaflet__WEBPACK_IMPORTED_MODULE_5__.latLng(lat, lng); // => {lat: lat, lng: lng}
+    map_pt = leaflet__WEBPACK_IMPORTED_MODULE_7__.latLng(lat, lng); // => {lat: lat, lng: lng}
     map_line.push(map_pt);
     let pts = map_line.length;
     if (pts > 1) {
@@ -33362,72 +33475,95 @@ function tracker(lat, lng, ele) {
         if (pts > 2) {
             hike.remove();
         }
-        hike = leaflet__WEBPACK_IMPORTED_MODULE_5__.polyline(map_line, { color: 'red' }).addTo(leaflet_map);
+        hike = leaflet__WEBPACK_IMPORTED_MODULE_7__.polyline(map_line, { color: 'red' }).addTo(leaflet_map);
     }
     return;
 }
 async function requestNotificationPermission(enable) {
     if (!enable) {
-        await _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_6__.BackgroundGeolocation.stop();
+        await _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_8__.BackgroundGeolocation.stop();
     }
     else {
         // Check the current status
-        let permStatus = await _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_8__.LocalNotifications.checkPermissions();
+        let permStatus = await _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_10__.LocalNotifications.checkPermissions();
         // If not already granted, request it
         if (permStatus.display !== 'granted') {
-            permStatus = await _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_8__.LocalNotifications.requestPermissions();
+            permStatus = await _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_10__.LocalNotifications.requestPermissions();
         }
         if (permStatus.display === 'granted') {
-            console.log("Notification permission allowed. Persistent tracking will work.");
-            await _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_6__.BackgroundGeolocation.start({
-                backgroundMessage: "",
-                backgroundTitle: "Tracking...",
-                requestPermissions: true,
-                stale: false, // Always get fresh data
-                distanceFilter: 5 // Highest frequency updates
-            }, (position, error) => {
-                if (error) {
-                    if (error.code === "NOT_AUTHORIZED") {
-                        if (window.confirm("This app needs your location, " +
-                            "but does not have permission.\n\n" +
-                            "Open settings now?")) {
-                            _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_6__.BackgroundGeolocation.openSettings();
+            // Geolocation...
+            (async () => {
+                // set initial marker location
+                try {
+                    const initial = await _capacitor_geolocation__WEBPACK_IMPORTED_MODULE_3__.Geolocation.getCurrentPosition({
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 5000
+                    });
+                    const lat = initial.coords.latitude;
+                    const lng = initial.coords.longitude;
+                    const latlng = [lat, lng];
+                    marker = leaflet__WEBPACK_IMPORTED_MODULE_7__.marker(latlng, { icon: customIcon }).addTo(leaflet_map);
+                    //leaflet_map?.setView(latlng); // optional: center map immediately
+                }
+                catch (e) {
+                    console.warn('Initial position failed:', e);
+                }
+                const config = {
+                    backgroundMessage: "",
+                    backgroundTitle: "Tracking...",
+                    requestPermissions: true,
+                    stale: false, // Always get fresh data
+                    distanceFilter: 5 // Highest frequency updates
+                };
+                const onPosition = (position, error) => {
+                    if (error) {
+                        if (error.code !== 'ALREADY_STARTED') {
+                            if (error.code === "NOT_AUTHORIZED") {
+                                if (window.confirm("This app needs your location, " +
+                                    "but does not have permission.\n\n" +
+                                    "Open settings now?")) {
+                                    _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_8__.BackgroundGeolocation.openSettings();
+                                }
+                            }
+                            else {
+                                const msg = error.code;
+                                (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#error_msg').text(msg);
+                                issue.showModal();
+                            }
                         }
+                        return;
                     }
-                    else {
-                        const msg = "Error detecting position";
-                        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#error_msg').text(msg);
-                        issue.showModal();
+                    if (!position)
+                        return;
+                    // Position logic
+                    const lat = position?.latitude;
+                    const lng = position?.longitude;
+                    const ele = position?.altitude;
+                    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#lat').text(lat.toFixed(5));
+                    (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#lng').text(lng.toFixed(5));
+                    const latlng = [lat, lng];
+                    if (typeof marker === 'undefined') {
+                        marker = leaflet__WEBPACK_IMPORTED_MODULE_7__.marker(latlng, { icon: customIcon }).addTo(leaflet_map);
                     }
-                }
-                /*
-                if (marker !== null) {
-                    marker.remove();
-                }
-                */
-                const lat = position?.latitude;
-                const lng = position?.longitude;
-                const ele = position?.altitude;
-                (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#lat').text(lat.toFixed(5));
-                (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#lng').text(lng.toFixed(5));
-                const latlng = [lat, lng];
-                // Create marker with custom icon at user's location
-                if (marker === null) {
-                    marker = leaflet__WEBPACK_IMPORTED_MODULE_5__.marker(latlng, { icon: customIcon }).addTo(leaflet_map);
-                }
-                marker.setLatLng(latlng);
-                if (tracking)
-                    tracker(lat, lng, ele);
-                return;
-            });
+                    marker.setLatLng(latlng);
+                    if (tracking)
+                        tracker(lat, lng, ele);
+                    return;
+                };
+                await _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_8__.BackgroundGeolocation.start(config, onPosition);
+            })();
         }
         else {
-            console.error("Notification permission denied. Background tracking may be throttled.");
+            //console.error("Notification permission denied. Background tracking may be throttled.");
+            let msg = "Notification permission denied: Tracking will be disabled";
+            (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#error_msg').text(msg);
+            issue.showModal();
         }
     }
 }
 const displayMap = async (map_name) => {
-    const mapCtr = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.readCenter(map_name);
+    const mapCtr = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readCenter(map_name);
     if (!mapCtr) {
         const msg = `Could not read map center for ${map_name}`;
         (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#error_msg').text(msg);
@@ -33436,7 +33572,7 @@ const displayMap = async (map_name) => {
     }
     const leaflet_ctr = mapCtr.data;
     const center = JSON.parse(leaflet_ctr);
-    const map_track = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.readTrack(map_name);
+    const map_track = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readTrack(map_name);
     if (!map_track) {
         track = '';
     }
@@ -33444,7 +33580,7 @@ const displayMap = async (map_name) => {
         track = map_track.data;
     }
     var zoomSet;
-    const savedZoom = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.readSavedZoom(map_name);
+    const savedZoom = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readSavedZoom(map_name);
     if (!savedZoom) {
         const msg = `Could not retrieve zoom level at which ${map_name} was saved`
             + "\nMap will display at zoom level 10";
@@ -33463,76 +33599,93 @@ const displayMap = async (map_name) => {
 // ---------- END MAP SETUP ---------
 // Data for creating GPX File
 var gpx_track = '<?xml version="1.0"?>' + "\n";
-gpx_track += 'gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
+gpx_track += '<gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
     'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.1" ' +
     'xsi:schemaLocation="http://www.topografix.com/GPX/1/1 ' +
     'http://www.topografix.com/GPX/1/1/gpx.xsd" creator="nmhikes.com">';
 gpx_track += "\n  <trk>\n    <name>USER</name>\n    <trkseg>\n";
-const gpx_eof = "    </trkseg>\n  </trk>\n<gpx>";
+const gpx_eof = "    </trkseg>\n  </trk>\n</gpx>";
 async function createAndDownloadGPX(dwnld_name, keep_tracking) {
-    if (dwnld_name == '') {
-        const msg = "Please enter a name for the downloadfile";
-        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#error_msg').text(msg);
-        issue.showModal();
-        return;
-    }
-    var gpx_xml = gpx_track; // beginning of xml file
-    for (let i = 0; i < gpx_pts.length; i++) {
-        var next_pt = '      <trkpt lat="' + gpx_pts[i].lat +
-            '" lon="' + gpx_pts[i].lng + '">';
-        var elev = "\n        <ele>" + gpx_pts[i].ele +
-            "</ele>'\n      </trkpt>\n";
-        gpx_xml += next_pt + elev;
-    }
-    gpx_xml += gpx_eof;
-    /**
-     * NOTE: the following Filesystem.writes will not work as is
-     * in an emulator environment, but it is not needed there anyway.
-     */
-    const platform = _capacitor_core__WEBPACK_IMPORTED_MODULE_1__.Capacitor.getPlatform();
-    if (platform === 'android') {
-        await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_3__.Filesystem.writeFile({
+    if (dwnld_name !== '') {
+        var named_string = gpx_track.replace("USER", dwnld_name);
+        var gpx_xml = named_string; // beginning of xml file
+        for (let i = 0; i < gpx_pts.length; i++) {
+            var next_pt = '      <trkpt lat="' + gpx_pts[i].lat +
+                '" lon="' + gpx_pts[i].lng + '">';
+            var elev = "\n        <ele>" + gpx_pts[i].ele +
+                "</ele>\n      </trkpt>\n";
+            gpx_xml += next_pt + elev;
+        }
+        gpx_xml += gpx_eof;
+        // Write to Documents, then share (with user options)
+        const result = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_5__.Filesystem.writeFile({
             path: `${dwnld_name}.gpx`,
             data: gpx_xml,
-            directory: 'DOWNLOADS',
-            encoding: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_3__.Encoding.UTF8,
+            directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_5__.Directory.Documents,
+            encoding: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_5__.Encoding.UTF8,
             recursive: true
         });
+        await saveOrShareGpxFile(result);
+        async function saveOrShareGpxFile(result) {
+            const platform = _capacitor_core__WEBPACK_IMPORTED_MODULE_2__.Capacitor.getPlatform();
+            if (platform === 'android') {
+                try {
+                    // Request permissions first (required on Android ≤ 10)
+                    const permResult = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_5__.Filesystem.requestPermissions();
+                    if (permResult.publicStorage !== 'granted') {
+                        console.warn('Storage permission denied');
+                        // Fallback to share sheet if permission denied
+                        await _capacitor_share__WEBPACK_IMPORTED_MODULE_4__.Share.share({
+                            title: 'Save GPX File',
+                            url: result.uri,
+                            dialogTitle: 'Save or share your file',
+                        });
+                        return;
+                    }
+                    alert('File saved to your Files app: (Documents folder).');
+                }
+                catch (e) {
+                    console.error('Error saving file on Android:', e);
+                    // Fallback to share sheet on error
+                    await _capacitor_share__WEBPACK_IMPORTED_MODULE_4__.Share.share({
+                        title: 'Save GPX File',
+                        url: result.uri,
+                        dialogTitle: 'Save or share your file',
+                    });
+                }
+            }
+            else { // iOS
+                await _capacitor_share__WEBPACK_IMPORTED_MODULE_4__.Share.share({
+                    title: 'Save GPX File',
+                    url: result.uri,
+                    dialogTitle: 'Save or share your file',
+                });
+            }
+        }
     }
-    else if (platform === 'ios') {
-        // Write to Documents, then share so user can save via Files app
-        const result = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_3__.Filesystem.writeFile({
-            path: `${dwnld_name}.gpx`,
-            data: gpx_xml,
-            directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_3__.Directory.Documents,
-            encoding: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_3__.Encoding.UTF8,
-            recursive: true
-        });
-        await _capacitor_share__WEBPACK_IMPORTED_MODULE_2__.Share.share({
-            title: 'Save GPX File',
-            url: result.uri,
-            dialogTitle: 'Save or share your file',
-        });
+    save_gpx.hide();
+    // overlay is still showing...
+    if (keep_tracking === 'Continue') {
+        tracking = true;
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#play').css('display', 'none');
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#recording').css('display', 'inline');
+        hideOverlay(); // restart timer
     }
-    if (keep_tracking === 'Reset') {
+    else if (keep_tracking === 'Reset') {
         tracking = false;
         gpx_pts = [];
         miles = 0;
-        hike.remove();
+        if (typeof hike !== 'undefined')
+            hike.remove();
         map_line = [];
-        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_on').css('display', 'none');
-        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_off').css('display', 'inline');
-        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#save_trk').css('display', 'none');
-        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#no_save').css('display', 'inline');
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#recording').css('display', 'none');
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#play').css('display', 'inline');
     }
     else if (keep_tracking === 'Pause') {
         tracking = false;
-        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_on').css('display', 'none');
-        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#gps_off').css('display', 'inline');
-        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#save_trk').css('display', 'none');
-        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#no_save').css('display', 'inline');
-    } // else no change: keep incrementing pts & polyline & distance
-    save_gpx.hide();
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#recording').css('display', 'none');
+        (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#play').css('display', 'inline');
+    }
     return;
 }
 /**
@@ -33543,20 +33696,20 @@ async function createAndDownloadGPX(dwnld_name, keep_tracking) {
     const choice = (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])('#select_map').val();
     const choice_opt = "option[value=" + choice + "]";
     (0,jquery__WEBPACK_IMPORTED_MODULE_0__["default"])("#select_map " + choice_opt).remove();
-    const stored_mapnames = await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.readMapnames();
+    const stored_mapnames = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readMapnames();
     const map_list = stored_mapnames.split(",");
     const indx = map_list.indexOf(choice);
     if (indx !== -1) {
         map_list.splice(indx, 1);
     }
     if (map_list.length === 0) {
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.deleteFile("mapnames.txt");
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.deleteFile("mapnames.txt");
     }
     else {
         const new_map_list = map_list.join(",");
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.writeMapnames(new_map_list);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeMapnames(new_map_list);
     }
-    await _tileDownloader__WEBPACK_IMPORTED_MODULE_7__.tileDownloader.removeData(choice);
+    await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.removeData(choice);
     return;
 });
 

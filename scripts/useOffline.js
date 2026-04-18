@@ -1,13 +1,10 @@
 /// <reference types="jquery" />
 /// <reference types="leaflet" />
 /// <reference path="./leaflet-offline.d.ts" />
-// Eliminate issues with leaflet.js calls to 'alert':
-window.alert = window.alert || ((msg) => console.warn('Alert:', msg));
-if (typeof window !== 'undefined' && !window.alert) {
-    window.alert = (msg) => console.warn('Alert suppressed:', msg);
-}
 import $ from 'jquery';
+import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import * as bootstrap from "bootstrap";
@@ -16,14 +13,6 @@ import { BackgroundGeolocation } from '@capgo/background-geolocation';
 import { tileDownloader } from './tileDownloader';
 import { LocalNotifications } from '@capacitor/local-notifications';
 /**
- * A conflict with webpack's jquery plugin required the following to
- * bypass "window.$ = assignments" [occurring in bootstrap] which
- * resulted in errors when running emulation.
- */
-const win = window;
-win['$'] = $;
-win['jQuery'] = $;
-/**
  * NOTE: Satisfying typescript for Offline was a monstrous effort, and
  * would not have been possible without the help of AI (Claude).
  *
@@ -31,32 +20,41 @@ win['jQuery'] = $;
  * @author Ken Cowles
  * @version 1.0 First release
  */
-var leaflet_map;
-var marker;
-marker = null; // initial state
-var zooming = false;
-var tracking = false;
-var track;
-const start_modal = document.getElementById('use_offline');
-const maps_available = new bootstrap.Modal(start_modal);
-const dwnld = document.getElementById('save_gpx');
-const save_gpx = new bootstrap.Modal(dwnld);
-var track_pt;
-var gpx_pts = [];
-var map_pt;
-var map_line = [];
-var hike;
-var miles = 0;
+// Eliminate issues with leaflet.js calls to 'alert':
+window.alert = window.alert || ((msg) => console.warn('Alert:', msg));
+if (typeof window !== 'undefined' && !window.alert) {
+    window.alert = (msg) => console.warn('Alert suppressed:', msg);
+}
 /**
- * It is necessary to use divIcon in order to correctly apply
- * the grow/shrink specified in useOffline.css
+ * A conflict with webpack's jquery plugin required the following to
+ * bypass "window.$ = assignments" [occurring in bootstrap] which
+ * resulted in errors when running emulation.
  */
-const customIcon = L.divIcon({
-    className: '',
-    html: '<div class="pulsar"></div>',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
-});
+const win = window;
+win['$'] = $;
+win['jQuery'] = $;
+// Back navigation: iOS swipe-back gesture works automatically via browser history
+if (Capacitor.getPlatform() === 'android') {
+    let backPressedOnce = false;
+    App.addListener('backButton', ({ canGoBack }) => {
+        if (canGoBack) {
+            window.history.back();
+            backPressedOnce = false; // reset if they navigated away
+        }
+        else {
+            if (backPressedOnce) {
+                App.exitApp();
+            }
+            else {
+                backPressedOnce = true;
+                // Show a toast or snackbar here
+                //console.log('Press back again to exit');
+                setTimeout(() => (backPressedOnce = false), 2000); // reset after 2s
+            }
+        }
+    });
+}
+// Handle screen orientation
 const redraw = () => {
     leaflet_map.invalidateSize({
         animate: true,
@@ -74,6 +72,35 @@ else { // initial testing on browser
         redraw();
     });
 }
+// Globals
+var page_body = document.body;
+var leaflet_map;
+var marker;
+var zooming = false;
+var tracking = false;
+var track;
+const start_modal = document.getElementById('use_offline');
+const maps_available = new bootstrap.Modal(start_modal);
+const dwnld = document.getElementById('save_gpx');
+const save_gpx = new bootstrap.Modal(dwnld);
+const timeoutDelay = 10000;
+var timer;
+var track_pt;
+var gpx_pts = [];
+var map_pt;
+var map_line = [];
+var hike;
+var miles = 0;
+/**
+ * It is necessary to use divIcon in order to correctly apply
+ * the grow/shrink specified in useOffline.css
+ */
+const customIcon = L.divIcon({
+    className: '',
+    html: '<div class="pulsar"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+});
 // Display internet connection on 'maps_available' modal
 const connection = document.getElementById('connection');
 var connected = connection.textContent;
@@ -93,13 +120,53 @@ const issue = document.getElementById('error_info');
 $('body').on('click', '#got_it', function () {
     issue.close();
 });
-// icon/button clicking
-$('body').on('click', '#use_map', () => {
-    let choice = $('#select_map').val();
-    maps_available.hide();
-    displayMap(choice);
+/**
+ * The tracking button begins in an off state. When it is clicked
+ * to turn on, the button will stay visible for about 10 seconds,
+ * then it will be hidden and the map will take up the entire phone
+ * screen. When the screen is tapped by the user, a modal will appear
+ * with available options.
+ */
+function hideOverlay() {
+    timer = setTimeout(() => {
+        $('.overlay').hide();
+        page_body.addEventListener('touchstart', showTimedOverlay);
+    }, timeoutDelay);
+}
+function showTimedOverlay() {
+    page_body.removeEventListener('touchstart', showTimedOverlay);
+    $('.overlay').show();
+    // ensure the 'recording' button is showing
+    $('#play').css('display', 'none');
+    $('#recording').css('display', 'inline');
+    hideOverlay();
+}
+$('body').on('click', '#play', async function () {
+    $(this).css('display', 'none');
+    $('#recording').css('display', 'inline');
+    tracking = true;
+    hideOverlay();
 });
-// Possibly return to 'save maps'...
+$('body').on('click', '#recording', async function () {
+    /**
+     * Overlay had to be showing in order to click on 'recording'
+     * Timeout will still be in effect...
+     */
+    clearTimeout(timer);
+    tracking = false;
+    save_gpx.show();
+});
+// Bottom-of-page buttons:
+$('#resel').on('click', async () => {
+    leaflet_map?.remove();
+    tracking = false;
+    gpx_pts = [];
+    miles = 0;
+    map_line = [];
+    await requestNotificationPermission(false);
+    offlineSelect();
+    return;
+});
 $('body').on('click', '.restart', () => {
     if (connected.includes("Offline")) {
         dialog_box.showModal();
@@ -111,22 +178,13 @@ $('body').on('click', '.restart', () => {
 $('body').on('click', '#home', function () {
     window.open('../index.html', '_self');
 });
-$('body').on('click', '#gps_off', async function () {
-    $(this).css('display', 'none');
-    $('#gps_on').css('display', 'inline');
-    $('#no_save').css('display', 'none');
-    $('#save_trk').css('display', 'inline');
-    tracking = true;
-});
-$('body').on('click', '#gps_on', async function () {
-    $(this).css('display', 'none');
-    $('#gps_off').css('display', 'inline');
-    $('#save_trk').css('display', 'none');
-    $('#no_save').css('display', 'inline');
-    tracking = false;
-});
-$('body').on('click', '#save_trk', () => {
-    save_gpx.show();
+// User selects map to use from 'maps_available' modal
+$('body').on('click', '#use_map', () => {
+    let choice = $('#select_map').val();
+    maps_available.hide();
+    $('.overlay').css('display', 'block');
+    $('#recording').hide();
+    displayMap(choice);
 });
 // Attempting better response from clicking 'Save Track' button:
 const save_button = document.getElementById('save_dwnld');
@@ -135,14 +193,7 @@ save_button.addEventListener('touchstart', () => {
     const keep_tracking = $('#disposition').val();
     createAndDownloadGPX(gpx_name, keep_tracking);
 });
-/*
-$('body').on('click', '#save_dwnld', function () {
-    const gpx_name = $('#dwnld_name').val() as string;
-    const keep_tracking = $('#disposition').val() as string;
-    createAndDownloadGPX(gpx_name, keep_tracking);
-});
-*/
-// Create modal selections for user
+// Create modal offline map selections for user
 async function prepareMapNames() {
     const mapnamesFile = await tileDownloader.docFileExists('mapnames.txt');
     if (mapnamesFile) {
@@ -169,12 +220,6 @@ function offlineSelect() {
     });
 }
 offlineSelect();
-$('#resel').on('click', async () => {
-    leaflet_map?.remove();
-    await requestNotificationPermission(false);
-    offlineSelect();
-    return;
-});
 const offlineLayer = (mapname) => {
     // Define offline layer: createTile is used by leaflet - this overrides it:
     L.TileLayer.Offline = L.TileLayer.extend({
@@ -182,17 +227,8 @@ const offlineLayer = (mapname) => {
             const tile = document.createElement('img');
             // use maxNative zoom to clamp tile loads
             const maxNativeZoom = this.options.maxNativeZoom;
-            const nativeZoom = maxNativeZoom !== undefined
-                ? Math.min(coords.z, maxNativeZoom)
-                : coords.z;
-            /* --- If other coords shift, use this [replace getTilePath()] ---
-            const zoomDiff = coords.z - nativeZoom;
-            const nativeX = Math.floor(coords.x / Math.pow(2, zoomDiff));
-            const nativeY = Math.floor(coords.y / Math.pow(2, zoomDiff));
-            const url = tileDownloader.getTilePath(
-                nativeZoom, nativeX, nativeY, 'osm', map_name
-            );
-            */
+            const nativeZoom = maxNativeZoom !== undefined ?
+                Math.min(coords.z, maxNativeZoom) : coords.z;
             const url = tileDownloader.getTilePath(nativeZoom, coords.x, coords.y, 'osm', mapname);
             tileDownloader.docFileExists(url)
                 .then((found) => {
@@ -259,7 +295,6 @@ const offlineMap = (map_nme, map_ctr, map_zoom, track) => {
             }, 100);
         }
     });
-    marker = null;
     if (track !== '') {
         const latlng_arr = JSON.parse(track);
         L.polyline(latlng_arr, { color: 'blue' }).addTo(leaflet_map);
@@ -311,51 +346,74 @@ async function requestNotificationPermission(enable) {
             permStatus = await LocalNotifications.requestPermissions();
         }
         if (permStatus.display === 'granted') {
-            console.log("Notification permission allowed. Persistent tracking will work.");
-            await BackgroundGeolocation.start({
-                backgroundMessage: "",
-                backgroundTitle: "Tracking...",
-                requestPermissions: true,
-                stale: false, // Always get fresh data
-                distanceFilter: 5 // Highest frequency updates
-            }, (position, error) => {
-                if (error) {
-                    if (error.code === "NOT_AUTHORIZED") {
-                        if (window.confirm("This app needs your location, " +
-                            "but does not have permission.\n\n" +
-                            "Open settings now?")) {
-                            BackgroundGeolocation.openSettings();
-                        }
-                    }
-                    else {
-                        const msg = "Error detecting position";
-                        $('#error_msg').text(msg);
-                        issue.showModal();
-                    }
-                }
-                /*
-                if (marker !== null) {
-                    marker.remove();
-                }
-                */
-                const lat = position?.latitude;
-                const lng = position?.longitude;
-                const ele = position?.altitude;
-                $('#lat').text(lat.toFixed(5));
-                $('#lng').text(lng.toFixed(5));
-                const latlng = [lat, lng];
-                // Create marker with custom icon at user's location
-                if (marker === null) {
+            // Geolocation...
+            (async () => {
+                // set initial marker location
+                try {
+                    const initial = await Geolocation.getCurrentPosition({
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 5000
+                    });
+                    const lat = initial.coords.latitude;
+                    const lng = initial.coords.longitude;
+                    const latlng = [lat, lng];
                     marker = L.marker(latlng, { icon: customIcon }).addTo(leaflet_map);
+                    //leaflet_map?.setView(latlng); // optional: center map immediately
                 }
-                marker.setLatLng(latlng);
-                if (tracking)
-                    tracker(lat, lng, ele);
-                return;
-            });
+                catch (e) {
+                    console.warn('Initial position failed:', e);
+                }
+                const config = {
+                    backgroundMessage: "",
+                    backgroundTitle: "Tracking...",
+                    requestPermissions: true,
+                    stale: false, // Always get fresh data
+                    distanceFilter: 5 // Highest frequency updates
+                };
+                const onPosition = (position, error) => {
+                    if (error) {
+                        if (error.code !== 'ALREADY_STARTED') {
+                            if (error.code === "NOT_AUTHORIZED") {
+                                if (window.confirm("This app needs your location, " +
+                                    "but does not have permission.\n\n" +
+                                    "Open settings now?")) {
+                                    BackgroundGeolocation.openSettings();
+                                }
+                            }
+                            else {
+                                const msg = error.code;
+                                $('#error_msg').text(msg);
+                                issue.showModal();
+                            }
+                        }
+                        return;
+                    }
+                    if (!position)
+                        return;
+                    // Position logic
+                    const lat = position?.latitude;
+                    const lng = position?.longitude;
+                    const ele = position?.altitude;
+                    $('#lat').text(lat.toFixed(5));
+                    $('#lng').text(lng.toFixed(5));
+                    const latlng = [lat, lng];
+                    if (typeof marker === 'undefined') {
+                        marker = L.marker(latlng, { icon: customIcon }).addTo(leaflet_map);
+                    }
+                    marker.setLatLng(latlng);
+                    if (tracking)
+                        tracker(lat, lng, ele);
+                    return;
+                };
+                await BackgroundGeolocation.start(config, onPosition);
+            })();
         }
         else {
-            console.error("Notification permission denied. Background tracking may be throttled.");
+            //console.error("Notification permission denied. Background tracking may be throttled.");
+            let msg = "Notification permission denied: Tracking will be disabled";
+            $('#error_msg').text(msg);
+            issue.showModal();
         }
     }
 }
@@ -396,44 +454,25 @@ const displayMap = async (map_name) => {
 // ---------- END MAP SETUP ---------
 // Data for creating GPX File
 var gpx_track = '<?xml version="1.0"?>' + "\n";
-gpx_track += 'gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
+gpx_track += '<gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
     'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.1" ' +
     'xsi:schemaLocation="http://www.topografix.com/GPX/1/1 ' +
     'http://www.topografix.com/GPX/1/1/gpx.xsd" creator="nmhikes.com">';
 gpx_track += "\n  <trk>\n    <name>USER</name>\n    <trkseg>\n";
-const gpx_eof = "    </trkseg>\n  </trk>\n<gpx>";
+const gpx_eof = "    </trkseg>\n  </trk>\n</gpx>";
 async function createAndDownloadGPX(dwnld_name, keep_tracking) {
-    if (dwnld_name == '') {
-        const msg = "Please enter a name for the downloadfile";
-        $('#error_msg').text(msg);
-        issue.showModal();
-        return;
-    }
-    var gpx_xml = gpx_track; // beginning of xml file
-    for (let i = 0; i < gpx_pts.length; i++) {
-        var next_pt = '      <trkpt lat="' + gpx_pts[i].lat +
-            '" lon="' + gpx_pts[i].lng + '">';
-        var elev = "\n        <ele>" + gpx_pts[i].ele +
-            "</ele>'\n      </trkpt>\n";
-        gpx_xml += next_pt + elev;
-    }
-    gpx_xml += gpx_eof;
-    /**
-     * NOTE: the following Filesystem.writes will not work as is
-     * in an emulator environment, but it is not needed there anyway.
-     */
-    const platform = Capacitor.getPlatform();
-    if (platform === 'android') {
-        await Filesystem.writeFile({
-            path: `${dwnld_name}.gpx`,
-            data: gpx_xml,
-            directory: 'DOWNLOADS',
-            encoding: Encoding.UTF8,
-            recursive: true
-        });
-    }
-    else if (platform === 'ios') {
-        // Write to Documents, then share so user can save via Files app
+    if (dwnld_name !== '') {
+        var named_string = gpx_track.replace("USER", dwnld_name);
+        var gpx_xml = named_string; // beginning of xml file
+        for (let i = 0; i < gpx_pts.length; i++) {
+            var next_pt = '      <trkpt lat="' + gpx_pts[i].lat +
+                '" lon="' + gpx_pts[i].lng + '">';
+            var elev = "\n        <ele>" + gpx_pts[i].ele +
+                "</ele>\n      </trkpt>\n";
+            gpx_xml += next_pt + elev;
+        }
+        gpx_xml += gpx_eof;
+        // Write to Documents, then share (with user options)
         const result = await Filesystem.writeFile({
             path: `${dwnld_name}.gpx`,
             data: gpx_xml,
@@ -441,31 +480,67 @@ async function createAndDownloadGPX(dwnld_name, keep_tracking) {
             encoding: Encoding.UTF8,
             recursive: true
         });
-        await Share.share({
-            title: 'Save GPX File',
-            url: result.uri,
-            dialogTitle: 'Save or share your file',
-        });
+        await saveOrShareGpxFile(result);
+        async function saveOrShareGpxFile(result) {
+            const platform = Capacitor.getPlatform();
+            if (platform === 'android') {
+                try {
+                    // Request permissions first (required on Android ≤ 10)
+                    const permResult = await Filesystem.requestPermissions();
+                    if (permResult.publicStorage !== 'granted') {
+                        console.warn('Storage permission denied');
+                        // Fallback to share sheet if permission denied
+                        await Share.share({
+                            title: 'Save GPX File',
+                            url: result.uri,
+                            dialogTitle: 'Save or share your file',
+                        });
+                        return;
+                    }
+                    alert('File saved to your Files app: (Documents folder).');
+                }
+                catch (e) {
+                    console.error('Error saving file on Android:', e);
+                    // Fallback to share sheet on error
+                    await Share.share({
+                        title: 'Save GPX File',
+                        url: result.uri,
+                        dialogTitle: 'Save or share your file',
+                    });
+                }
+            }
+            else { // iOS
+                await Share.share({
+                    title: 'Save GPX File',
+                    url: result.uri,
+                    dialogTitle: 'Save or share your file',
+                });
+            }
+        }
     }
-    if (keep_tracking === 'Reset') {
+    save_gpx.hide();
+    // overlay is still showing...
+    if (keep_tracking === 'Continue') {
+        tracking = true;
+        $('#play').css('display', 'none');
+        $('#recording').css('display', 'inline');
+        hideOverlay(); // restart timer
+    }
+    else if (keep_tracking === 'Reset') {
         tracking = false;
         gpx_pts = [];
         miles = 0;
-        hike.remove();
+        if (typeof hike !== 'undefined')
+            hike.remove();
         map_line = [];
-        $('#gps_on').css('display', 'none');
-        $('#gps_off').css('display', 'inline');
-        $('#save_trk').css('display', 'none');
-        $('#no_save').css('display', 'inline');
+        $('#recording').css('display', 'none');
+        $('#play').css('display', 'inline');
     }
     else if (keep_tracking === 'Pause') {
         tracking = false;
-        $('#gps_on').css('display', 'none');
-        $('#gps_off').css('display', 'inline');
-        $('#save_trk').css('display', 'none');
-        $('#no_save').css('display', 'inline');
-    } // else no change: keep incrementing pts & polyline & distance
-    save_gpx.hide();
+        $('#recording').css('display', 'none');
+        $('#play').css('display', 'inline');
+    }
     return;
 }
 /**
