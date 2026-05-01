@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+      "ignoreDeprecations": "6.0",
       "moduleResolution": "Node",               
       // "incremental": true,                   /* Enable incremental compilation */
       "target": "ESNext",                       /* Avoids 'helper' functions for async */
@@ -67,9 +68,6 @@
       //"forceConsistentCasingInFileNames": true  /* Disallow inconsistently-cased references to the same file. */
   },
   "files": [   /* .ts sources to be compiled */
-    "./saveMap.ts",
-    "./useOffline.ts",
-    "./leaflet-offline.d.ts",
-    "./tileDownloader.ts"
+    "./home.ts"
   ]
 }

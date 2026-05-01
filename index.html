@@ -1,73 +1,130 @@
 <!DOCTYPE html>
 <html lang="en-us">
 <head>
-    <title>Nmhikes Offline</title>
+    <title>Menu Demo</title>
     <meta charset="utf-8" />
     <meta name="description" content="Mobile app for offline maps" />
     <meta name="author" content="Ken Cowles" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <link href="./styles/bootstrap.min.css" rel="stylesheet" />
-    <link href="./styles/index.css" rel="stylesheet" />
-    <script src="./scripts/bootstrap.min.js"></script>
+    <!--<link rel="stylesheet" href="styles/home.css" />-->
+    <link rel="stylesheet" href="styles/home.css" />
 </head>
 
 <body>
 
-<div id="logo">
-    <div id="pattern"></div> <!-- ktesa pattern bar -->
-    <div id="leftside" class="logo_items">
-        <img id="hikers" src="./images/hikers.png" alt="hikers icon" />
-        <p id="logo_left">Hike</p>
+<div id="map"></div>
+
+<div id="hamburger">
+    <img id="menu_trigger" src="images/hamburger.png" />
+    <span id="disp" style="display:none;">Closed</span>
+</div>
+<div id="menu">
+    <span class="line_override">Offline Maps</span>
+    <div class="surround">
+        <table>
+            <tr>
+                <td><img id="save" src="images/GreenSave.png" /></td>
+                <td class="tbl_txt">Save New Map</td>
+            </tr>
+            <tr>
+                <td><img id="use" src="images/offline.png" /></td>
+                <td class="tbl_txt">Use A Map</td>
+            </tr>
+        </table>
     </div>
-    <div id="ctr" class="logo_items">
-        <span id="trail">nmhikes Offline</span>
+    <span class="line_override">Tracking</span>
+    <div class="surround">
+        <table>
+            <tr>
+                <td><img id="play" src="images/play.png" /></td>
+                <td class="tbl_txt">Start tracking</td>
+            </tr>
+            <tr>
+                <td><img id="pause" src="images/pause.png" /></td>
+                <td class="tbl_txt">Pause tracking</td>
+            </tr>
+            <tr>
+                <td><img id="stop" src="images/red_stop_record.png" /></td>
+                <td class="tbl_txt">Stop tracking</td>
+            </tr>
+            <tr>
+                <td><img id="dwnld" src="images/download.png" /></td>
+                <td class="tbl_txt">Download GPS</td>
+            </tr>
+        </table>
     </div>
-    <div id="rightside" class="logo_items">
-        <img id="tmap" src="./images/trail.png" alt="trail map icon" />
-        <p id="logo_right">NM</p>
+    <span class="line_override">Position</span>
+    <div class="surround">
+        <table>
+            <tr>
+                <td><img id="marker" src="images/marker.png" /></td>
+                <td>Drop Marker</td>
+            </tr>
+            <tr>
+                <td><img id="locate" src="images/locate.png" /></td>
+                <td class="tbl_txt">Locate me</td>
+            </tr>
+            <tr>
+                <td><img id="recenter" src="images/follow.png" /></td>
+                <td>Map follows GPS</td>
+            </tr>
+        </table>
+    </div>
+    <span class="line_override">Wifi</span>
+    <div class="surround">
+        <table>
+            <tr id="won">
+                <td><img id="wifi_on" src="images/wifi_on.png" /></td>
+                <td class="tbl_txt">Wifi on</td>
+            </tr>
+            <tr id="woff">
+                <td><img id="wifi_off" src="images/wifi_off.png" /></td>
+                <td class="tbl_txt">Wifi off</td>
+            </tr>
+        </table>
+    </div>
+
+</div>
+<!-- MODAL: Types of Save to Execute -->
+<div id="save_type" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Save Map for Offline</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <button id="site" type="button" class="btn btn-sm btn-primary">
+                    Import</button>&nbsp;&nbsp;
+                    <div id="srch_box" class="ui-widget">
+                        <style type="text/css">
+                            ul.ui-widget {
+                                width: 300px;
+                                clear: both;
+                                z-index: 9999;
+                            }
+                        </style>
+                        <input id="search" class="search" placeholder="Search for a Hike" />
+                        <span id="clear">X</span>
+                    </div>
+                    <br /><br />
+                <button id="gpx" type="button" class="btn btn-sm btn-primary">GPX File</button>&nbsp;&nbsp;
+                    <input id="gpxfile" type="file" />
+                    <br /><br />
+                <button id="rect" type="button" class="btn btn-sm btn-primary">
+                    Draw rectangle</button>&nbsp;&nbsp;
+                    <sapn id="note">IMPORTANT: Use Zoom 13 or higher</sapn>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
     </div>
 </div>
-<br /><br />
-<div id="contents">
-    <div id="lead-in">
-        <div class="box">
-            <div class="inner">
-                <span id="box1">Welcome</span>
-            </div>
-            <div class="inner">
-                <span id="box2">Welcome</span>
-            </div>
-        </div>
-        <div id="text-content">
-            <p><br />This app allows you to import hikes from the
-                <span id="site"><a href="https://nmhikes.com"
-                    target="_self">nmhikes.com</a></span>
-                site, or from a stored gpx file - or you can draw a rectangular
-                area for use offline.
-            </p>
-            <p>With offline maps you can turn on tracking and later download
-                your track file - but make sure to allow notifications (Android)
-                and allow location tracking, or your phone may shut down tracking to 
-                save battery power! 
-            </p>
-        </div>
-        <div id="choices">
-            <div id="choose"><span id="inst">What would you like to do?</span>
-                <div id="btns">
-                    <button id="save" type="button" class="btn btn-primary"
-                        onclick="window.open('./pages/saveMap.html', '_self')">
-                        Save</button>&nbsp;a map for offline use; or<br />
-                    <span id="btn2">
-                        <button id="use" type="button" class="btn btn-primary"
-                            onclick="window.open('./pages/useOffline.html', '_self')">
-                            Use&nbsp;
-                        </button>&nbsp;a map offline
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+
+<script src="dist/home.bundle.js"></script>
 
 </body>
 </html>
