@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-      "ignoreDeprecations": "6.0",
-      "moduleResolution": "Node",               
+      "moduleResolution": "bundler",               
       // "incremental": true,                   /* Enable incremental compilation */
       "target": "ESNext",                       /* Avoids 'helper' functions for async */
       "module": "ESNext",                       /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', 'es2020', or 'ESNext'. */
@@ -67,7 +66,10 @@
       /* Advanced Options */
       //"forceConsistentCasingInFileNames": true  /* Disallow inconsistently-cased references to the same file. */
   },
+  "include": [
+    "../types/*",
+  ],
   "files": [   /* .ts sources to be compiled */
-    "./home.ts"
+    "./home.ts",
   ]
 }

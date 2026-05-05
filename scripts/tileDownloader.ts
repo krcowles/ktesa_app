@@ -1,12 +1,13 @@
 /**
- * This code is constructed so as to permit both leaflet and mapBox tile
+ * This code is constructed so as to permit leaflet, usgs, and mapBox tile
  * storage. At this time, however, the various tile function arguments
- * supply source = 'osm' as a default. Note that 'source' (e.g. 'osm')
+ * supply source = 'usgs' as a default. Note that 'source' (e.g. 'usgs')
  * is a subdirectory under the 'tiles' directory, which itself is under
  * the mapname directory. When mapbox (or another) source is specified,
- * it will be a separate directory alongside the 'osm' directory.
+ * it will be a separate directory alongside the 'usgs' directory.
  * Functions that don't return data will return a boolean indicating
- * success or failure. 
+ * success or failure. *** IMPORTANT! The usgs and osm tile paths differ
+ * in that the osm is a z/x/y.png and the usgs is z/y/x.
  */
 interface Bounds {
     n: number;
@@ -19,7 +20,7 @@ interface TileCoords {
     x: number;
     y: number;
 }
-type UrlsType = {osm: string, mapbox: string}
+type UrlsType = {osm: string, usgs: string, mapbox: string}
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { CapacitorHttp } from '@capacitor/core';
 
@@ -230,11 +231,12 @@ class TileDownloader {
 
     // Used in both saving and retrieving tiles from the filesystem
     getTilePath(z: number, x: number, y: number, source: string, map: string) {
-        if (map === 'initial') {
-            return `${source}/${z}/${x}/${y}.png`;
-        } else {
-            return `${map}/tiles/${source}/${z}/${x}/${y}.png`;
+        if (source === 'osm') {
+            return `${map}/tiles/osm/${z}/${x}/${y}.png`;
+        } else if (source === 'usgs') {
+            return `${map}/tiles/usgs/${z}/${y}/${x}`;
         }
+        return;  // no other sources defined at this point
     }
     
     /**
@@ -262,12 +264,12 @@ class TileDownloader {
      */
 
     // Download and cache tile: map must be specified by user
-    async downloadTile(z: number, x: number, y: number, tileUrl: string, source='osm', map='initial') {
+    async downloadTile(z: number, x: number, y: number, tileUrl: string, source='usgs', map='initial') {
         try {
             const response = await CapacitorHttp.get({
                 url: tileUrl,
                 headers: {
-                    'User-Agent': 'MyMapApp/1.0'
+                    'User-Agent': 'ktesa_app/1.0'
                 },
                 responseType: 'blob'
             });
@@ -278,7 +280,7 @@ class TileDownloader {
             if (!response.data) {
                 throw new Error('No data in response');
             }
-            const tilePath = this.getTilePath(z, x, y, source, map);
+            const tilePath = this.getTilePath(z, x, y, source, map) as string;
             //console.log('Writing to path:', tilePath);
             await Filesystem.writeFile({
                 path: tilePath,
@@ -340,7 +342,8 @@ class TileDownloader {
     buildTileUrl(tile: TileCoords, source: keyof UrlsType): string {
         const urls = {
             osm: `https://tile.openstreetmap.org/${tile.z}/${tile.x}/${tile.y}.png`,
-            mapbox: `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/${tile.z}/${tile.x}/${tile.y}?access_token=YOUR_TOKEN`
+            mapbox: `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/${tile.z}/${tile.x}/${tile.y}?access_token=YOUR_TOKEN`,
+            usgs: `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/${tile.z}/${tile.y}/${tile.x}`
         }
         return urls[source];
     }

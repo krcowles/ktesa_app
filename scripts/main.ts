@@ -16,10 +16,12 @@ import { CapacitorHttp } from '@capacitor/core';
 import {initMap} from "./map";
 
 const importHike = async (hike: string) => {
-    const site_gpx = await CapacitorHttp.get({
+    const site_gpx = await CapacitorHttp.post({
         url: 'https://nmhikes.com/ktesa_app/importHike.php',
-        headers: { 'Authorization': 'Bearer token' },
-        responseType: 'text'
+        headers: { 'Content-Type': 'application/json' },
+        data: { 
+            hike: hike 
+        }
     });
     const gpx_string = site_gpx.data;
 };
@@ -27,7 +29,6 @@ const ui_sources = async () => {
     var hikeSources: autoObject[];
     const autosources = await CapacitorHttp.get({
         url: 'https://nmhikes.com/ktesa_app/appSiteHikes.php',
-        headers: { 'Authorization': 'Bearer token' },
         responseType: 'text'
     });
     hikeSources = JSON.parse(autosources.data);

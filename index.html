@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en-us">
 <head>
-    <title>Menu Demo</title>
+    <title>NMHikes Assistant</title>
     <meta charset="utf-8" />
     <meta name="description" content="Mobile app for offline maps" />
     <meta name="author" content="Ken Cowles" />
@@ -11,19 +11,29 @@
 </head>
 
 <body>
+<dialog id="notifier">
+    <p id="msg"></p>
+    <button id="ok" type="button" class="btn btn-sm btn-success">OK</button>
+</dialog>
 
-<div id="map"></div>
+<div id="secondary_btns">
+    <button id="map_save" type="button" class="btn btn-sm btn-success">Save</button>
+</div>
 
 <div id="hamburger">
     <img id="menu_trigger" src="images/hamburger.png" />
     <span id="disp" style="display:none;">Closed</span>
 </div>
+
+<div id="map"></div>
+
+<!-- ----------------- MENU SYSTEM --------------- -->
 <div id="menu">
     <span class="line_override">Offline Maps</span>
     <div class="surround">
         <table>
             <tr>
-                <td><img id="save" src="images/GreenSave.png" /></td>
+                <td><img id="save_display" src="images/GreenSave.png" /></td>
                 <td class="tbl_txt">Save New Map</td>
             </tr>
             <tr>
@@ -36,19 +46,19 @@
     <div class="surround">
         <table>
             <tr>
-                <td><img id="play" src="images/play.png" /></td>
+                <td><img id="play" class="clickable" src="images/play.png" /></td>
                 <td class="tbl_txt">Start tracking</td>
             </tr>
             <tr>
-                <td><img id="pause" src="images/pause.png" /></td>
+                <td><img id="pause" class="clickable" src="images/pause.png" /></td>
                 <td class="tbl_txt">Pause tracking</td>
             </tr>
             <tr>
-                <td><img id="stop" src="images/red_stop_record.png" /></td>
+                <td><img id="stop" class="clickable" src="images/red_stop_record.png" /></td>
                 <td class="tbl_txt">Stop tracking</td>
             </tr>
             <tr>
-                <td><img id="dwnld" src="images/download.png" /></td>
+                <td><img id="dwnld" class="clickable" src="images/download.png" /></td>
                 <td class="tbl_txt">Download GPS</td>
             </tr>
         </table>
@@ -57,15 +67,15 @@
     <div class="surround">
         <table>
             <tr>
-                <td><img id="marker" src="images/marker.png" /></td>
+                <td><img id="marker" class="clickable" src="images/marker.png" /></td>
                 <td>Drop Marker</td>
             </tr>
             <tr>
-                <td><img id="locate" src="images/locate.png" /></td>
+                <td><img id="locate" class="clickable" src="images/locate.png" /></td>
                 <td class="tbl_txt">Locate me</td>
             </tr>
             <tr>
-                <td><img id="recenter" src="images/follow.png" /></td>
+                <td><img id="follow" class="clickable" src="images/follow_off.png" /></td>
                 <td>Map follows GPS</td>
             </tr>
         </table>
@@ -85,6 +95,8 @@
     </div>
 
 </div>
+
+<!-- ---------------  MDOALS --------------- -->
 <!-- MODAL: Types of Save to Execute -->
 <div id="save_type" class="modal" tabindex="-1">
     <div class="modal-dialog">
@@ -95,8 +107,8 @@
                     aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <button id="site" type="button" class="btn btn-sm btn-primary">
-                    Import</button>&nbsp;&nbsp;
+                <button id="site" class="btn btn-sm btn-primary" disabled>
+                    Import Hike</button>&nbsp;&nbsp;
                     <div id="srch_box" class="ui-widget">
                         <style type="text/css">
                             ul.ui-widget {
@@ -109,15 +121,71 @@
                         <span id="clear">X</span>
                     </div>
                     <br /><br />
-                <button id="gpx" type="button" class="btn btn-sm btn-primary">GPX File</button>&nbsp;&nbsp;
-                    <input id="gpxfile" type="file" />
+                <button id="gpx" class="btn btn-sm btn-primary" disabled>
+                    Import GPX</button>&nbsp;&nbsp;<input id="gpxfile" type="file" />
                     <br /><br />
-                <button id="rect" type="button" class="btn btn-sm btn-primary">
+                <button id="rect" class="btn btn-sm btn-primary">
                     Draw rectangle</button>&nbsp;&nbsp;
                     <sapn id="note">IMPORTANT: Use Zoom 13 or higher</sapn>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary"
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- MODAL: Offlne Map Saver -->
+<div id="om_save" class="modal" tabindex="-1"
+    aria-labelledby="Offline Map Saver" aria-hidden="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Offline Map Saver</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Map Name:
+                <input id="map_name" type="text" /><br />
+                <button type="button" id="save_om" class="btn btn-success btn-sm">
+                    Save Map</button><br /><br />
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+<!-- MODAL: Tile Save Status -->
+<div id="stat" class="modal" tabindex="-1"
+    aria-labelledby="Map Save Status" aria-hidden="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Map Tile Save Status</h5>
+                <button class="btn-close" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="preloads">
+                    Zoom-out tiles: <span id="zot_cnt"></span><br />
+                    Loaded: <span id="zot">0</span>
+                </div>
+                <div id="loads">
+                    Zoom-in tiles:  <span id="zin_cnt"></span><br />
+                    Loaded:
+                    <div id="progress">
+                        <div id="bar"></div>
+                    </div>
+                </div>
+                <p id="complete" style="display:none;color:darkgreen;">SAVED!</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary"
                     data-bs-dismiss="modal">Close</button>
             </div>
         </div>
