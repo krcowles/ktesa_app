@@ -46435,9 +46435,13 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @capacitor/filesystem */ "./node_modules/@capacitor/filesystem/dist/esm/index.js");
 /* harmony import */ var _capacitor_core__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @capacitor/core */ "./node_modules/@capacitor/core/dist/index.js");
+//type UrlsType = {usgs: string, osm: string, usgs: string, mapbox: string}
 
 
 class TileDownloader {
+    #osm_head = "https://openstreetmap.org/";
+    #usgs_head = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/";
+    //#mapbox_head = "https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/";
     /**
      * Android requires permission to use 'Directory.Data'
      */
@@ -46629,15 +46633,25 @@ class TileDownloader {
     /**
      * This section pertains to map tiles
      */
-    // Used in both saving and retrieving tiles from the filesystem
-    getTilePath(z, x, y, source, map) {
+    // FILESYSTEM PATH [NOT fetch url]
+    getTilePath(map, z, x, y, source) {
         if (source === 'osm') {
             return `${map}/tiles/osm/${z}/${x}/${y}.png`;
         }
         else if (source === 'usgs') {
-            return `${map}/tiles/usgs/${z}/${y}/${x}`;
+            return `${map}/tiles/usgs/${z}/${y}/${x}.jpg`;
         }
         return; // no other sources defined at this point
+    }
+    // FETCH URL
+    getTileUrl(z, x, y, source) {
+        if (source === 'osm') {
+            return `${this.#osm_head}/${z}/${x}/${y}.png`;
+        }
+        else if (source === 'usgs') {
+            return `${this.#usgs_head}/${z}/${y}/${x}`;
+        }
+        return;
     }
     /**
      * Fetch a tile from the file system to be used on the currently
@@ -46662,8 +46676,9 @@ class TileDownloader {
      * saved in their respective offline directories.
      */
     // Download and cache tile: map must be specified by user
-    async downloadTile(z, x, y, tileUrl, source = 'usgs', map = 'initial') {
+    async downloadTile(z, x, y, source = 'usgs', map = 'initial') {
         try {
+            const tileUrl = this.getTileUrl(z, x, y, source);
             const response = await _capacitor_core__WEBPACK_IMPORTED_MODULE_1__.CapacitorHttp.get({
                 url: tileUrl,
                 headers: {
@@ -46678,7 +46693,8 @@ class TileDownloader {
             if (!response.data) {
                 throw new Error('No data in response');
             }
-            const tilePath = this.getTilePath(z, x, y, source, map);
+            const tilePath = this.getTilePath(map, z, x, y, source);
+            // Filesystem writes must have an extension!!
             //console.log('Writing to path:', tilePath);
             await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.writeFile({
                 path: tilePath,
@@ -46699,8 +46715,7 @@ class TileDownloader {
         const tiles = this.calculateTiles(bounds, zoomLevels);
         let completed = 0;
         for (const tile of tiles) {
-            const url = this.buildTileUrl(tile, source);
-            await this.downloadTile(tile.z, tile.x, tile.y, url, source, map);
+            await this.downloadTile(tile.z, tile.x, tile.y, source, map);
             completed++;
             if (progressCallback) {
                 progressCallback(completed, tiles.length);
@@ -46731,14 +46746,6 @@ class TileDownloader {
         const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) +
             1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
         return { x, y };
-    }
-    buildTileUrl(tile, source) {
-        const urls = {
-            osm: `https://tile.openstreetmap.org/${tile.z}/${tile.x}/${tile.y}.png`,
-            mapbox: `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/${tile.z}/${tile.x}/${tile.y}?access_token=YOUR_TOKEN`,
-            usgs: `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/${tile.z}/${tile.y}/${tile.x}`
-        };
-        return urls[source];
     }
 }
 const tileDownloader = new TileDownloader();
@@ -47322,6 +47329,51 @@ else { // testing only:
     androidReadWrite();
 }
 /**
+ * -------- Internet Connectivity --------
+ */
+const internetIcon = (state) => {
+    if (state === 'on') {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#won').css('display', 'table-row');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#woff').css('display', 'none');
+    }
+    else {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#won').css('display', 'none');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#woff').css('display', 'table-row');
+    }
+};
+// On page load:
+if (navigator.onLine) {
+    internetIcon('on');
+}
+else {
+    internetIcon('off');
+}
+// Polling after load:
+async function checkConnectivity() {
+    const url = "https://nmhikes.com/images/geoloc.png";
+    try {
+        // Use a short timeout to avoid hanging
+        const response = await fetch(url, {
+            method: 'HEAD', // HEAD only fetches headers, saving bandwidth
+            cache: 'no-store', // Ensure we aren't getting a cached result
+            signal: AbortSignal.timeout(4000)
+        });
+        if (response.ok) {
+            internetIcon('on');
+            return true;
+        }
+        else {
+            internetIcon('off');
+            return false;
+        }
+    }
+    catch (error) {
+        console.log("Status: Offline (Request failed or timed out)");
+        return false;
+    }
+}
+setInterval(checkConnectivity, 20000);
+/**
  * The notification dialog box is a substitute for the window.alert()
  * which can be problematic.
  */
@@ -47344,6 +47396,8 @@ const saverDiv = document.getElementById('save_type');
 var save_type_modal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(saverDiv);
 const mapSave = document.getElementById('om_save');
 var save_om_map_modal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(mapSave);
+// Designate the tile server for identifying fetch strings
+const tile_server = "usgs";
 /**
  * --------- Main display page ----------
  */
@@ -47394,12 +47448,12 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_save').on('click', () => {
     save_om_map_modal.show();
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('#save_om').on('click', () => {
-    const map_name = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_name').val();
-    if (map_name == '') {
+    mapName = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_name').val();
+    if (mapName == '') {
         notice("You must supply a name for the map");
         return false;
     }
-    tile_save(map_name);
+    tile_save();
     return;
 });
 /**
@@ -47468,9 +47522,9 @@ async function initMap() {
      * This layer provides a map grid of tiles with the tile id's
      * supplied in each tile. This is primarily used for debug in order
      * to identify tiles within the area selected for saving offline.
-     * ---- NOTE: 'z,x,y' is organized to display USGS tiles ----
-     * This allows prior osm method of defining rectangle, where the
-     * coords reflect a z/x/y.png method
+     * ---- NOTE: 'z,x,y' is utilized to display USGS tiles ----
+     * This allows prior 'osm' method of defining rectangle, where the
+     * coords reflect a 'zoom/column/row' system.
      */
     class GridDebug extends (leaflet__WEBPACK_IMPORTED_MODULE_3___default().GridLayer) {
         createTile(coords) {
@@ -47693,7 +47747,7 @@ function displayImportedTrack(nw, se, mapctr, polyline) {
     //let n = 0;  // color pointer NO LONGER ACCEPTING MULTIPLE TRACKS PER IMPORT...
     leaflet__WEBPACK_IMPORTED_MODULE_3___default().polyline(polyline, { color: 'blue' }).addTo(map);
     // tracks & bounds rectangle are added, now pan to center of map
-    map.flyTo(mapctr, 13, { duration: 2 });
+    map.flyTo(mapctr, 13, { duration: 1.5 });
     setTimeout(() => {
         map.invalidateSize();
         zoomOptimizer();
@@ -47853,7 +47907,6 @@ function getRectBounds() {
  */
 var ul_tile = [];
 var lr_tile = [];
-var tile_str = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile";
 var mapName;
 const save_progress = document.getElementById('stat');
 const save_status = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(save_progress);
@@ -47862,39 +47915,37 @@ const save_status = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(save_progre
  * drawn from upper left to lower right to simplify processing;
  * ul_tile, lr_tile are [row, col] arrays for upper left tile and lower
  * right tile. [Note: arranging may be somewhat redundant since the
- * change to 'getRectBounds', but conversion to tiles is necessary]
+ * change to 'getRectBounds', but converting lat/lng to tile row/col is
+ * necessary] Use the standard [row, col] designation independent of
+ * tile fetching.
  */
 function getTileURL(lat, lng, zoom) {
     var latrad = lat * Math.PI / 180;
     var tileX = Math.floor((lng + 180) / 360 * (1 << zoom));
     var tileY = Math.floor((1 - Math.log(Math.tan(latrad)
         + 1 / Math.cos(latrad)) / Math.PI) / 2 * (1 << zoom));
-    return zoom + "/" + tileX + "/" + tileY;
+    return [tileX, tileY]; // [row, column]
 }
 function idTileCorners() {
-    var corner1 = getTileURL(startX, startY, zoom_level); // = user start STRING
-    var corner2 = getTileURL(endX, endY, zoom_level); // = user end STRING
-    var XY1_Corner = corner1.split("/"); // array of strings
-    var corner1XY = XY1_Corner.map(Number); // array:[0]=>zoom;[1]=>row;[2]=col: NUMERIC
-    var XY2_Corner = corner2.split("/"); // array of strings
-    var corner2XY = XY2_Corner.map(Number); // [z, r, c]
-    ul_tile = []; // UPPER_LEFT  => [ul_row, ul_col]; NUMERIC
-    lr_tile = []; // LOWER RIGHT => [lr_row, lr_col]; NUMERIC
-    if (corner1XY[1] < corner2XY[1]) { // row check
-        ul_tile[0] = corner1XY[1];
-        lr_tile[0] = corner2XY[1];
+    var corner1XY = getTileURL(startX, startY, zoom_level); // user 'start' tile array
+    var corner2XY = getTileURL(endX, endY, zoom_level); // user 'end' tile array
+    ul_tile = []; // UPPER_LEFT  => [ul_row, ul_col];
+    lr_tile = []; // LOWER RIGHT => [lr_row, lr_col];
+    if (corner1XY[0] < corner2XY[0]) { // row check
+        ul_tile[0] = corner2XY[0];
+        lr_tile[0] = corner1XY[0];
     }
     else {
-        ul_tile[0] = corner2XY[1];
-        lr_tile[0] = corner1XY[1];
+        ul_tile[0] = corner1XY[0];
+        lr_tile[0] = corner2XY[0];
     }
-    if (corner1XY[2] < corner2XY[2]) { // col check
-        ul_tile[1] = corner1XY[2];
-        lr_tile[1] = corner2XY[2];
+    if (corner1XY[1] < corner2XY[1]) { // col check
+        ul_tile[1] = corner1XY[1];
+        lr_tile[1] = corner2XY[1];
     }
     else {
-        ul_tile[1] = corner2XY[2];
-        lr_tile[1] = corner1XY[2];
+        ul_tile[1] = corner2XY[1];
+        lr_tile[1] = corner1XY[1];
     }
     return;
 }
@@ -47936,10 +47987,8 @@ function zoom_out_tile(row, col) {
     };
 }
 ;
-const tile_save = async (mapname) => {
-    mapName = mapname;
+const tile_save = async () => {
     save_om_map_modal.hide();
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_save').css('display', 'none');
     // parameter validation:
     zoom_level = map.getZoom();
     if (zoom_level < 13) {
@@ -47965,6 +48014,7 @@ const tile_save = async (mapname) => {
         var new_list = names_list.join(",");
         await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeMapnames(new_list);
     }
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_name').val("");
     if (save_type === "import") {
         bounds = getRectBounds();
         const trackWrite = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeTrack(mapName, track_string);
@@ -47985,72 +48035,73 @@ const tile_save = async (mapname) => {
     }
     // ensure ul and lr are defined and arranged nw to se:
     idTileCorners();
+    save_status.show();
+    /**
+     * In order to fill out phone screens [only at the current zoom] padding
+     * around the rectangle is required. The 'bounds' set [without the padding]
+     * is still used to generate zoom-in tiles. For the current zoom_level,
+     * download each tile in the padding set before doing the bounds zoom-in region.
+     * The number of padding tiles generated will be a relatively small number,
+     * so time consumed is not much.
+     * NOTE: Construction of the tile url is left to the tileDownloader class
+     * which utilizes the tile_server var to form the url.
+     */
+    const ur = ul_tile[0];
+    const uc = ul_tile[1];
+    const lr = lr_tile[0];
+    const lc = lr_tile[1];
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#base').css('display', 'inline');
+    // top row
+    for (let row = ur - 1, i = uc - 1; i <= lc + 1; i++) {
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, row, i, tile_server, mapName);
+    }
+    tile_coords[zoom_level];
+    // bottom row
+    for (let row = lr + 1, j = uc - 1; j <= lc + 1; j++) {
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, row, j, tile_server, mapName);
+    }
+    // left side
+    for (let col = uc - 1, k = ur; k <= lr; k++) {
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, k, col, tile_server, mapName);
+    }
+    // right side
+    for (let col = lc + 1, n = ur; n <= lr; n++) {
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, n, col, tile_server, mapName);
+    }
+    // Prepare to save 'zoom out' tiles:
     var maxZoomout = zoom_level - 1;
     var minZoomout = 10;
     var ul_start = ul_tile.slice();
     var ZoomoutCnt = (maxZoomout - 9) * 16;
     loadZoomOutTiles(ul_start, maxZoomout, minZoomout);
     // download the loadZoomOutTiles
-    save_status.show();
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#zot_cnt').text(ZoomoutCnt);
+    let pxperTile = 200 / ZoomoutCnt;
     var loaded = 0;
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#base').css('display', 'none');
     for (let k = minZoomout; k < zoom_level; k++) {
         var level_coords = tile_coords[k].slice(); // [] = {x.row, y.col}
         /**
          * The for loop is critical to performance! I previously used a
          * forEach, and the download hung, apparently due to the loop
          * causing a flood of requests swamping the Capacitor bridge.
-         * ----- NOTE: turl is formatted for usgs, not osm -----
          */
         for (const tile_obj of level_coords) {
             var x = tile_obj.x;
             var y = tile_obj.y;
-            var turl = `${tile_str}/${k}/${y}/${x}`;
-            var tileStat = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(k, x, y, turl, 'usgs', mapName);
+            var tileStat = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(k, x, y, tile_server, mapName);
             if (!tileStat) {
-                notice(`Could not download tile ${turl}`);
+                notice(`Could not download tile with coords ${k}, ${x}, ${y} for ${mapName}`);
                 break;
             }
             loaded++;
-            jquery__WEBPACK_IMPORTED_MODULE_0___default()('#zot').text(loaded);
+            let out_progress = loaded * pxperTile;
+            jquery__WEBPACK_IMPORTED_MODULE_0___default()('#out_bar').css('width', out_progress);
         }
     }
-    /**
-     * In order to fill out phone screens [only at the current zoom when loaded
-     * in useOffline], padding around the rectangle is required. 'bounds' is still
-     * used to generate zoomin tiles without the padding [see appSaveMap.html].
-     * For the current zoom_level [download each tile before doing bounds region]
-     * The number of tiles generated will be a relatively small number, so time
-     * consumed is not much.
-     * NOTE: ------ turl is formatted for usgs, not osm -------
-     */
-    const ur = ul_tile[0];
-    const uc = ul_tile[1];
-    const lr = lr_tile[0];
-    const lc = lr_tile[1];
-    // top row
-    for (let row = ur - 1, i = uc - 1; i <= lc + 1; i++) {
-        let turl = `${tile_str}/${zoom_level}/${i}/${row}`;
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, row, i, turl, 'usgs', mapName);
-    }
-    tile_coords[zoom_level];
-    // bottom row
-    for (let row = lr + 1, j = uc - 1; j <= lc + 1; j++) {
-        let turl = `${tile_str}/${zoom_level}/${j}/${row}`;
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, row, j, turl, 'usgs', mapName);
-    }
-    // left side
-    for (let col = uc - 1, k = ur; k <= lr; k++) {
-        let turl = `${tile_str}/${zoom_level}/${col}/${k}`;
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, k, col, turl, 'usgs', mapName);
-    }
-    // right side
-    for (let col = lc + 1, n = ur; n <= lr; n++) {
-        let turl = `${tile_str}/${zoom_level}/${col}/${n}`;
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, n, col, turl, 'usgs', mapName);
-    }
-    // dowload the zoomins for 'bounds'
-    await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], 'usgs', saveProgress);
+    // dowload the zoom-ins for the 'bounds' region
+    await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_save').css('display', 'none');
     return;
 };
 /**

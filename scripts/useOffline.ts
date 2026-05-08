@@ -244,7 +244,7 @@ const offlineLayer = (mapname: string) => {
             const url = tileDownloader.getTilePath(
                 nativeZoom, coords.x, coords.y, 'osm', mapname
             );        
-            tileDownloader.docFileExists(url)
+            tileDownloader.docFileExists(url: string)
                 .then((found) => {
                     if (found) {
                         return tileDownloader.getTile(url);

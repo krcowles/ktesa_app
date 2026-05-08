@@ -1,4 +1,8 @@
 /// <reference types="jqueryui" />
+/// <reference path="./leaflet-offline.d.ts" />
+interface OfflineTileLayerOptions extends L.TileLayerOptions {
+    mapname?: string;
+}
 interface DebugCoords {
     z: number;
     x: number;
@@ -35,6 +39,11 @@ import { App } from '@capacitor/app';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { tileDownloader } from './tileDownloader';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
+import { Geolocation } from '@capacitor/geolocation';
+import { BackgroundGeolocation, Location, CallbackError, StartOptions } from '@capgo/background-geolocation';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { type ReadFileResult } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 /**
  * @fileoverview The code herein is largely ported from the v1.0 ktesa_app
  * which utilized osm tiles. V2.0 relies on the usgs arcgis topo/contour
@@ -47,15 +56,25 @@ import { XMLParser, XMLValidator } from 'fast-xml-parser';
  */
 
 /**
- *  --------- Phone Specific Actions ----------
+ *  ----------------- Phone Specific Actions -----------------
  */
-// Handle back navigation
+// Back navigation: iOS swipe-back gesture works automatically via browser history
 if (Capacitor.getPlatform() === 'android') {
-    App.addListener('backButton', () => {
+    let backPressedOnce = false;
+    App.addListener('backButton', ({ canGoBack }) => {
+      if (canGoBack) {
         window.history.back();
+        backPressedOnce = false; // reset if they navigated away
+      } else {
+        if (backPressedOnce) {
+          App.exitApp();
+        } else {
+          backPressedOnce = true;
+          setTimeout(() => (backPressedOnce = false), 2000); // reset after 2s
+        }
+      }
     });
 }
-// iOS swipe-back gesture works automatically via browser history
 if (screen.orientation) {
     screen.orientation.addEventListener('change', () => {
         map.invalidateSize();
@@ -82,6 +101,59 @@ if (isAndroid()) {
 }
 
 /**
+ * ----------------- Icon Settings -----------------
+ */
+const internetIcon = (state:string) => {
+    if (state === 'on') {
+        $('#won').css('display', 'table-row');
+        $('#woff').css('display', 'none');
+    } else {
+        $('#won').css('display', 'none');
+        $('#woff').css('display', 'table-row');
+    }
+};
+// On page load:
+if (navigator.onLine) {
+    internetIcon('on');
+} else {
+    internetIcon('off');
+}
+// Polling after load:
+async function checkConnectivity() {
+    const url = "https://nmhikes.com/images/geoloc.png";
+    try {
+        // Use a short timeout to avoid hanging
+        const response = await fetch(url, { 
+            method: 'HEAD', // HEAD only fetches headers, saving bandwidth
+            cache: 'no-store', // Ensure we aren't getting a cached result
+            signal: AbortSignal.timeout(4000) 
+        });
+        if (response.ok) {
+            internetIcon('on');
+            return true;
+        } else {
+            internetIcon('off');
+            return false;
+        }
+    } catch (error) {
+        console.log("Status: Offline (Request failed or timed out)");
+        return false;
+    }
+}
+setInterval(checkConnectivity, 20000);
+
+const useOfflineIcon = (state: string) => {
+    if (state === 'online') {
+        $('#go_offline').css('display', 'table-row');
+        $('#exit_offline').css('display', 'none');
+    } else {
+        $('#go_offline').css('display', 'none');
+        $('#exit_offline').css('display', 'table-row');
+    }
+}
+useOfflineIcon('online'); // initial load state
+
+/**
  * The notification dialog box is a substitute for the window.alert()
  * which can be problematic.
  */
@@ -106,8 +178,11 @@ var save_type_modal = new bootstrap.Modal(saverDiv);
 const mapSave = document.getElementById('om_save') as HTMLDivElement;
 var  save_om_map_modal = new bootstrap.Modal(mapSave);
 
+// Designate the tile server for identifying fetch strings
+const tile_server = "usgs";
+
 /**
- * --------- Main display page ----------
+ * ----------------- Main display page -----------------
  */
 
 // Menu operation
@@ -127,9 +202,25 @@ $('#save_display').on('click', () => {
     menu_close();
     save_type_modal.show();
 });
-$('#use').on('click', () => {
-    // use offline routine
+
+$('body').on('click', '#off_goto', () => {
+    useOfflineIcon('offline');
+    offlineSelect();
 });
+$('body').on('click', '#use_map', () => {
+    const user_map = $('#select_map').val() as string;
+    if (user_map === '') {
+        notice("Please select an offline map");
+        return false;
+    }
+    switchTileLayer(map, true, user_map);
+    return;
+})
+$('body').on('click', '#off_exit', () => {
+    useOfflineIcon('online');
+    switchTileLayer(map, false);
+});
+
 $('#play').on('click', () => {
     // turn on track recording
 });
@@ -169,10 +260,16 @@ $('#save_om').on('click', () => {
  */
 var map: L.Map;
 var zoom_level = 7;  // initial display value
+const ONLINE_LAYER_OPTIONS: L.TileLayerOptions = {
+    attribution: 'USGS The National Map',
+    maxNativeZoom: 16,
+    maxZoom: 18  // Leaflet will upscale z16 tiles beyond this
+};
+const ONLINE_TILE_URL = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}';
+
 async function initMap() { 
     // DISPLAY THE MAP:
     var latlng = L.latLng(35.2, -106.345);
-    
     map = L.map('map', {
         center: latlng,
         minZoom: 6,
@@ -180,11 +277,8 @@ async function initMap() {
         zoom: zoom_level,
         zoomSnap: 1 // no fractional zooms for zoomOptimizer
     });
-    L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'USGS The National Map',
-        maxNativeZoom: 16,
-        maxZoom: 18  // Leaflet will upscale z16 tiles beyond this
-    }).addTo(map);
+    currentTileLayer = L.tileLayer(ONLINE_TILE_URL, ONLINE_LAYER_OPTIONS).addTo(map);
+
     map.locate({enableHighAccuracy: true, watch: false});
     map.on('locationfound', function (e) {
         latlng = e.latlng;
@@ -250,7 +344,7 @@ async function initMap() {
 initMap();
 
 /** 
- * --------- Menu Options ---------
+ * ----------------- Menu Options -----------------
  */
 
 // ------- OFFLINE MAP SAVE OPTIONS -------
@@ -461,7 +555,7 @@ function displayImportedTrack(
     L.polyline(polyline, {color: 'blue'}).addTo(map);
 
     // tracks & bounds rectangle are added, now pan to center of map
-    map.flyTo(mapctr, 13, {duration: 2});
+    map.flyTo(mapctr, 13, {duration: 1.5});
     setTimeout( () => {
         map.invalidateSize();
         zoomOptimizer();
@@ -617,11 +711,10 @@ function getRectBounds(): MapBounds {
 }
 
 /*
- * --------- SAVE OFFLINE MAP ----------
+ * ----------------- SAVE OFFLINE MAP -----------------
  */
 var ul_tile = [] as number[];
 var lr_tile = [] as number[];
-var tile_str = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile";
 var mapName: string;
 const save_progress = document.getElementById('stat') as HTMLDivElement;
 const save_status = new bootstrap.Modal(save_progress);
@@ -631,39 +724,37 @@ const save_status = new bootstrap.Modal(save_progress);
  * drawn from upper left to lower right to simplify processing;
  * ul_tile, lr_tile are [row, col] arrays for upper left tile and lower
  * right tile. [Note: arranging may be somewhat redundant since the 
- * change to 'getRectBounds', but conversion to tiles is necessary]
+ * change to 'getRectBounds', but converting lat/lng to tile row/col is 
+ * necessary] Use the standard [row, col] designation independent of
+ * tile fetching.
  */
 function getTileURL(lat: number, lng: number, zoom: number) {
     var latrad = lat * Math.PI / 180;
     var tileX = Math.floor((lng + 180) / 360 * (1 << zoom));
     var tileY = Math.floor((1 - Math.log(Math.tan(latrad)
         + 1 / Math.cos(latrad)) / Math.PI) / 2 * (1 << zoom));
-    return zoom + "/" + tileX + "/" + tileY;
+    return [tileX, tileY];  // [row, column]
 }
 function idTileCorners() {
-    var corner1 = getTileURL(startX, startY, zoom_level); // = user start STRING
-    var corner2 = getTileURL(endX, endY, zoom_level);     // = user end STRING
-    var XY1_Corner = corner1.split("/"); // array of strings
-    var corner1XY = XY1_Corner.map(Number); // array:[0]=>zoom;[1]=>row;[2]=col: NUMERIC
-    var XY2_Corner = corner2.split("/"); // array of strings
-    var corner2XY = XY2_Corner.map(Number); // [z, r, c]
-    ul_tile = []; // UPPER_LEFT  => [ul_row, ul_col]; NUMERIC
-    lr_tile = []; // LOWER RIGHT => [lr_row, lr_col]; NUMERIC
-    if (corner1XY[1] < corner2XY[1]) { // row check
-        ul_tile[0] = corner1XY[1];
-        lr_tile[0] = corner2XY[1];
+    var corner1XY = getTileURL(startX, startY, zoom_level); // user 'start' tile array
+    var corner2XY = getTileURL(endX, endY, zoom_level);     // user 'end' tile array
+    ul_tile = []; // UPPER_LEFT  => [ul_row, ul_col];
+    lr_tile = []; // LOWER RIGHT => [lr_row, lr_col];
+    if (corner1XY[0] < corner2XY[0]) { // row check
+        ul_tile[0] = corner2XY[0];
+        lr_tile[0] = corner1XY[0];
     }
     else { 
-        ul_tile[0] = corner2XY[1];
-        lr_tile[0] = corner1XY[1];
+        ul_tile[0] = corner1XY[0];
+        lr_tile[0] = corner2XY[0];
     }
-    if (corner1XY[2] < corner2XY[2]) { // col check
-        ul_tile[1] = corner1XY[2];
-        lr_tile[1] = corner2XY[2];
+    if (corner1XY[1] < corner2XY[1]) { // col check
+        ul_tile[1] = corner1XY[1];
+        lr_tile[1] = corner2XY[1];
     }
     else {
-        ul_tile[1] = corner2XY[2];
-        lr_tile[1] = corner1XY[2];
+        ul_tile[1] = corner2XY[1];
+        lr_tile[1] = corner1XY[1];
     }
     return;
 }
@@ -707,7 +798,6 @@ function zoom_out_tile(row: number, col: number) {  // for all cases, (currZoom,
 
 const tile_save = async () => {
     save_om_map_modal.hide();
-    $('#map_save').css('display', 'none');
     // parameter validation:
     zoom_level = map.getZoom();
     if (zoom_level < 13) {
@@ -731,6 +821,7 @@ const tile_save = async () => {
         var new_list = names_list.join(",");
         await tileDownloader.writeMapnames(new_list);
     }
+    $('#map_name').val("");
     if (save_type === "import") {
         bounds = getRectBounds();
         const trackWrite = await tileDownloader.writeTrack(mapName, track_string);
@@ -751,72 +842,73 @@ const tile_save = async () => {
     }
     // ensure ul and lr are defined and arranged nw to se:
     idTileCorners();
+    save_status.show();
+    /**
+     * In order to fill out phone screens [only at the current zoom] padding
+     * around the rectangle is required. The 'bounds' set [without the padding]
+     * is still used to generate zoom-in tiles. For the current zoom_level,
+     * download each tile in the padding set before doing the bounds zoom-in region.
+     * The number of padding tiles generated will be a relatively small number,
+     * so time consumed is not much. 
+     * NOTE: Construction of the tile url is left to the tileDownloader class
+     * which utilizes the tile_server var to form the url.
+     */
+    const ur = ul_tile[0];
+    const uc = ul_tile[1];
+    const lr = lr_tile[0];
+    const lc = lr_tile[1];
+    $('#base').css('display', 'inline');
+    // top row
+    for (let row = ur-1, i=uc-1; i<=lc+1; i++) {
+        await tileDownloader.downloadTile(zoom_level, row, i, tile_server, mapName);
+    }
+    tile_coords[zoom_level]
+    // bottom row
+    for (let row=lr+1, j=uc-1; j<=lc+1;j++) {
+        await tileDownloader.downloadTile(zoom_level, row, j, tile_server, mapName);
+    }
+    // left side
+    for (let col=uc-1, k=ur; k<=lr; k++) {
+        await tileDownloader.downloadTile(zoom_level, k, col, tile_server, mapName);
+    }
+    // right side
+    for (let col=lc+1, n=ur; n<=lr; n++) {
+        await tileDownloader.downloadTile(zoom_level, n, col, tile_server, mapName);
+    }
+    // Prepare to save 'zoom out' tiles:
     var maxZoomout = zoom_level - 1;
     var minZoomout = 10;
     var ul_start = ul_tile.slice();
     var ZoomoutCnt = (maxZoomout - 9) * 16;
     loadZoomOutTiles(ul_start, maxZoomout, minZoomout);
     // download the loadZoomOutTiles
-    save_status.show();
     $('#zot_cnt').text(ZoomoutCnt);
+    let pxperTile = 200/ZoomoutCnt;
     var loaded = 0;
+    $('#base').css('display', 'none');
     for (let k=minZoomout; k<zoom_level; k++) {
         var level_coords = tile_coords[k].slice();  // [] = {x.row, y.col}
         /**
          * The for loop is critical to performance! I previously used a 
          * forEach, and the download hung, apparently due to the loop
          * causing a flood of requests swamping the Capacitor bridge.
-         * ----- NOTE: turl is formatted for usgs, not osm -----
          */
         for (const tile_obj of level_coords) {
             var x = tile_obj.x;
             var y = tile_obj.y;
-            var turl = `${tile_str}/${k}/${y}/${x}`;
-            var tileStat = await tileDownloader.downloadTile(k, x, y, turl, 'usgs', mapName);
+            var tileStat = await tileDownloader.downloadTile(k, x, y, tile_server, mapName);
             if (!tileStat) {
-                notice(`Could not download tile ${turl}`);
+                notice(`Could not download tile with coords ${k}, ${x}, ${y} for ${mapName}`);
                 break;
             }
             loaded++;
-            $('#zot').text(loaded);
+            let out_progress = loaded * pxperTile;
+            $('#out_bar').css('width', out_progress);
         }
     }
-    /**
-     * In order to fill out phone screens [only at the current zoom when loaded
-     * in useOffline], padding around the rectangle is required. 'bounds' is still
-     * used to generate zoomin tiles without the padding [see appSaveMap.html].
-     * For the current zoom_level [download each tile before doing bounds region]
-     * The number of tiles generated will be a relatively small number, so time
-     * consumed is not much.
-     * NOTE: ------ turl is formatted for usgs, not osm -------
-     */
-    const ur = ul_tile[0];
-    const uc = ul_tile[1];
-    const lr = lr_tile[0];
-    const lc = lr_tile[1];
-    // top row
-    for (let row = ur-1, i=uc-1; i<=lc+1; i++) {
-        let turl = `${tile_str}/${zoom_level}/${i}/${row}`;
-        await tileDownloader.downloadTile(zoom_level, row, i, turl, 'usgs', mapName);
-    }
-    tile_coords[zoom_level]
-    // bottom row
-    for (let row=lr+1, j=uc-1; j<=lc+1;j++) {
-        let turl = `${tile_str}/${zoom_level}/${j}/${row}`;
-        await tileDownloader.downloadTile(zoom_level, row, j, turl, 'usgs', mapName);
-    }
-    // left side
-    for (let col=uc-1, k=ur; k<=lr; k++) {
-        let turl = `${tile_str}/${zoom_level}/${col}/${k}`;
-        await tileDownloader.downloadTile(zoom_level, k, col, turl, 'usgs', mapName);
-    }
-    // right side
-    for (let col=lc+1, n=ur; n<=lr; n++) {
-        let turl = `${tile_str}/${zoom_level}/${col}/${n}`;
-        await tileDownloader.downloadTile(zoom_level, n, col, turl, 'usgs', mapName);
-    }
-    // dowload the zoomins for 'bounds'
-    await tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], 'usgs', saveProgress);
+    // dowload the zoom-ins for the 'bounds' region
+    await tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
+    $('#map_save').css('display', 'none');
     return;
 };
 /**
@@ -832,3 +924,298 @@ function saveProgress(complete: number, total: number) {
     }
     return;
 }
+
+/**
+ * ----------------- Map Layer Switching ----------------- 
+ */
+var currentTileLayer: L.TileLayer | null = null;
+const getOnlineLayer = () => {
+    return L.tileLayer(ONLINE_TILE_URL, ONLINE_LAYER_OPTIONS);
+  };
+const getOfflineLayer = (mapname: string) => {
+    const options: OfflineTileLayerOptions = {
+        mapname,
+        maxNativeZoom: 16,
+        maxZoom: 18,
+    };
+    return L.tileLayer.offline('', options);
+};
+const switchTileLayer = (map: L.Map, useOffline: boolean, mapname?: string) => {
+    // Remove existing tile layer
+    if (currentTileLayer) {
+        map.removeLayer(currentTileLayer);
+    }
+    // Add the appropriate layer
+    currentTileLayer = useOffline && mapname
+        ? getOfflineLayer(mapname)
+        : getOnlineLayer();
+    currentTileLayer.addTo(map).bringToBack();
+    return;
+};
+
+/**
+ * ----------------- Use Offline Map -----------------
+ */
+const start_modal = document.getElementById('use_offline') as HTMLDivElement;
+const maps_available = new bootstrap.Modal(start_modal);
+var track_poly: string;
+var zooming = false;
+var marker: L.Marker;
+var tracking: boolean;
+
+/**
+ * Declare L.TileLayer.Offline and L.tileLayer.offline only once, then simply
+ * switch the layers as needed.
+ * 
+ * Define offline layer object: here, 'createTile' this overrides the normal
+ * layer object's method
+ */
+L.TileLayer.Offline = L.TileLayer.extend({
+    createTile: function (coords: L.Coords) {
+        const tile = document.createElement('img');
+        const options = this.options as OfflineTileLayerOptions;
+        const mapname = options.mapname!;
+        // use maxNative zoom to clamp tile loads
+        const maxNativeZoom = this.options.maxNativeZoom;
+        const nativeZoom = maxNativeZoom !== undefined
+            ? Math.min(coords.z, maxNativeZoom)
+            : coords.z;
+        const url = tileDownloader.getTilePath(
+            mapname, nativeZoom, coords.x, coords.y, 'usgs'
+        ) as string;        
+        tileDownloader.docFileExists(url)
+            .then((found) => {
+                if (found) {
+                    return tileDownloader.getTile(url);
+                } else {
+                    return false;
+                }
+            })
+            .then((mapTile) => {
+                if (mapTile) {
+                    tile.src = `data:image/png;base64,${mapTile.data ?? mapTile}`;
+                }
+            })
+            .catch((err) => {
+                console.error('Tile error:', err);
+            });
+        return tile;
+    }
+}) as unknown as L.OfflineTileLayerClass;
+L.tileLayer.offline = function(url: string, options?: OfflineTileLayerOptions) {
+    return new L.TileLayer.Offline(url, options);
+};
+// Instantiate the offline map: arguments obtained when user selects map
+const offlineMap = (mapname: string, map_ctr: L.LatLng, map_zoom: number, track: string) => {
+    map = L.map('map', {
+        center: map_ctr,
+        minZoom: 10,
+        maxZoom: 18,
+        zoom: map_zoom
+    });
+    L.tileLayer.offline('', {
+        mapname,
+        maxNativeZoom: 16,
+        maxZoom: 18,
+        } as OfflineTileLayerOptions
+    ).addTo(map);
+    L.tileLayer.offline('', {
+        attribution: 'USGS'
+    }).addTo(map);
+    // point to the starting zoom level
+    const zctrl = document.createElement("DIV");
+    const zsym = document.createTextNode("Z: ");
+    zctrl.style.marginLeft = "8px";
+    zctrl.style.fontSize = "14px";
+    zctrl.style.color = "brown";
+    zctrl.style.fontWeight = "bold";
+    const zval = document.createElement("SPAN");
+    zval.id = "zval";
+    zval.textContent = map.getZoom().toString();
+    zctrl.append(zsym, zval);
+    $('.leaflet-top.leaflet-left').append(zctrl);
+    // debounce zoom: zoomend isn't working
+    map.addEventListener("zoom", () => {
+        if (!zooming) {
+            zooming = true;
+            setTimeout(() => {
+                var moving_zoom = (map as L.Map).getZoom();
+                $('#zval').text(" " + moving_zoom);
+                zooming = false;
+            }, 100);
+        }
+    });
+    if (track !== '') {
+        const latlng_arr = JSON.parse(track);
+        L.polyline(latlng_arr, {color: 'blue'}).addTo(map);
+    }
+    map.invalidateSize();
+    return;
+}
+// Create modal offline map selections for user
+async function prepareMapNames() {
+    const mapnamesFile = await tileDownloader.docFileExists('mapnames.txt');
+    if (mapnamesFile) {
+        $('#select_map').empty();
+        const savedMaps = await tileDownloader.readMapnames() as string;
+        const userMaps = savedMaps.split(",");
+        for (const map of userMaps) {
+            const option = `<option value="${map}">${map}</option>`;
+            $('#select_map').append(option);
+        }
+    } else {
+        $('#available').css('display', 'none');//
+        $('#no_maps').css('display', 'block');
+        $('#use_map').prop('disabled', true);
+    }  
+    return;
+}
+function offlineSelect() {
+    // Presentation to user for offline map selection
+    prepareMapNames()
+    .then( () => {
+        maps_available.show();
+    });
+}
+$('body').on('click', '#use_map', () => {
+    let choice = $('#select_map').val() as string;
+    if (choice === '') {
+        notice("Select a map to display");
+        return false;
+    }
+    maps_available.hide();
+    displayMap(choice);
+    return;
+});
+const displayMap = async (map_name: string) => {
+    const mapCtr = await tileDownloader.readCenter(map_name) as ReadFileResult;
+    if (!mapCtr) {
+        const msg = `Could not read map center for ${map_name}`;  
+        notice(msg);
+        return false;
+    }
+    const leaflet_ctr = mapCtr.data as string;
+    const center = JSON.parse(leaflet_ctr) as L.LatLng;
+    const map_track = await tileDownloader.readTrack(map_name) as ReadFileResult;
+    if (!map_track) {
+        track_poly = '';
+    } else {
+        track_poly = map_track.data as string;
+    }
+    var zoomSet: number;
+    const savedZoom = await tileDownloader.readSavedZoom(map_name) as any;
+    if (!savedZoom) {
+        const msg = `Could not retrieve zoom level at which ${map_name} was saved`
+        + "\nMap will display at zoom level 10";
+        zoomSet = 10;
+        notice(msg);
+    } else {
+        const mapZoom = savedZoom.data as string;
+        zoomSet = JSON.parse(mapZoom);
+    }
+    offlineMap(map_name, center, zoomSet, track_poly);
+    requestNotificationPermission(true);
+    return;
+}
+async function requestNotificationPermission(enable: boolean) {
+    if (!enable) {
+        await BackgroundGeolocation.stop();
+    } else {
+        // Check the current status
+        let permStatus = await LocalNotifications.checkPermissions();
+        // If not already granted, request it
+        if (permStatus.display !== 'granted') {
+            permStatus = await LocalNotifications.requestPermissions();
+        }
+        if (permStatus.display === 'granted') {
+            // Geolocation...
+            (async () => {
+                // set initial marker location
+                try {
+                    const initial = await Geolocation.getCurrentPosition({
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 5000
+                    });
+                    const lat = initial.coords.latitude;
+                    const lng = initial.coords.longitude;
+                    const latlng = [lat, lng] as L.LatLngExpression;
+                    marker = L.marker(latlng, { icon: customIcon }).addTo(map as L.Map);
+                    //map?.setView(latlng); // optional: center map immediately
+                } catch (e) {
+                    console.warn('Initial position failed:', e);
+                }
+
+                const config: StartOptions = {
+                    backgroundMessage: "",
+                    backgroundTitle: "Tracking...",
+                    requestPermissions: true,
+                    stale: false,  // Always get fresh data
+                    distanceFilter: 5  // Highest frequency updates
+                };
+                const onPosition = (position?: Location | undefined, error?: CallbackError) => {
+                    if (error) {
+                        if (error.code !== 'ALREADY_STARTED') {
+                            if (error.code === "NOT_AUTHORIZED") {
+                                if (window.confirm(
+                                    "This app needs your location, " +
+                                    "but does not have permission.\n\n" +
+                                    "Open settings now?"
+                                )) {
+                                    BackgroundGeolocation.openSettings();
+                                }
+                            } else {
+                                const msg = error.code as string;
+                                notice(msg);
+                            }
+                        }
+                        return; 
+                    }
+                    if (!position) return;
+                    // Position logic
+                    const lat = position?.latitude as number;
+                    const lng = position?.longitude as number;
+                    const ele = position?.altitude as number;
+                    $('#lat').text(lat.toFixed(5));
+                    $('#lng').text(lng.toFixed(5));
+                    const latlng = [lat, lng] as L.LatLngExpression
+                    if (typeof marker === 'undefined') {
+                        marker = L.marker(latlng, {icon: customIcon}).addTo(map as L.Map);
+                    }
+                    marker.setLatLng(latlng);
+                    if (tracking) tracker(lat, lng, ele);
+                    return;
+                };
+                
+                await BackgroundGeolocation.start(config, onPosition);
+            })();    
+        } else {
+            //console.error("Notification permission denied. Background tracking may be throttled.");
+            let msg = "Notification permission denied: Tracking will be disabled";
+            notice(msg);
+        }
+    }
+};
+/**
+ * When a user wishes, he may delete a saved map: Obviously, at least one
+ * 'mapname' resides in the 'mapnames.txt' file when 'delmap' is clicked.
+ */
+$('body').on('click', '#delmap', async function() {
+    const choice = $('#select_map').val() as string;
+    const choice_opt = "option[value=" + choice + "]";
+    $("#select_map " + choice_opt).remove();
+    const stored_mapnames = await tileDownloader.readMapnames() as unknown as string;
+    const map_list = stored_mapnames.split(",");
+    const indx = map_list.indexOf(choice);
+    if (indx !== -1) {
+        map_list.splice(indx, 1);
+    }
+    if (map_list.length === 0) {
+        await tileDownloader.deleteFile("mapnames.txt");
+    } else {
+        const new_map_list = map_list.join(",");
+        await tileDownloader.writeMapnames(new_map_list);
+    }
+    await tileDownloader.removeData(choice);
+    return;
+});

@@ -1,11 +1,11 @@
-
 #body {margin: 0}
 #map {
     border: 1px solid black;
-    width: 700px;
-    height: 500px;
+    width: 100vw;
+    height: 100vh;
     overflow: hidden;
 }
+/* Menu display */
 #menu {
     width: 228px;
     height: 100%;
@@ -23,7 +23,7 @@
     position: absolute;
     right: 40px;
     padding-top: calc(20px + env(safe-area-inset-top));
-    z-index: 100;
+    z-index: 500;
 }
 .surround {
     padding: 6px;
@@ -48,7 +48,9 @@ table td {
 }
 .tbl_txt {
     vertical-align: middle;
+    padding-left: 8px;
 }
+/*  Modals */
 .modal {
     padding-top: env(safe-area-inset-top);
 }
@@ -63,20 +65,24 @@ table td {
     color: black;
     text-align: left;
 }
+/* Imports */
 #srch_box {
     display: inline-block;
+}
+#search {
+    width: 180px;
 }
 #clear {
     position: relative;
     left: -20px;
 }
+#gpxfile {
+    width: 220px;
+}
 .ui-autocomplete {
     z-index: 2000 !important;
 } 
 #note {color: brown
-}
-#woff {
-    display: none;
 }
 .clickable {
     cursor: pointer;
@@ -120,4 +126,40 @@ input[type="file"]::file-selector-button {
     margin-bottom: calc(env(safe-area-inset-bottom));
     position: absolute;
     right: 28px;
+    z-index: 500;
+}
+/* Save Status Modal */
+#base {
+    color: brown;
+    font-weight: bold;
+}
+#zot {
+    color: brown;
+}
+#out_progress {
+    border: 1px solid dodgerblue;
+    height: 48px;
+    width: 200px;
+    background-color: gainsboro;
+}
+#out_bar {
+    height: 48px;
+    width: 2px;
+    background-color: dodgerblue;
+}
+#progress {
+    border: 1px solid SeaGreen;
+    height: 48px;
+    width: 200px;
+    background-color: gainsboro;
+}
+#bar {
+    height: 48px;
+    width: 2px;
+    background-color: SeaGreen;
+}
+#complete {
+    display:none;
+    color:darkgreen;
+    font-weight: bold;
 }
