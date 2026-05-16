@@ -29,7 +29,7 @@ class TileDownloader {
     #usgs_head   = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile";
     //#mapbox_head = "https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles";
     /**
-     * Android requires permission to use 'Directory.Documents'
+     * Android requires permission to use 'Directory.Data'
      */
     async androidPermissions() {
         const permission_status = await Filesystem.requestPermissions();
@@ -38,14 +38,14 @@ class TileDownloader {
 
     /**
      * Due to recent changes, Directory.Documents is no longer accessible,
-     * hence all file system accesses are to Directory.Documents. The following
+     * hence all file system accesses are to Directory.Data. The following
      * section pertains to text files.
      */
     async docFileExists(path: string) {
         try {
             await Filesystem.stat({
                 path: path,
-                directory: Directory.Documents
+                directory: Directory.Data
             });
             return true;
         } catch (error) {
@@ -60,7 +60,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: "mapnames.txt",
                 data: mapnames,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8
             });
             return true;
@@ -74,7 +74,7 @@ class TileDownloader {
         try {
             const mapnames = await Filesystem.readFile({
                 path: "mapnames.txt",
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8
             });
             return mapnames.data;
@@ -90,7 +90,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: `${map}/center.txt`,
                 data: center,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8,
                 recursive: true
             });
@@ -105,7 +105,7 @@ class TileDownloader {
         try {
             const center = await Filesystem.readFile({
                 path: `${map}/center.txt`,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: 
                 Encoding.UTF8
             });
@@ -123,7 +123,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: `${map}/zoom.txt`,
                 data: zoom_str,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8,
                 recursive: true
             });
@@ -139,7 +139,7 @@ class TileDownloader {
         try {
             const zoom_level = await Filesystem.readFile({
                 path: `${map}/zoom.txt`,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8
             });
             return zoom_level;
@@ -156,7 +156,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: `${map}/tracks/track.json`,
                 data: polyline,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8,
                 recursive: true
             });
@@ -171,7 +171,7 @@ class TileDownloader {
         try {
             const poly = await Filesystem.readFile({
                 path: `${map}/tracks/track.json`,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8
             });
             return poly;
@@ -186,7 +186,7 @@ class TileDownloader {
         try {
             await Filesystem.deleteFile({
                 path: path,
-                directory: Directory.Documents
+                directory: Directory.Data
             });
             return true;
         }
@@ -200,7 +200,7 @@ class TileDownloader {
         try {
             const dirFiles =  await Filesystem.readdir({
                 path: path, 
-                directory: Directory.Documents
+                directory: Directory.Data
             });
             return dirFiles.files;
         }
@@ -214,7 +214,7 @@ class TileDownloader {
         try {
             await Filesystem.rmdir({
                 path: path,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 recursive: true
             });
             return true;
@@ -258,7 +258,7 @@ class TileDownloader {
         try {
             const map_tile = await Filesystem.readFile({
                 path: tile_url,
-                directory: Directory.Documents,
+                directory: Directory.Data,
             });
             return map_tile;
         }
@@ -298,7 +298,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: tilePath,
                 data: response.data,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 recursive: true
             });
             //console.log('File written successfully');

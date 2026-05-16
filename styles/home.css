@@ -1,9 +1,35 @@
 #body {margin: 0}
+#map-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+}
+#ui-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 100;
+    pointer-events: none; /* let map clicks pass through */
+}
+#ui-overlay #hamburger, #ui-overlay #menu, #ui-overlay button {
+    pointer-events: all; /* re-enable for interactive elements */
+}
+
 #map {
     border: 1px solid black;
     width: 100vw;
     height: 100vh;
     overflow: hidden;
+}
+.leaflet-top.leaflet-left {
+    padding-top: calc(16px + env(safe-area-inset-top));
+}
+#info {
+    display: none;
+    position: absolute;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: 100px;
 }
 /* Menu display */
 #menu {
@@ -50,6 +76,12 @@ table td {
     vertical-align: middle;
     padding-left: 8px;
 }
+.clickable {
+    cursor: pointer;
+}
+#follow_map, #no_follow_map {
+    display: none;
+}
 /*  Modals */
 .modal {
     padding-top: env(safe-area-inset-top);
@@ -64,6 +96,10 @@ table td {
 .modal-body {
     color: black;
     text-align: left;
+}
+#batt {
+    font-weight: bold;
+    color: brown;
 }
 /* Imports */
 #srch_box {
@@ -97,15 +133,9 @@ input[type="file"]::file-selector-button {
 }
 /* Geolocation dot */
 .pulse-container {
-    position: relative; width: 20px; height: 20px; }
-
-.pulse-dot {
-    width: 12px; height: 12px;
-    background: #1a73e8;
-    border-radius: 50%;
-    position: absolute;
-    top: 5px; left: 5px;
-    border: 2px solid white;
+    position: relative;
+    width: 20px;
+    height: 20px;
 }
 .pulse-ring {
     width: 20px; height: 20px;
@@ -115,17 +145,44 @@ input[type="file"]::file-selector-button {
     animation: pulse 1.5s ease-out infinite;
     opacity: 0;
 }
+.pulse-dot {
+    width: 12px; height: 12px;
+    background: #1a73e8;
+    border-radius: 50%;
+    position: absolute;
+    top: 4px; left: 4px;
+    border: 2px solid white;
+}
 @keyframes pulse {
   0%   { transform: scale(0.5); opacity: 1; }
   100% { transform: scale(2);   opacity: 0; }
 }
-
+/* Save button for offline maps */
+#map_name, #dwnld_name, #select_map, #search {
+    border: 1px solid darkgreen;
+}
 #map_save {
     display: none;
     bottom: 24px;
     margin-bottom: calc(env(safe-area-inset-bottom));
     position: absolute;
     right: 28px;
+    z-index: 500;
+}
+#clear_rect {
+    display: none;
+    bottom: 24px;
+    margin-bottom: calc(env(safe-area-inset-bottom));
+    position: absolute;
+    right: 100px;
+    z-index: 500;
+}
+#rect {
+    display: none;
+    bottom: 24px;
+    margin-bottom: calc(env(safe-area-inset-bottom));
+    position: absolute;
+    right: 180px;
     z-index: 500;
 }
 /* Save Status Modal */

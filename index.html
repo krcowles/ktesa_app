@@ -5,8 +5,9 @@
     <meta charset="utf-8" />
     <meta name="description" content="Mobile app for offline maps" />
     <meta name="author" content="Ken Cowles" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <!--<link rel="stylesheet" href="styles/home.css" />-->
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover,
+            maximum-scale=1.0, user-scalable=no" />
     <link rel="stylesheet" href="styles/home.css" />
 </head>
 
@@ -16,92 +17,100 @@
     <button id="ok" type="button" class="btn btn-sm btn-success">OK</button>
 </dialog>
 
-<div id="secondary_btns">
-    <button id="map_save" type="button" class="btn btn-sm btn-success">Save</button>
+<div id="map-container">
+    <div id="map"></div>
 </div>
 
-<div id="hamburger">
-    <img id="menu_trigger" src="images/hamburger.png" />
-    <span id="disp" style="display:none;">Closed</span>
+<div id="ui-overlay">  
+    <div id="hamburger">
+        <img id="menu_trigger" src="images/hamburger.png" />
+        <span id="disp" style="display:none;">Closed</span>
+    </div>
+
+    <div id="secondary_btns">
+        <button id="map_save" class="btn btn-sm btn-success">Save</button>
+        <button id="clear_rect" class="btn btn-sm btn-warning">Redraw</button>
+        <button id="rect" class="btn btn-sm btn-success">Draw</button>
+    </div>
+
+    <div id="info">
+        <span id="distance">0</span> mis,&nbsp;&nbsp;alt: <span id="feet">0</span> ft.
+    </div>
+
+    <div id="menu">
+        <span class="line_override">Offline Maps</span>
+        <div class="surround">
+            <table>
+                <tr>
+                    <td><img class="save_display" src="images/GreenSave.png" /></td>
+                    <td class="tbl_txt">Save New Map</td>
+                </tr>
+                <tr>
+                    <td><img id="off_goto" src="images/offline.png" /></td>
+                    <td class="tbl_txt">Select Offline Map</td>
+                </tr>
+            </table>
+        </div>
+        <span class="line_override">Tracking</span>
+        <div class="surround">
+            <table>
+                <tr>
+                    <td><img id="play" class="clickable" src="images/play.png" /></td>
+                    <td class="tbl_txt">Start tracking</td>
+                </tr>
+                <tr>
+                    <td><img id="pause" class="clickable" src="images/pause.png" /></td>
+                    <td class="tbl_txt">Pause tracking</td>
+                </tr>
+                <tr>
+                    <td><img id="stop" class="clickable" src="images/red_stop_record.png" /></td>
+                    <td class="tbl_txt">Stop tracking</td>
+                </tr>
+                <tr>
+                    <td><img id="dwnld" class="clickable" src="images/download.png" /></td>
+                    <td class="tbl_txt">Download GPS</td>
+                </tr>
+            </table>
+        </div>
+        <span class="line_override">Position</span>
+        <div class="surround">
+            <table>
+                <tr>
+                    <td><img id="marker" class="clickable" src="images/marker.png" /></td>
+                    <td>Drop Marker</td>
+                </tr>
+                <tr>
+                    <td><img id="locate" class="clickable" src="images/locate.png" /></td>
+                    <td class="tbl_txt">Locate me</td>
+                </tr>
+                <tr id="follow_map">
+                    <td><img id="follows" class="clickable" src="images/follow_on.png" /></td>
+                    <td>Recenter Always</td>
+                </tr>
+                <tr id="no_follow_map">
+                    <td><img id="no_follows" class="clickable" src="images/follow_off.png" /></td>
+                    <td>Don't Recenter</td>
+                </tr>
+            </table>
+        </div>
+        <span class="line_override">Wifi</span>
+        <div class="surround">
+            <table>
+                <tr id="won">
+                    <td><img id="wifi_on" src="images/wifi_on.png" /></td>
+                    <td class="tbl_txt">Wifi on</td>
+                </tr>
+                <tr id="woff">
+                    <td><img id="wifi_off" src="images/wifi_outline.png" /></td>
+                    <td class="tbl_txt">Wifi off</td>
+                </tr>
+            </table>
+        </div>
+    </div>
 </div>
 
-<div id="map"></div>
-
-<!-- ----------------- MENU SYSTEM --------------- -->
-<div id="menu">
-    <span class="line_override">Offline Maps</span>
-    <div class="surround">
-        <table>
-            <tr>
-                <td><img id="save_display" src="images/GreenSave.png" /></td>
-                <td class="tbl_txt">Save New Map</td>
-            </tr>
-            <tr id="use_offline">
-                <td><img id="off_goto" src="images/offline.png" /></td>
-                <td class="tbl_txt">Use Offline</td>
-            </tr>
-            <tr id="exit_offline">
-                <td><img id="off_exit" src="images/offline_black.png" /></td>
-                <td class="tbl_txt">Exit Offline</td>
-            </tr>
-        </table>
-    </div>
-    <span class="line_override">Tracking</span>
-    <div class="surround">
-        <table>
-            <tr>
-                <td><img id="play" class="clickable" src="images/play.png" /></td>
-                <td class="tbl_txt">Start tracking</td>
-            </tr>
-            <tr>
-                <td><img id="pause" class="clickable" src="images/pause.png" /></td>
-                <td class="tbl_txt">Pause tracking</td>
-            </tr>
-            <tr>
-                <td><img id="stop" class="clickable" src="images/red_stop_record.png" /></td>
-                <td class="tbl_txt">Stop tracking</td>
-            </tr>
-            <tr>
-                <td><img id="dwnld" class="clickable" src="images/download.png" /></td>
-                <td class="tbl_txt">Download GPS</td>
-            </tr>
-        </table>
-    </div>
-    <span class="line_override">Position</span>
-    <div class="surround">
-        <table>
-            <tr>
-                <td><img id="marker" class="clickable" src="images/marker.png" /></td>
-                <td>Drop Marker</td>
-            </tr>
-            <tr>
-                <td><img id="locate" class="clickable" src="images/locate.png" /></td>
-                <td class="tbl_txt">Locate me</td>
-            </tr>
-            <tr>
-                <td><img id="follow" class="clickable" src="images/follow_on.png" /></td>
-                <td>Map follows GPS</td>
-            </tr>
-        </table>
-    </div>
-    <span class="line_override">Wifi</span>
-    <div class="surround">
-        <table>
-            <tr id="won">
-                <td><img id="wifi_on" src="images/wifi_on.png" /></td>
-                <td class="tbl_txt">Wifi on</td>
-            </tr>
-            <tr id="woff">
-                <td><img id="wifi_off" src="images/wifi_off.png" /></td>
-                <td class="tbl_txt">Wifi off</td>
-            </tr>
-        </table>
-    </div>
-
-</div>
-
-<!-- ---------------  MDOALS --------------- -->
-<!-- MODAL: Types of Save to Execute -->
+<!-- ---------------  MODALS --------------- -->
+<!-- MODAL: Ways to Save -->
 <div id="save_type" class="modal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -128,9 +137,8 @@
                 <button id="gpx" class="btn btn-sm btn-primary" disabled>
                     Import GPX</button>&nbsp;&nbsp;<input id="gpxfile" type="file" />
                     <br /><br />
-                <button id="rect" class="btn btn-sm btn-primary">
-                    Draw rectangle</button>&nbsp;&nbsp;
-                    <sapn id="note">IMPORTANT! Min zoom: 13</sapn>
+                <button id="begin_draw" class="btn btn-sm btn-primary">
+                    Draw rectangle</button>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -138,7 +146,28 @@
         </div>
     </div>
 </div>
-<!-- MODAL: Offlne Map Saver -->
+<!-- MODAL: Draw Rectangle -->
+<div id="draw_setup" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Drawing Rectangle</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Pan / zoom to level 13 or higher to display area of
+                interest. Then tap 'Draw' below to begin.
+            </div>
+            <div class="modal-footer">
+                <button id="draw_routine" class="btn btn-sm btn-success">Ready to Draw</button>
+                <button class="btn btn-sm btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- MODAL: Offline Map Saver -->
 <div id="om_save" class="modal" tabindex="-1"
     aria-labelledby="Offline Map Saver" aria-hidden="false">
     <div class="modal-dialog">
@@ -200,7 +229,7 @@
     </div>
 </div>
 <!-- Select a Saved Map for use offline -->
-<div id="use_offline" class="modal" tabindex="-1">
+<div id="maps_available" class="modal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -214,24 +243,21 @@
                     <div>
                         <select id="select_map" style="min-width:120px;">
                         </select>&nbsp;&nbsp;
-                        <button id="use_map" type="button" class="btn btn-sm btn-success">
-                            Use Map
-                        </button><br />
-                        <button id="delmap" type="button" class="btn-sm btn-danger">
-                            Delete Selection
-                        </button>
+                        <button id="use_map" class="btn btn-sm btn-success">Use Map
+                        </button><br /><br />
+                        <button id="delmap" class="btn btn-sm btn-danger">
+                            Delete Selection</button>
                     </div>
                 </div>
                 <div id="no_maps" style="display:none;">
                     <p>
-                    There are no offline maps saved: maps can be saved by
-                    clicking on 'Save Maps' on the Welcome page of this app,
-                    or click the 'Save' button below.Internet connection is required.
+                    There are no offline maps saved: tap the "Save New Map" button
+                    to create and save an offline map. Internet connection is required.
                     </p>
                 </div>
                 <div>
                     <br />
-                    <button type="button" class="btn btn-sm btn-primary restart">
+                    <button class="save_display btn btn-sm btn-primary restart">
                         Save New Map
                     </button> [Internet required]&nbsp;&nbsp;<span id="connection"></span>
                     <br /><br />
@@ -240,6 +266,34 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <button id="off_close" type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- GPX Track Saver -->
+<div id="save_gpx" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">File Download</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="map2save" style="font-size: 18px;">
+                    To save GPX file, enter a unique name:<br />
+                    <input id="dwnld_name" type="text" /><br /><br />
+                    Clear track after save?<br />
+                    <button id="clear_poly" class="btn btn-sm btn-secondary">
+                        Yes, Clear
+                    </button><br />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="save_dwnld" type="button" class="btn btn-success">
+                    Save</button>
                 <button id="off_close" type="button" class="btn btn-secondary"
                     data-bs-dismiss="modal">Close</button>
             </div>

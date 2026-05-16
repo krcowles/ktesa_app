@@ -29,14 +29,7 @@ interface TrackPoint {
     lat: number;
     lng: number;
     elevation: number;
-}
-/*
-class DroppedMarker extends L.Marker<CustomMarkerOpts> {
-    constructor(latlng: L.LatLngExpression, options: CustomMarkerOpts) {
-        super(latlng, options);
-    }
-}
-*/
+  }
   
 import $ from 'jquery';
 import 'jquery-ui/ui/widgets/autocomplete';
@@ -112,33 +105,20 @@ if (isAndroid()) {
     androidReadWrite();
 }
 
-// Prevent pinch-zoom on document
-document.addEventListener('gesturestart', (e) => e.preventDefault());
-document.addEventListener('gesturechange', (e) => e.preventDefault());
-document.addEventListener('gestureend', (e) => e.preventDefault());
-
 /**
  * ----------------- Icon Settings -----------------
  */
 var internetConnected: boolean;
-// On page load:
-internetConnected = navigator.onLine ? true : false; 
-
-const internetIcon = (state:string) => {
-    if (state === 'on') {
-        $('#won').css('display', 'table-row');
-        $('#woff').css('display', 'none');
-    } else {
-        $('#won').css('display', 'none');
-        $('#woff').css('display', 'table-row');
-    }
-};
-// On page load:
+// On page load: 
+var page_opening: string;
 if (navigator.onLine) {
-    internetIcon('on');
+    page_opening = 'on';
+    internetConnected = true;
 } else {
-    internetIcon('off');
+    page_opening = 'off';
+    internetConnected = false;
 }
+
 export async function checkConnectivity() {
     try {
         const response = await CapacitorHttp.request({
@@ -159,18 +139,20 @@ export async function checkConnectivity() {
 }
 setInterval(checkConnectivity, 20000);
 
-function followIcon(state: boolean) {
-    if (state) {
-        $('#no_follow_map').css('display', 'none');
-        $('#follow_map').css('display', 'table-row')
+const useOfflineIcon = (state: string) => {
+    if (state === 'online') {
+        $('#use_offline').css('display', 'table-row');
+        $('#exit_offline').css('display', 'none');
     } else {
-        $('#no_follow_map').css('display', 'table-row');
-        $('#follow_map').css('display', 'none')
+        $('#use_offline').css('display', 'none');
+        $('#exit_offline').css('display', 'table-row');
     }
-};
-// page load state:
-var following = false;
-followIcon(true);
+}
+if (page_opening === 'on') {
+    useOfflineIcon('online');
+} else {
+    useOfflineIcon('offline');
+}
 
 /**
  * The notification dialog box is a substitute for the window.alert()
@@ -193,13 +175,12 @@ ok.addEventListener('click', () => {
  * ----------------- Modals -----------------
  */
 const saverDiv = document.getElementById('save_type') as HTMLDivElement;
-const save_type_modal = new bootstrap.Modal(saverDiv);
-const drawingRect = document.getElementById('draw_setup') as HTMLDivElement;
-const drawModal = new bootstrap.Modal(drawingRect);
+var save_type_modal = new bootstrap.Modal(saverDiv);
 const mapSave = document.getElementById('om_save') as HTMLDivElement;
-const save_om_map_modal = new bootstrap.Modal(mapSave);
+var  save_om_map_modal = new bootstrap.Modal(mapSave);
 const downloadDiv = document.getElementById('save_gpx') as HTMLDivElement;
-const downloadModal = new bootstrap.Modal(downloadDiv);
+var downloadModal = new bootstrap.Modal(downloadDiv);
+
 
 /**
  * ----------------- Main display page -----------------
@@ -207,10 +188,10 @@ const downloadModal = new bootstrap.Modal(downloadDiv);
 
 // Map Globals and Initialization
 /**
- * It is necessary to completely destroy any existing map in order to
- * display a new offline map: Note this routine apparently is no longer
- * needed as 'map.remove()' and 'map = null' seem to solve any issues...
- * Leaving code in case a situation arises later.
+ * It is necessary to completely destroy an existing online map
+ * in order to display a new offline map: Note this routine apparently
+ * is no longer needed as 'map.remove()' and 'map = null' seem to
+ * solve any issues... Leaving code in case a situation arises later.
  */
 export function resetMap(containerId = 'map'): L.Map {
     if (window._leafletMap) {
@@ -228,8 +209,7 @@ export function resetMap(containerId = 'map'): L.Map {
 }
 /**
  * This function will destroy any currently implemented map and
- * then display the offline map selected by the user. Also
- * destroyed are all map objects: markers, polyline, rectangle, etc.
+ * then display the offline map selected by the user.
  */
 async function loadSelectedMap(mapname: string):Promise<void>  {
     if (online_loaded || offline_loaded) {
@@ -242,11 +222,7 @@ async function loadSelectedMap(mapname: string):Promise<void>  {
     displayMap(mapname); // will set offline_loaded via offlineMap()
 }
 
-/**
- * Module-level globals including functions
- */
 var map: L.Map;
-var permissions_requested = false;
 const tile_server = "usgs"; // current tile server for ktesa_app
 const ONLINE_LAYER_OPTIONS: L.TileLayerOptions = {
     attribution: 'USGS The National Map',
@@ -282,26 +258,7 @@ const zoom_handler = () => {
         }, 200);
     }
 };
-var dropMarker = L.icon({
-    iconUrl: 'images/app_marker.png',
-    iconSize: [32, 32],
-    iconAnchor: [32, 16]
-});
-function zoomctl_setup(start_zoom: number) {
-    zctrl = document.createElement("DIV");
-    zctrl.id = 'zoomval';
-    const zsym  = document.createTextNode("Z: ");
-    zctrl.style.marginLeft = "8px";
-    zctrl.style.fontSize = "18px";
-    zctrl.style.color = "brown";
-    zctrl.style.fontWeight = "bold";
-    const zval  = document.createElement("SPAN");
-    zval.id = "zval";
-    zval.textContent = start_zoom.toString();
-    zctrl.append(zsym, zval);
-    $('.leaflet-top.leaflet-left').append(zctrl);
-    map.addEventListener("zoom", zoom_handler);
-}
+var following = false;
 
 export async function initMap() { 
     // DISPLAY THE MAP:
@@ -315,15 +272,26 @@ export async function initMap() {
     });
     L.tileLayer(ONLINE_TILE_URL, ONLINE_LAYER_OPTIONS)
         .addTo(map);
-    marker = L.marker(latlng, { icon: pulseIcon }).addTo(map);
     map.locate({enableHighAccuracy: true, watch: false});
-    map.once('locationfound', function (e) {
+    map.on('locationfound', function (e) {
         latlng = e.latlng;
         map.panTo(latlng);
         marker.setLatLng(latlng);
     });
     // track the zoom level on map
-    zoomctl_setup(zoom_level);
+    zctrl = document.createElement("DIV");
+    zctrl.id = 'zoomval';
+    const zsym  = document.createTextNode("Z: ");
+    zctrl.style.marginLeft = "8px";
+    zctrl.style.fontSize = "18px";
+    zctrl.style.color = "brown";
+    zctrl.style.fontWeight = "bold";
+    const zval  = document.createElement("SPAN");
+    zval.id = "zval";
+    zval.textContent = zoom_level.toString();
+    zctrl.append(zsym, zval);
+    $('.leaflet-top.leaflet-left').append(zctrl);
+    map.addEventListener("zoom", zoom_handler);
     /**
      * This layer provides a map grid of tiles with the tile id's
      * supplied in each tile. This is primarily used for debug in order
@@ -343,10 +311,8 @@ export async function initMap() {
         }
     }
     map.addLayer(new GridDebug());
+    marker = L.marker(latlng, { icon: pulseIcon }).addTo(map);
     online_loaded = true;
-    if (!permissions_requested) {
-        requestNotificationPermission()
-    } 
 }
 
 // Create modal offline map selections for user
@@ -395,83 +361,22 @@ $('#menu_trigger').on('click', () => {
     }
     return;
 });
-$('body').on('click', '.save_display', () => {
+$('#save_display').on('click', () => {
     if (internetConnected) {
         menu_close();
-        if (offline_loaded) {
-            map.remove();
-            map = null!;
-            offline_loaded = false;
-            initMap();
-        }
         save_type_modal.show();
     } else {
         notice("Cannot save maps when internet is not connected");
     }
     return;
 });
+
 $('body').on('click', '#off_goto', () => {
     // #off_goto won't be shown if not connected to internet
-    if (onlineRectangle) {
-        map.removeLayer(onlineRectangle);
-        map.removeLayer(onlineTrack);
-    }
-    menu_close();
+    useOfflineIcon('offline');
     offlineSelect();
     return;
 });
-$('body').on('click', '#play', () => {
-    tracking = true;
-    $('#info').css('display', 'block');
-    menu_close();
-});
-$('body').on('click', '#pause', () => {
-    tracking_actions('continue');
-    tracking = false;
-    $('#info').css('display', 'none');
-    menu_close();
-});
-$('body').on('click', '#stop', () => {
-    tracking_actions('close');
-    tracking = false;
-    $('#info').css('display', 'none');
-    menu_close();
-});
-$('body').on('click', '#dwnld', () => {
-    menu_close();
-    downloadModal.show();
-});
-$('body').on('click', '#marker', () => {
-    menu_close();
-    map.locate({enableHighAccuracy: true, watch: false});
-    map.once('locationfound', function (e) {
-        const myloc = e.latlng;
-        const waypt = [myloc.lat, myloc.lng] as number[];
-        waypts.push(waypt);
-        const wmrkr = L.marker(myloc, {icon: dropMarker}).addTo(map);
-        wayMrkrs.push(wmrkr);
-    });
-});
-$('body').on('click', '#locate', () => {
-    map.locate({enableHighAccuracy: true, watch: false});
-    map.once('locationfound', function(e) {
-        let myloc = e.latlng;
-        map.setView(myloc);
-    });
-    menu_close();
-});
-$('body').on('click', '#follows', () => {
-    following = true;
-    followIcon(false); // show available next state
-    menu_close();
-});
-$('body').on('click', '#no_follows', () => {
-    following = false;
-    followIcon(true);
-    menu_close();
-});
-
-// Modal/Secondary Buttons
 $('body').on('click', '#use_map', () => {
     const user_map = $('#select_map').val() as string;
     if (user_map == '') {
@@ -481,43 +386,20 @@ $('body').on('click', '#use_map', () => {
     maps_available.hide();
     loadSelectedMap(user_map);
     return;
+})
+$('#play').on('click', () => {
+    tracking = true;
 });
-$('body').on('click', '#map_save', () => {
-    save_om_map_modal.show();
+$('#pause').on('click', () => {
+    tracking_actions('continue');
+    tracking = false;
 });
-$('body').on('click', '#save_om', () => {
-    mapName = $('#map_name').val() as string;
-    if (mapName == '') {
-        notice("You must supply a name for the map");
-        return false;
-    }
-    if (rect_complete) {
-        $('#map_save').css('display', 'none');
-        $('#clear_rect').css('display', 'none');
-        $('#rect').css('display', 'none');
-        rect_complete = false;
-        $('#map').off(); // DOM events only
-        map.dragging.enable();
-    }
-    tile_save();
-    return;
+$('#stop').on('click', () => {
+    tracking_actions('close');
+    tracking = false;
 });
-$('body').on('click', '#begin_draw', () => {
-    save_type_modal.hide();
-    drawModal.show();
-});
-$('body').on('click', '#draw_routine', () => {
-    drawModal.hide();
-    $('#rect').prop('disabled', false);
-    $('#map_save').css('display', 'inline');
-    $('#clear_rect').css('display', 'inline');
-    $('#rect').css('display', 'inline');
-});
-$('body').on('click', '#clear_rect', () => {
-    map.removeLayer(rect);
-    rect_complete = false;
-});
-$('body').on('click', '#save_dwnld', () => {
+$('#dwnld').on('click', () => {
+    downloadModal.show();
     const gpx_name = $('#dwnld_name').val() as string;
     if (gpx_name == '') {
         notice("Please supply a name for the download file");
@@ -526,21 +408,38 @@ $('body').on('click', '#save_dwnld', () => {
     createAndDownloadGPX(gpx_name);
     return;
 });
-$('body').on('click', '#clear_poly', () => {
-    clear_track = true;
+$('#marker').on('click', () => {
+    // add a marker at the current location
+});
+$('#locate').on('click', () => {
+    map.locate({enableHighAccuracy: true, setView: true, watch: false});
+});
+$('#follow').on('click', () => {
+    following = true;
+});
+// Secondary Buttons:
+$('#map_save').on('click', () => {
+    save_om_map_modal.show();
+});
+$('#save_om').on('click', () => {
+    mapName = $('#map_name').val() as string;
+    if (mapName == '') {
+        notice("You must supply a name for the map");
+        return false;
+    }
+    tile_save();
+    return;
 });
 
 // ----------------- Defining Offline Map -----------------
 var save_type: string;
 var map_center: L.LatLng;
 var track_string: string;
-var onlineTrack: L.Layer;
-var onlineRectangle: L.Layer;
 
 /**
  * 1. Import a site hike (imports map center, bounds, and gpx file)
  */
-$('body').on('click', '#site', () => {
+$('#site').on('click', () => {
     let hikename = $('#search').val() as string;
     if (hikename == '') {
         notice("Please select a hike");
@@ -564,7 +463,7 @@ const importHike = async (hike: string) => {
     var map_string = site_data.data;
     save_type = "import";
     $('#search').val("");
-    $('#site').prop('disabled', true);
+    $('#site').prop('diabled', true);
     siteHike(map_string);
 };
 const ui_sources = async () => {
@@ -735,9 +634,9 @@ function displayImportedTrack(
     nw = L.latLng(nw.lat+latmarg, nw.lng+lngmarg);
     se = L.latLng(se.lat-latmarg, se.lng-lngmarg);
     
-    onlineRectangle =L.rectangle(track_bounds, {color:'darkgreen', fill: false, weight: 2}).addTo(map);
+    L.rectangle(track_bounds, {color:'darkgreen', fill: false, weight: 2}).addTo(map);
     //let n = 0;  // color pointer NO LONGER ACCEPTING MULTIPLE TRACKS PER IMPORT...
-    onlineTrack = L.polyline(polyline, {color: 'blue'}).addTo(map);
+    L.polyline(polyline, {color: 'blue'}).addTo(map);
 
     // tracks & bounds rectangle are added, now pan to center of map
     map.flyTo(mapctr, 13, {duration: 1.5});
@@ -778,7 +677,7 @@ function zoomOptimizer() {
  * Later, the map can be used and a track can be captured if desired.
  */
 var bounds: MapBounds;  // supplied to the tileDownloader for downloading regions
-var rect: L.Rectangle;  // user-define rectangular area to save
+var rect: L.Rectangle;
 var startX: number;  // lat of upper-left tile; ul[0]
 var startY: number;  // lng of upper-left tile; ul[1]
 var endX: number;    // lat of lower-right tile; lr[0]
@@ -791,19 +690,21 @@ tile_coords[12] = [];
 tile_coords[13] = []; 
 tile_coords[14] = [];
 tile_coords[15] = [];
-var rect_complete = false;
 $('body').on('click', '#rect', function () {
-    $('#rect').prop('disabled', true);
-    rect_complete = false;
+    const zlevel = map.getZoom();
+    if (zlevel < 13) {
+        notice("Minimum zoom level is 13");
+        return false;
+    }
     $(this).removeClass('btn-primary');
     $(this).addClass('btn-secondary');
     $(this).prop("disabled", true);
     if (typeof rect !== 'undefined') {
-        map.removeLayer(rect);
+        rect.remove();
     }
 
     // Setup touch event handling
-    map.dragging.disable();  // restored after save
+    map.dragging.disable();
     var container = map.getContainer();
     L.DomEvent.on(container, 'touchstart', function(e) {
         L.DomEvent.preventDefault(e);
@@ -819,54 +720,49 @@ $('body').on('click', '#rect', function () {
         end_rect(e)
     });
     function start_rect(ev: any) {
-        if (!rect_complete) {
-            var touch = ev.touches[0];
-            //var startRect = map.mouseEventToLatLng(ev.originalEvent);
-            var startRect = map.mouseEventToLatLng(touch);
-            startX = startRect.lat;
-            startY = startRect.lng;
-            var rectX = startX + 0.005;
-            var rectY = startY + 0.005;
-            var crnr1 = L.latLng(startX, startY);
-            var crnr2 = L.latLng(rectX, rectY);
-            var latlngs = L.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
-            var rectOpts = { color: 'Green', weight: 1 };
-            rect = L.rectangle(latlngs, rectOpts);
-            rect.addTo(map);
-            //click_cnt = 1;
-        }
+        var touch = ev.touches[0];
+        //var startRect = map.mouseEventToLatLng(ev.originalEvent);
+        var startRect = map.mouseEventToLatLng(touch);
+        startX = startRect.lat;
+        startY = startRect.lng;
+        var rectX = startX + 0.005;
+        var rectY = startY + 0.005;
+        var crnr1 = L.latLng(startX, startY);
+        var crnr2 = L.latLng(rectX, rectY);
+        var latlngs = L.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
+        var rectOpts = { color: 'Green', weight: 1 };
+        rect = L.rectangle(latlngs, rectOpts);
+        rect.addTo(map);
+        //click_cnt = 1;
     }
     function draw_rect(ev: any) {
-        if (!rect_complete) {
-            rect.removeFrom(map);
-            var touch = ev.touches[0];
-            var newRect = map.mouseEventToLatLng(touch);
-            //var newRect = map.mouseEventToLatLng(ev.originalEvent);
-            var rectX = newRect.lat;
-            var rectY = newRect.lng;
-            var crnr1 = L.latLng(startX, startY);
-            var crnr2 = L.latLng(rectX, rectY);
-            var latlngs = L.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
-            var rectOpts = { color: 'Green', weight: 1 };
-            rect = L.rectangle(latlngs, rectOpts);
-            rect.addTo(map);
-        }
+        rect.removeFrom(map);
+        var touch = ev.touches[0];
+        var newRect = map.mouseEventToLatLng(touch);
+        //var newRect = map.mouseEventToLatLng(ev.originalEvent);
+        var rectX = newRect.lat;
+        var rectY = newRect.lng;
+        var crnr1 = L.latLng(startX, startY);
+        var crnr2 = L.latLng(rectX, rectY);
+        var latlngs = L.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
+        var rectOpts = { color: 'Green', weight: 1 };
+        rect = L.rectangle(latlngs, rectOpts);
+        rect.addTo(map);
     }
     function end_rect(ev: any) {
-        if (!rect_complete) {
-            var touchlist = ev.changedTouches;
-            var items = touchlist.length;
-            var touch = touchlist.item(items-1);
-            var endRect = map.mouseEventToLatLng(touch);
-            //var endRect = map.mouseEventToLatLng(ev.originalEvent);
-            endX = endRect.lat;
-            endY = endRect.lng;
-            var lat_ctr = startX - (startX - endX)/2;
-            var lng_ctr = startY + (endY - startY)/2;
-            map_center = L.latLng(lat_ctr, lng_ctr);
-            bounds = getRectBounds();
-            rect_complete = true;
-        }
+        var touchlist = ev.changedTouches;
+        var items = touchlist.length;
+        var touch = touchlist.item(items-1);
+        var endRect = map.mouseEventToLatLng(touch);
+        //var endRect = map.mouseEventToLatLng(ev.originalEvent);
+        endX = endRect.lat;
+        endY = endRect.lng;
+        var lat_ctr = startX - (startX - endX)/2;
+        var lng_ctr = startY + (endY - startY)/2;
+        map_center = L.latLng(lat_ctr, lng_ctr);
+        //map.dragging.enable();
+        bounds = getRectBounds();
+        $('#map').off();
     }
     return;
 });
@@ -1045,11 +941,6 @@ const tile_save = async () => {
     const uc = ul_tile[1];
     const lr = lr_tile[0];
     const lc = lr_tile[1];
-    // clear out any previous save data:
-    $('#complete').css('dsiplay', 'none');
-    $('#out_bar').css('width', '2px');
-    $('#bar').css('width', '2px');
-    $('#base').text("Saving Base Map...");
     $('#base').css('display', 'inline');
     // top row
     for (let row = ur-1, i=uc-1; i<=lc+1; i++) {
@@ -1102,6 +993,8 @@ const tile_save = async () => {
     // dowload the zoom-ins for the 'bounds' region
     await tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
     $('#map_save').css('display', 'none');
+    $('#base').css('display', 'none');
+    $('#base').text("Saving base map..."); // prepare for next save
     return;
 };
 /**
@@ -1128,6 +1021,7 @@ var zooming = false;
 var marker: L.Marker;
 var tracking = false; // initial load
 var hike: L.Polyline;
+var perms_enabled = false;
 
 /**
  * Declare L.TileLayer.Offline and L.tileLayer.offline only once, then simply
@@ -1198,9 +1092,8 @@ async function displayMap(map_name: string) {
         zoomSet = JSON.parse(mapZoom);
     }
     offlineMap(map_name, center, zoomSet, track_poly);
-    if (!permissions_requested) {
-        requestNotificationPermission();
-    }
+    let enable = perms_enabled ? true : false;
+    requestNotificationPermission(enable);
     return;
 }
 // Instantiate the offline map: arguments obtained when user selects map
@@ -1210,6 +1103,7 @@ function offlineMap (mapname: string, map_ctr: L.LatLng, map_zoom: number, track
         minZoom: 10,
         maxZoom: 18,
         zoom: map_zoom,
+        zoomSnap: 1
     });
     L.tileLayer.offline('', {
         mapname,
@@ -1220,17 +1114,25 @@ function offlineMap (mapname: string, map_ctr: L.LatLng, map_zoom: number, track
     L.tileLayer.offline('', {
         attribution: 'USGS'
     }).addTo(map);
-    // Geolocation dot
-    map.locate({enableHighAccuracy: true, watch: false});
-    map.once('locationfound', function (e) {
-        let loc_now = e.latlng;
-        marker = L.marker(loc_now, { icon: pulseIcon }).addTo(map);
-    });
+    marker.setLatLng(map_ctr);
     // point to the starting zoom level
-    zoomctl_setup(map_zoom);
+    zctrl = document.createElement("DIV");
+    zctrl.id = 'zoomval';
+    const zsym = document.createTextNode("Z: ");
+    zctrl.style.marginLeft = "8px";
+    zctrl.style.fontSize = "14px";
+    zctrl.style.color = "brown";
+    zctrl.style.fontWeight = "bold";
+    const zval = document.createElement("SPAN");
+    zval.id = "zval";
+    zval.textContent = map.getZoom().toString();
+    zctrl.append(zsym, zval);
+    $('.leaflet-top.leaflet-left').append(zctrl);
+    map.addEventListener("zoom", zoom_handler);
+
     if (track !== '') {
         const latlng_arr = JSON.parse(track);
-        offline_track = L.polyline(latlng_arr, {color: 'blue'}).addTo(map);
+        L.polyline(latlng_arr, {color: 'blue'}).addTo(map);
     }
     map.invalidateSize();
     offline_loaded = true;
@@ -1241,77 +1143,83 @@ function tracking_actions(gpx_stat: string) {
         // close current gpx, start new one?
     }
 }
-/**
- * Once set, Geolocation is not affected by switching online/offline maps
- * 'marker' must be defined before calling this routine
- */ 
-async function requestNotificationPermission() {
-    permissions_requested = true;
-    // Check the current status
-    let permStatus = await LocalNotifications.checkPermissions();
-    // If not already granted, request it
-    if (permStatus.display !== 'granted') {
-        permStatus = await LocalNotifications.requestPermissions();
-    }
-    if (permStatus.display === 'granted') {
-        // Setup Geolocation...
-        (async () => {
-            try {
-                const initial = await Geolocation.getCurrentPosition({
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 5000
-                });
-                const lat = initial.coords.latitude;
-                const lng = initial.coords.longitude;
-                const latlng = [lat, lng] as L.LatLngExpression;
-                marker.setLatLng(latlng);
-            } catch (e) {
-                console.warn('Initial position failed:', e);
-            }
-            const config: StartOptions = {
-                backgroundMessage: "",
-                backgroundTitle: "Tracking...",
-                requestPermissions: true,
-                stale: false,  // Always get fresh data
-                distanceFilter: 5  // Highest frequency updates
-            };
-            const onPosition = (position?: Location | undefined, error?: CallbackError) => {
-                if (error) {
-                    if (error.code !== 'ALREADY_STARTED') {
-                        if (error.code === "NOT_AUTHORIZED") {
-                            if (window.confirm(
-                                "This app needs your location, " +
-                                "but does not have permission.\n\n" +
-                                "Open settings now?"
-                            )) {
-                                BackgroundGeolocation.openSettings();
-                            }
-                        } else {
-                            const msg = error.code as string;
-                            notice(msg);
-                        }
-                    }
-                    return; 
-                }
-                if (!position) return;
-                // Position logic
-                const lat = position?.latitude as number;
-                const lng = position?.longitude as number;
-                const ele = position?.altitude as number;
-                const latlng = [lat, lng] as L.LatLngExpression
-                marker.setLatLng(latlng);
-                if (following) {
-                    map.setView(latlng);
-                }
-                if (tracking) tracker(lat, lng, ele);
-                return;
-            };
-            await BackgroundGeolocation.start(config, onPosition);
-        })();    
+async function requestNotificationPermission(enable: boolean) {
+    if (!enable) {
+        await BackgroundGeolocation.stop();
     } else {
-        let msg = "Notification permission denied: Tracking will be disabled";
-        notice(msg);
+        // Check the current status
+        let permStatus = await LocalNotifications.checkPermissions();
+        // If not already granted, request it
+        if (permStatus.display !== 'granted') {
+            permStatus = await LocalNotifications.requestPermissions();
+        }
+        if (permStatus.display === 'granted') {
+            // Geolocation...
+            (async () => {
+                // set initial marker location
+                try {
+                    const initial = await Geolocation.getCurrentPosition({
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 5000
+                    });
+                    const lat = initial.coords.latitude;
+                    const lng = initial.coords.longitude;
+                    const latlng = [lat, lng] as L.LatLngExpression;
+                    marker.setLatLng(latlng);
+                    //map?.setView(latlng); // optional: center map immediately
+                } catch (e) {
+                    console.warn('Initial position failed:', e);
+                }
+
+                const config: StartOptions = {
+                    backgroundMessage: "",
+                    backgroundTitle: "Tracking...",
+                    requestPermissions: true,
+                    stale: false,  // Always get fresh data
+                    distanceFilter: 5  // Highest frequency updates
+                };
+                const onPosition = (position?: Location | undefined, error?: CallbackError) => {
+                    if (error) {
+                        if (error.code !== 'ALREADY_STARTED') {
+                            if (error.code === "NOT_AUTHORIZED") {
+                                if (window.confirm(
+                                    "This app needs your location, " +
+                                    "but does not have permission.\n\n" +
+                                    "Open settings now?"
+                                )) {
+                                    BackgroundGeolocation.openSettings();
+                                }
+                            } else {
+                                const msg = error.code as string;
+                                notice(msg);
+                            }
+                        }
+                        return; 
+                    }
+                    if (!position) return;
+                    // Position logic
+                    const lat = position?.latitude as number;
+                    const lng = position?.longitude as number;
+                    const ele = position?.altitude as number;
+                    $('#lat').text(lat.toFixed(5));
+                    $('#lng').text(lng.toFixed(5));
+                    const latlng = [lat, lng] as L.LatLngExpression
+                    marker.setLatLng(latlng);
+                    if (following) {
+                        map.setView(latlng);
+                    }
+                    if (tracking) tracker(lat, lng, ele);
+                    return;
+                };
+                perms_enabled = true;
+                await BackgroundGeolocation.start(config, onPosition);
+            })();    
+        } else {
+            //console.error("Notification permission denied. Background tracking may be throttled.");
+            let msg = "Notification permission denied: Tracking will be disabled";
+            notice(msg);
+        }
     }
 };
 function distInMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -1331,6 +1239,7 @@ function distInMiles(lat1: number, lon1: number, lat2: number, lon2: number): nu
     var miles = kilos / 1.609344
     return miles;
 }
+
 /**
  * ----------------- Tracking/Download -----------------
  */
@@ -1339,17 +1248,11 @@ var miles = 0;
 var gpx_pts = [] as TrackPoint[];
 var map_pt: L.LatLng;
 var map_line = [] as L.LatLng[];
-var waypts = [] as number[][];
-var wayMrkrs: L.Marker<L.MarkerOptions>[] = [];
-var offline_track: L.Polyline;
-var clear_track = false;
 function tracker(lat: number, lng: number, ele: number) {
     track_pt = {lat: lat, lng: lng, elevation: ele} as TrackPoint;
     gpx_pts.push(track_pt);
     map_pt = L.latLng(lat, lng); // => {lat: lat, lng: lng}
     map_line.push(map_pt);
-    let altitude = track_pt.elevation * 3.28084
-    $('#feet').text(altitude.toFixed(0));
     let pts = map_line.length;
         if (pts > 1) {
             let dist_incr = distInMiles(
@@ -1357,99 +1260,79 @@ function tracker(lat: number, lng: number, ele: number) {
                 map_line[pts-2].lat, map_line[pts-2].lng
             )
             miles += dist_incr;
-            $('#distance').text(miles.toFixed(2));
+            $('#miles').text(miles.toFixed(2));
             if (pts > 2) {
-                map.removeLayer(hike);
+                hike.remove();
             }
             hike = L.polyline(map_line, {color: 'red'}).addTo(map);
         }
     return;
 }
 // Data for creating GPX File
-var gpx_file = '<?xml version="1.0"?>' + "\n";
-gpx_file += '<gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
+var gpx_track = '<?xml version="1.0"?>' + "\n";
+gpx_track += '<gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
     'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.1" ' +
     'xsi:schemaLocation="http://www.topografix.com/GPX/1/1 ' +
     'http://www.topografix.com/GPX/1/1/gpx.xsd" creator="nmhikes.com">';
-let track_name = "\n  <trk>\n    <name>USER</name>\n    <trkseg>\n";
+gpx_track += "\n  <trk>\n    <name>USER</name>\n    <trkseg>\n";
 const gpx_eof = "    </trkseg>\n  </trk>\n</gpx>";
 
 async function createAndDownloadGPX(dwnld_name: string) {
-    if (waypts.length === 0 && gpx_pts.length === 0) {
-        notice("There is nothing to download");
-        $('#dwnld_name').val("");
-        return false;
-    }
-    if (waypts.length > 0) {
-        for (let pt in waypts) {
-            let newpt = `\n  <wpt lat="${pt[0]}" lng="${pt[1]}">`;
-            gpx_file += newpt;
+    if (dwnld_name !== '') {
+        var named_string = gpx_track.replace("USER", dwnld_name);
+        var gpx_xml = named_string; // beginning of xml file
+        for (let i=0; i<gpx_pts.length; i++) {
+            var next_pt = '      <trkpt lat="' + gpx_pts[i].lat +  
+                '" lon="' + gpx_pts[i].lng + '">';
+            var elev = "\n        <ele>" + gpx_pts[i].elevation +
+                "</ele>\n      </trkpt>\n";
+            gpx_xml += next_pt + elev;
         }
-    }
-    var named_string = track_name.replace("USER", dwnld_name);
-    var gpx_xml = gpx_file + named_string;
-    for (let i=0; i<gpx_pts.length; i++) {
-        var next_pt = '      <trkpt lat="' + gpx_pts[i].lat +  
-            '" lon="' + gpx_pts[i].lng + '">';
-        var elev = "\n        <ele>" + gpx_pts[i].elevation +
-            "</ele>\n      </trkpt>\n";
-        gpx_xml += next_pt + elev;
-    }
-    gpx_xml += gpx_eof;
-    // Write to Documents, then share (with user options)
-    const result = await Filesystem.writeFile({
-        path: `${dwnld_name}.gpx`,
-        data: gpx_xml,
-        directory: Directory.Documents,
-        encoding: Encoding.UTF8,
-        recursive: true
-    });
-    await saveOrShareGpxFile(result);
-    $('#dwnld_name').val("");
-    if (clear_track) {
-        map.removeLayer(offline_track);
-        for (let i=0; i<wayMrkrs.length; i++) {
-            const deletion = wayMrkrs[i];
-            map.removeLayer(deletion);
-        }
-        clear_track = false;
-    }
-    downloadModal.hide();
-    async function saveOrShareGpxFile(result: WriteFileResult) {
-        const platform = Capacitor.getPlatform();
-        if (platform === 'android') {
-            try {
-                // Request permissions first (required on Android ≤ 10)
-                const permResult = await Filesystem.requestPermissions();
-                if (permResult.publicStorage !== 'granted') {
-                    console.warn('Storage permission denied');
-                    // Fallback to share sheet if permission denied
+        gpx_xml += gpx_eof;
+        // Write to Documents, then share (with user options)
+        const result = await Filesystem.writeFile({
+            path: `${dwnld_name}.gpx`,
+            data: gpx_xml,
+            directory: Directory.Documents,
+            encoding: Encoding.UTF8,
+            recursive: true
+        });
+        await saveOrShareGpxFile(result);
+        async function saveOrShareGpxFile(result: WriteFileResult) {
+            const platform = Capacitor.getPlatform();
+            if (platform === 'android') {
+                try {
+                    // Request permissions first (required on Android ≤ 10)
+                    const permResult = await Filesystem.requestPermissions();
+                    if (permResult.publicStorage !== 'granted') {
+                        console.warn('Storage permission denied');
+                        // Fallback to share sheet if permission denied
+                        await Share.share({
+                            title: 'Save GPX File',
+                            url: result.uri,
+                            dialogTitle: 'Save or share your file',
+                        });
+                        return;
+                    }
+                    alert('File saved to your Files app: (Documents folder).');
+                } catch (e) {
+                    console.error('Error saving file on Android:', e);
+                    // Fallback to share sheet on error
                     await Share.share({
                         title: 'Save GPX File',
                         url: result.uri,
                         dialogTitle: 'Save or share your file',
                     });
-                    return;
                 }
-                alert('File saved to your Files app: (Documents folder).');
-            } catch (e) {
-                console.error('Error saving file on Android:', e);
-                // Fallback to share sheet on error
+            } else {  // iOS
                 await Share.share({
                     title: 'Save GPX File',
                     url: result.uri,
                     dialogTitle: 'Save or share your file',
                 });
             }
-        } else {  // iOS
-            await Share.share({
-                title: 'Save GPX File',
-                url: result.uri,
-                dialogTitle: 'Save or share your file',
-            });
         }
     }
-    return;
 }
 /**
  * When a user wishes, he may delete a saved map: Obviously, at least one
