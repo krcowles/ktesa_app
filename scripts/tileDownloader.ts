@@ -23,6 +23,11 @@ interface TileCoords {
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { CapacitorHttp } from '@capacitor/core';
 
+/**
+ * NOTE: Samsung phones may have the Gallery AI feature that scans the Directory.Documents
+ * files and places discovered images in the Gallery - including map tiles being saved!!
+ * Hence, the write routines use a '.nomedia' parameter to cause AI to skip those images.
+ */
 class TileDownloader {
 
     #osm_head    = "https://openstreetmap.org";
@@ -36,11 +41,6 @@ class TileDownloader {
         return permission_status.publicStorage;
     }
 
-    /**
-     * Due to recent changes, Directory.Documents is no longer accessible,
-     * hence all file system accesses are to Directory.Documents. The following
-     * section pertains to text files.
-     */
     async docFileExists(path: string) {
         try {
             await Filesystem.stat({
@@ -209,7 +209,36 @@ class TileDownloader {
             return false;
         }
     }
-
+    async writeUnsavedData(path: string, data: string) {
+        try {
+            await Filesystem.writeFile({
+                path: `${path}`,
+                data: data,
+                directory: Directory.Documents,
+                encoding: Encoding.UTF8,
+                recursive: true
+            });
+            return true;
+        }
+        catch (error) {
+            console.error(`Could not write data: ${path}`);
+            return false;
+        }
+    }
+    async readUnsavedData(path: string) {
+        try {
+            const data = await Filesystem.readFile({
+                path: `${path}`,
+                directory: Directory.Documents,
+                encoding: Encoding.UTF8
+            });
+            return data.data;
+        } catch (error) {
+            console.error(`Could not read unsaved data: ${path}`);
+            return false;
+        }
+    }
+ 
     async removeData(path: string) {
         try {
             await Filesystem.rmdir({
@@ -228,8 +257,19 @@ class TileDownloader {
     }
 
     /**
-     * This section pertains to map tiles
+     * This section pertains to map tiles: 'createNoMedia' causes Samsung's gallery
+     * AI program to skip 'map' file images - otherwise the user finds a ton of 
+     * map tile images in his Gallery!!
      */
+    async createNoMedia(mapName: string) {
+        await Filesystem.writeFile({
+            path: `${mapName}/.nomedia`,
+            data: '',
+            directory: Directory.Documents,
+            encoding: Encoding.UTF8,
+            recursive: true
+        });
+    }
 
     // FILESYSTEM PATH [NOT fetch url]
     getTilePath(map: string, z: number, x: number, y: number, source: string) {
@@ -322,7 +362,6 @@ class TileDownloader {
             }
         }
     }
-
     // Calculate tiles for bounds
     calculateTiles(bounds: Bounds, zoomLevels: number[]) {
         const tiles = [] as TileCoords[];
@@ -343,22 +382,11 @@ class TileDownloader {
         });
         return tiles;
     }
-
     latLngToTile(lat: number, lng: number, zoom: number) {
         const x = Math.floor((lng + 180) / 360 * Math.pow(2, zoom));
         const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 
             1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
         return { x, y };
     }
-    /*
-    buildTileUrl(tile: TileCoords, source: keyof UrlsType): string {
-        const urls = {
-            osm: `${this.#osm_head}/${tile.z}/${tile.x}/${tile.y}.png`,
-            mapbox: `${this.#mapbox_head}/${tile.z}/${tile.x}/${tile.y}?access_token=YOUR_TOKEN`,
-            usgs: `${this.#usgs_head}/${tile.z}/${tile.y}/${tile.x}`
-        }
-        return urls[source];
-    }
-    */
 }
 export const tileDownloader = new TileDownloader();

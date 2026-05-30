@@ -71,5 +71,6 @@
   ],
   "files": [   /* .ts sources to be compiled */
     "./home.ts",
+    "./tileDownloader.ts",
   ]
 }

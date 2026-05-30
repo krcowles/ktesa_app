@@ -43,7 +43,7 @@
             <table>
                 <tr>
                     <td><img class="save_display" src="images/GreenSave.png" /></td>
-                    <td class="tbl_txt">Save New Map</td>
+                    <td class="tbl_txt">Create Offline Map</td>
                 </tr>
                 <tr>
                     <td><img id="off_goto" src="images/offline.png" /></td>
@@ -54,21 +54,63 @@
         <span class="line_override">Tracking</span>
         <div class="surround">
             <table>
-                <tr>
-                    <td><img id="play" class="clickable" src="images/play.png" /></td>
-                    <td class="tbl_txt">Start tracking</td>
+                <tr id="start_tracking">
+                    <td>
+                        <svg id="play" class="clickable"
+                            width="36px" height="36px" viewbox="0 0 36 36">
+                            <circle cx="18" cy="18" r="18" fill="red" />
+                            <polygon
+                                points="12,11 24,18 12,25"
+                                stroke="white"
+                                stroke-width="1"
+                                fill="white"
+                            />
+                        </svg>
+                    </td>
+                    <td class="tbl_txt">Record My Track</td>
                 </tr>
-                <tr>
-                    <td><img id="pause" class="clickable" src="images/pause.png" /></td>
-                    <td class="tbl_txt">Pause tracking</td>
+                <tr id="tracking_on">
+                    <td>
+                        <svg class="clickable"
+                        width="36px" height="36px" viewbox="0 0 36 36">
+                            <circle cx="18" cy="18" r="18" fill="black" />
+                            <polygon
+                                points="12,11 24,18 12,25"
+                                stroke="white"
+                                stroke-width="1"
+                                fill="white"
+                            />
+                        </svg>
+                    </td>
+                    <td class="tbl_txt">Tracking&hellip;</td>
                 </tr>
-                <tr>
-                    <td><img id="stop" class="clickable" src="images/red_stop_record.png" /></td>
-                    <td class="tbl_txt">Stop tracking</td>
+                <tr id="tracking_off">
+                    <td>
+                        <svg class="clickable"
+                            width="36px" height="36px" viewbox="0 0 36 36">
+                            <circle cx="18" cy="18" r="18" fill="black" />
+                            <rect x="11" y="11" width="14" height="14" fill="white"/>
+                        </svg>
+                    </td>
+                    <td class="tbl_txt">Not Tracking</td>
+                </tr>
+                <tr id="stop_tracking">
+                    <td>
+                        <svg id="stop" class="clickable"
+                            width="36px" height="36px" viewbox="0 0 36 36">
+                            <circle cx="18" cy="18" r="18" fill="red" />
+                            <rect x="11" y="11" width="14" height="14" fill="white"/>
+                        </svg>
+                    </td>
+                    <td class="tbl_txt">Stop Tracking</td>
                 </tr>
                 <tr>
                     <td><img id="dwnld" class="clickable" src="images/download.png" /></td>
-                    <td class="tbl_txt">Download GPS</td>
+                    <td class="tbl_txt">Save Track</td>
+                </tr>
+                <tr>
+                    <td><img id="trash" class="clickable" src="images/trash.png" /></td>
+                    <td class="tbl_txt">Clear Data</td>
                 </tr>
             </table>
         </div>
@@ -76,33 +118,39 @@
         <div class="surround">
             <table>
                 <tr>
-                    <td><img id="marker" class="clickable" src="images/marker.png" /></td>
-                    <td>Drop Marker</td>
+                    <td><img id="marker" class="clickable" src="images/app_marker.png"
+                        width="40" height="40" /></td>
+                    <td>Add Marker</td>
                 </tr>
                 <tr>
                     <td><img id="locate" class="clickable" src="images/locate.png" /></td>
                     <td class="tbl_txt">Locate me</td>
                 </tr>
                 <tr id="follow_map">
-                    <td><img id="follows" class="clickable" src="images/follow_on.png" /></td>
-                    <td>Recenter Always</td>
+                    <td>
+                        <svg id="follows" width="36px" height="36px" viewbox="0 0 36 36">
+                            <polyline
+                                points="0,18 18,18 18,36  36,0 0,18"
+                                stroke="blue"
+                                stroke-width="2"
+                                fill="blue"
+                            />
+                        </svg>
+                    </td>
+                    <td>Follow GPS</td>
                 </tr>
                 <tr id="no_follow_map">
-                    <td><img id="no_follows" class="clickable" src="images/follow_off.png" /></td>
-                    <td>Don't Recenter</td>
-                </tr>
-            </table>
-        </div>
-        <span class="line_override">Wifi</span>
-        <div class="surround">
-            <table>
-                <tr id="won">
-                    <td><img id="wifi_on" src="images/wifi_on.png" /></td>
-                    <td class="tbl_txt">Wifi on</td>
-                </tr>
-                <tr id="woff">
-                    <td><img id="wifi_off" src="images/wifi_outline.png" /></td>
-                    <td class="tbl_txt">Wifi off</td>
+                    <td>
+                        <svg id="no_follows" width="36px" height="36px" viewbox="0 0 36 36">
+                            <polyline
+                                points="0,18 18,18 18,36  36,0 0,18"
+                                stroke="black"
+                                stroke-width="2"
+                                fill="papayawhip"
+                            />
+                        </svg>
+                    </td>
+                    <td>Don't Follow GPS</td>
                 </tr>
             </table>
         </div>
@@ -122,18 +170,18 @@
             <div class="modal-body">
                 <button id="site" class="btn btn-sm btn-primary" disabled>
                     Import Hike</button>&nbsp;&nbsp;
-                    <div id="srch_box" class="ui-widget">
-                        <style type="text/css">
-                            ul.ui-widget {
-                                width: 300px;
-                                clear: both;
-                                z-index: 9999;
-                            }
-                        </style>
-                        <input id="search" class="search" placeholder="Search for a Hike" />
-                        <span id="clear">X</span>
-                    </div>
-                    <br /><br />
+                <div id="srch_box" class="ui-widget">
+                    <style type="text/css">
+                        ul.ui-widget {
+                            width: 300px;
+                            clear: both;
+                            z-index: 9999;
+                        }
+                    </style>
+                    <input id="search" class="search" placeholder="Search for a Hike" />
+                    <span id="clear">X</span>
+                </div>
+                <br /><br />
                 <button id="gpx" class="btn btn-sm btn-primary" disabled>
                     Import GPX</button>&nbsp;&nbsp;<input id="gpxfile" type="file" />
                     <br /><br />
@@ -167,6 +215,30 @@
         </div>
     </div>
 </div>
+<!-- MODAL: Marker Text -->
+<div id="marker_text" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Marker Text</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <span id="mrkr_indx"></span>
+                Add a tooltip to this marker (8 char or less):<br /><br />
+                <textarea id="id_text"></textarea><br /><br />
+                <button id="add_marker_text" class="btn btn-sm btn-success">
+                    Add Text
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-sm btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- MODAL: Offline Map Saver -->
 <div id="om_save" class="modal" tabindex="-1"
     aria-labelledby="Offline Map Saver" aria-hidden="false">
@@ -183,6 +255,33 @@
                 <input id="map_name" type="text" /><br />
                 <button type="button" id="save_om" class="btn btn-success btn-sm">
                     Save Map</button><br /><br />
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+<!-- MODAL: Save Close-Modal Check -->
+<div id="unsaved" class="modal" tabindex="-1"
+    aria-labelledby="Checkig for Unsaved Map" aria-hidden="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    Map Saving Incomplete</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>The map has not been saved. If you meant to save it, provide a 
+                    map name and tap on 'Save', otherwise tap 'Ignore'.</p>
+                Save As: <input id="resave_as" type="text" />&nbsp;&nbsp;<button id="resave"
+                    class="btn btn-sm btn-success">Save</button>
+                <br /><br />
+                <button id="ignore_save" class="btn btn-sm btn-warning">Ignore</button>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary"
@@ -242,6 +341,7 @@
                     Select the map you wish to use offline&hellip;<br />
                     <div>
                         <select id="select_map" style="min-width:120px;">
+                            <option value="No Maps">No Maps</option>
                         </select>&nbsp;&nbsp;
                         <button id="use_map" class="btn btn-sm btn-success">Use Map
                         </button><br /><br />
@@ -285,17 +385,43 @@
                 <div id="map2save" style="font-size: 18px;">
                     To save GPX file, enter a unique name:<br />
                     <input id="dwnld_name" type="text" /><br /><br />
-                    Clear track after save?<br />
-                    <button id="clear_poly" class="btn btn-sm btn-secondary">
-                        Yes, Clear
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="save_dwnld" class="dwnld_gpx btn btn-sm btn-success">
+                    Save Track</button>
+                <button id="save_clear" class="dwnld_gpx btn btn-sm btn-success">
+                    Clear After Save</button>
+                <button id="off_close" type="button" class="btn btn-sm btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Restore Session Data From Previous Closing -->
+<div id="restore" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Restore Data</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="previous_data">
+                    <p>When you last closed the app, there was track and/or marker
+                    data that may have been unsaved. If you wish to restore that
+                    data, click the 'Restore' button below, otherwise simply close this
+                    dialog box.</p>
+                    <p>Your last map was: <span id="usmap"></span></p>
+                    <button id="restore_session" class="btn btn-sm btn-success">
+                        Restore
                     </button><br />
                 </div>
             </div>
             <div class="modal-footer">
-                <button id="save_dwnld" type="button" class="btn btn-success">
-                    Save</button>
-                <button id="off_close" type="button" class="btn btn-secondary"
-                    data-bs-dismiss="modal">Close</button>
+                <button  class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                    Close</button>
             </div>
         </div>
     </div>

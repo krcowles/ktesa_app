@@ -973,6 +973,42 @@ const LocalNotifications = (0,_capacitor_core__WEBPACK_IMPORTED_MODULE_0__.regis
 
 /***/ },
 
+/***/ "./node_modules/@capacitor/preferences/dist/esm/definitions.js"
+/*!*********************************************************************!*\
+  !*** ./node_modules/@capacitor/preferences/dist/esm/definitions.js ***!
+  \*********************************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+
+//# sourceMappingURL=definitions.js.map
+
+/***/ },
+
+/***/ "./node_modules/@capacitor/preferences/dist/esm/index.js"
+/*!***************************************************************!*\
+  !*** ./node_modules/@capacitor/preferences/dist/esm/index.js ***!
+  \***************************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   Preferences: () => (/* binding */ Preferences)
+/* harmony export */ });
+/* harmony import */ var _capacitor_core__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @capacitor/core */ "./node_modules/@capacitor/core/dist/index.js");
+/* harmony import */ var _definitions__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./definitions */ "./node_modules/@capacitor/preferences/dist/esm/definitions.js");
+
+const Preferences = (0,_capacitor_core__WEBPACK_IMPORTED_MODULE_0__.registerPlugin)('Preferences', {
+    web: () => __webpack_require__.e(/*! import() */ "node_modules_capacitor_preferences_dist_esm_web_js").then(__webpack_require__.bind(__webpack_require__, /*! ./web */ "./node_modules/@capacitor/preferences/dist/esm/web.js")).then((m) => new m.PreferencesWeb()),
+});
+
+
+//# sourceMappingURL=index.js.map
+
+/***/ },
+
 /***/ "./node_modules/@capacitor/share/dist/esm/definitions.js"
 /*!***************************************************************!*\
   !*** ./node_modules/@capacitor/share/dist/esm/definitions.js ***!
@@ -13524,8 +13560,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _ignoreAttributes_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./ignoreAttributes.js */ "./node_modules/fast-xml-builder/src/ignoreAttributes.js");
 /* harmony import */ var path_expression_matcher__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! path-expression-matcher */ "./node_modules/path-expression-matcher/src/Expression.js");
 /* harmony import */ var path_expression_matcher__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! path-expression-matcher */ "./node_modules/path-expression-matcher/src/Matcher.js");
+/* harmony import */ var _util_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./util.js */ "./node_modules/fast-xml-builder/src/util.js");
+/* harmony import */ var xml_naming__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! xml-naming */ "./node_modules/xml-naming/src/index.js");
 
 //parse Empty Node as self closing node
+
+
 
 
 
@@ -13563,7 +13603,11 @@ const defaultOptions = {
   // transformAttributeName: false,
   oneListGroup: false,
   maxNestedTags: 100,
-  jPath: true  // When true, callbacks receive string jPath; when false, receive Matcher instance
+  jPath: true,  // When true, callbacks receive string jPath; when false, receive Matcher instance
+  sanitizeName: false  // false = allow all names as-is (default, backward-compatible).
+  // Set to a function (name, { isAttribute, matcher }) => string to
+  // validate/sanitize tag and attribute names. Throw inside the function
+  // to reject an invalid name.
 };
 
 function Builder(options) {
@@ -13620,6 +13664,44 @@ function Builder(options) {
   }
 }
 
+/**
+ * Detect XML version from the ?xml declaration at the root of a plain-object input.
+ * Checks both attributesGroupName and flat attribute forms.
+ * Returns '1.0' if no declaration is found.
+ */
+function detectXmlVersionFromObj(jObj, options) {
+  const decl = jObj['?xml'];
+  if (decl && typeof decl === 'object') {
+    // attributesGroupName path e.g. { '$$': { '@_version': '1.1' } }
+    if (options.attributesGroupName && decl[options.attributesGroupName]) {
+      const v = decl[options.attributesGroupName][options.attributeNamePrefix + 'version'];
+      if (v) return v;
+    }
+    // flat attribute path e.g. { '@_version': '1.1' }
+    const v = decl[options.attributeNamePrefix + 'version'];
+    if (v) return v;
+  }
+  return '1.0';
+}
+
+/**
+ * Resolve a tag or attribute name through sanitizeName if configured.
+ * Validation via xml-naming's qName is performed first; the sanitizeName
+ * callback is invoked only when the name is invalid. If sanitizeName is
+ * false (default), no validation occurs and the name is used as-is.
+ *
+ * @param {string}  name        - raw name from the JS object
+ * @param {boolean} isAttribute - true when resolving an attribute name
+ * @param {object}  options
+ * @param {Matcher} matcher     - current matcher state (readonly from callback perspective)
+ * @param {string}  xmlVersion  - '1.0' or '1.1', forwarded to xml-naming
+ */
+function resolveTagName(name, isAttribute, options, matcher, xmlVersion) {
+  if (!options.sanitizeName) return name;
+  if ((0,xml_naming__WEBPACK_IMPORTED_MODULE_5__.qName)(name, { xmlVersion })) return name;
+  return options.sanitizeName(name, { isAttribute, matcher: matcher.readOnly() });
+}
+
 Builder.prototype.build = function (jObj) {
   if (this.options.preserveOrder) {
     return (0,_orderedJs2Xml_js__WEBPACK_IMPORTED_MODULE_0__["default"])(jObj, this.options);
@@ -13631,11 +13713,12 @@ Builder.prototype.build = function (jObj) {
     }
     // Initialize matcher for path tracking
     const matcher = new path_expression_matcher__WEBPACK_IMPORTED_MODULE_3__["default"]();
-    return this.j2x(jObj, 0, matcher).val;
+    const xmlVersion = detectXmlVersionFromObj(jObj, this.options);
+    return this.j2x(jObj, 0, matcher, xmlVersion).val;
   }
 };
 
-Builder.prototype.j2x = function (jObj, level, matcher) {
+Builder.prototype.j2x = function (jObj, level, matcher, xmlVersion) {
   let attrStr = '';
   let val = '';
   if (this.options.maxNestedTags && matcher.getDepth() >= this.options.maxNestedTags) {
@@ -13649,6 +13732,22 @@ Builder.prototype.j2x = function (jObj, level, matcher) {
 
   for (let key in jObj) {
     if (!Object.prototype.hasOwnProperty.call(jObj, key)) continue;
+
+    // Resolve the key through sanitizeName before any use.
+    // Special keys (textNodeName, cdataPropName, commentPropName, attributeNamePrefix,
+    // attributesGroupName, "?" PI tags) are exempt — they are builder-internal conventions,
+    // not user-supplied XML names.
+    const isSpecialKey = key === this.options.textNodeName
+      || key === this.options.cdataPropName
+      || key === this.options.commentPropName
+      || (this.options.attributesGroupName && key === this.options.attributesGroupName)
+      || this.isAttribute(key)
+      || key[0] === '?';
+
+    const resolvedKey = isSpecialKey
+      ? key
+      : resolveTagName(key, false, this.options, matcher, xmlVersion);
+
     if (typeof jObj[key] === 'undefined') {
       // supress undefined node only if it is not an attribute
       if (this.isAttribute(key)) {
@@ -13658,21 +13757,22 @@ Builder.prototype.j2x = function (jObj, level, matcher) {
       // null attribute should be ignored by the attribute list, but should not cause the tag closing
       if (this.isAttribute(key)) {
         val += '';
-      } else if (key === this.options.cdataPropName) {
+      } else if (resolvedKey === this.options.cdataPropName || resolvedKey === this.options.commentPropName) {
         val += '';
-      } else if (key[0] === '?') {
-        val += this.indentate(level) + '<' + key + '?' + this.tagEndChar;
+      } else if (resolvedKey[0] === '?') {
+        val += this.indentate(level) + '<' + resolvedKey + '?' + this.tagEndChar;
       } else {
-        val += this.indentate(level) + '<' + key + '/' + this.tagEndChar;
+        val += this.indentate(level) + '<' + resolvedKey + '/' + this.tagEndChar;
       }
-      // val += this.indentate(level) + '<' + key + '/' + this.tagEndChar;
     } else if (jObj[key] instanceof Date) {
-      val += this.buildTextValNode(jObj[key], key, '', level, matcher);
+      val += this.buildTextValNode(jObj[key], resolvedKey, '', level, matcher);
     } else if (typeof jObj[key] !== 'object') {
       //premitive type
       const attr = this.isAttribute(key);
       if (attr && !this.ignoreAttributesFn(attr, jPath)) {
-        attrStr += this.buildAttrPairStr(attr, '' + jObj[key], isCurrentStopNode);
+        // Resolve the attribute name through sanitizeName
+        const resolvedAttr = resolveTagName(attr, true, this.options, matcher, xmlVersion);
+        attrStr += this.buildAttrPairStr(resolvedAttr, '' + jObj[key], isCurrentStopNode);
       } else if (!attr) {
         //tag value
         if (key === this.options.textNodeName) {
@@ -13680,7 +13780,7 @@ Builder.prototype.j2x = function (jObj, level, matcher) {
           val += this.replaceEntitiesValue(newval);
         } else {
           // Check if this is a stopNode before building
-          matcher.push(key);
+          matcher.push(resolvedKey);
           const isStopNode = this.checkStopNode(matcher);
           matcher.pop();
 
@@ -13688,12 +13788,12 @@ Builder.prototype.j2x = function (jObj, level, matcher) {
             // Build as raw content without encoding
             const textValue = '' + jObj[key];
             if (textValue === '') {
-              val += this.indentate(level) + '<' + key + this.closeTag(key) + this.tagEndChar;
+              val += this.indentate(level) + '<' + resolvedKey + this.closeTag(resolvedKey) + this.tagEndChar;
             } else {
-              val += this.indentate(level) + '<' + key + '>' + textValue + '</' + key + this.tagEndChar;
+              val += this.indentate(level) + '<' + resolvedKey + '>' + textValue + '</' + resolvedKey + this.tagEndChar;
             }
           } else {
-            val += this.buildTextValNode(jObj[key], key, '', level, matcher);
+            val += this.buildTextValNode(jObj[key], resolvedKey, '', level, matcher);
           }
         }
       }
@@ -13707,14 +13807,13 @@ Builder.prototype.j2x = function (jObj, level, matcher) {
         if (typeof item === 'undefined') {
           // supress undefined node
         } else if (item === null) {
-          if (key[0] === "?") val += this.indentate(level) + '<' + key + '?' + this.tagEndChar;
-          else val += this.indentate(level) + '<' + key + '/' + this.tagEndChar;
-          // val += this.indentate(level) + '<' + key + '/' + this.tagEndChar;
+          if (resolvedKey[0] === "?") val += this.indentate(level) + '<' + resolvedKey + '?' + this.tagEndChar;
+          else val += this.indentate(level) + '<' + resolvedKey + '/' + this.tagEndChar;
         } else if (typeof item === 'object') {
           if (this.options.oneListGroup) {
             // Push tag to matcher before recursive call
-            matcher.push(key);
-            const result = this.j2x(item, level + 1, matcher);
+            matcher.push(resolvedKey);
+            const result = this.j2x(item, level + 1, matcher, xmlVersion);
             // Pop tag from matcher after recursive call
             matcher.pop();
 
@@ -13723,16 +13822,16 @@ Builder.prototype.j2x = function (jObj, level, matcher) {
               listTagAttr += result.attrStr
             }
           } else {
-            listTagVal += this.processTextOrObjNode(item, key, level, matcher)
+            listTagVal += this.processTextOrObjNode(item, resolvedKey, level, matcher, xmlVersion)
           }
         } else {
           if (this.options.oneListGroup) {
-            let textValue = this.options.tagValueProcessor(key, item);
+            let textValue = this.options.tagValueProcessor(resolvedKey, item);
             textValue = this.replaceEntitiesValue(textValue);
             listTagVal += textValue;
           } else {
             // Check if this is a stopNode before building
-            matcher.push(key);
+            matcher.push(resolvedKey);
             const isStopNode = this.checkStopNode(matcher);
             matcher.pop();
 
@@ -13740,18 +13839,18 @@ Builder.prototype.j2x = function (jObj, level, matcher) {
               // Build as raw content without encoding
               const textValue = '' + item;
               if (textValue === '') {
-                listTagVal += this.indentate(level) + '<' + key + this.closeTag(key) + this.tagEndChar;
+                listTagVal += this.indentate(level) + '<' + resolvedKey + this.closeTag(resolvedKey) + this.tagEndChar;
               } else {
-                listTagVal += this.indentate(level) + '<' + key + '>' + textValue + '</' + key + this.tagEndChar;
+                listTagVal += this.indentate(level) + '<' + resolvedKey + '>' + textValue + '</' + resolvedKey + this.tagEndChar;
               }
             } else {
-              listTagVal += this.buildTextValNode(item, key, '', level, matcher);
+              listTagVal += this.buildTextValNode(item, resolvedKey, '', level, matcher);
             }
           }
         }
       }
       if (this.options.oneListGroup) {
-        listTagVal = this.buildObjectNode(listTagVal, key, listTagAttr, level);
+        listTagVal = this.buildObjectNode(listTagVal, resolvedKey, listTagAttr, level);
       }
       val += listTagVal;
     } else {
@@ -13760,10 +13859,12 @@ Builder.prototype.j2x = function (jObj, level, matcher) {
         const Ks = Object.keys(jObj[key]);
         const L = Ks.length;
         for (let j = 0; j < L; j++) {
-          attrStr += this.buildAttrPairStr(Ks[j], '' + jObj[key][Ks[j]], isCurrentStopNode);
+          // Resolve attribute names inside attributesGroupName
+          const resolvedAttr = resolveTagName(Ks[j], true, this.options, matcher, xmlVersion);
+          attrStr += this.buildAttrPairStr(resolvedAttr, '' + jObj[key][Ks[j]], isCurrentStopNode);
         }
       } else {
-        val += this.processTextOrObjNode(jObj[key], key, level, matcher)
+        val += this.processTextOrObjNode(jObj[key], resolvedKey, level, matcher, xmlVersion)
       }
     }
   }
@@ -13777,10 +13878,10 @@ Builder.prototype.buildAttrPairStr = function (attrName, val, isStopNode) {
   }
   if (this.options.suppressBooleanAttributes && val === "true") {
     return ' ' + attrName;
-  } else return ' ' + attrName + '="' + val + '"';
+  } else return ' ' + attrName + '="' + (0,_util_js__WEBPACK_IMPORTED_MODULE_4__.escapeAttribute)(val) + '"';
 }
 
-function processTextOrObjNode(object, key, level, matcher) {
+function processTextOrObjNode(object, key, level, matcher, xmlVersion) {
   // Extract attributes to pass to matcher
   const attrValues = this.extractAttributes(object);
 
@@ -13798,11 +13899,15 @@ function processTextOrObjNode(object, key, level, matcher) {
     return this.buildObjectNode(rawContent, key, attrStr, level);
   }
 
-  const result = this.j2x(object, level + 1, matcher);
+  const result = this.j2x(object, level + 1, matcher, xmlVersion);
   // Pop tag from matcher after recursion
   matcher.pop();
 
-  if (object[this.options.textNodeName] !== undefined && Object.keys(object).length === 1) {
+  // PI/XML-declaration tags must never emit text content — route through
+  // buildTextValNode which correctly ignores the text node for "?" tags.
+  if (key[0] === '?') {
+    return this.buildTextValNode('', key, result.attrStr, level, matcher);
+  } else if (object[this.options.textNodeName] !== undefined && Object.keys(object).length === 1) {
     return this.buildTextValNode(object[this.options.textNodeName], key, result.attrStr, level, matcher);
   } else {
     return this.buildObjectNode(result.val, key, result.attrStr, level);
@@ -13825,7 +13930,7 @@ Builder.prototype.extractAttributes = function (obj) {
       const cleanKey = attrKey.startsWith(this.options.attributeNamePrefix)
         ? attrKey.substring(this.options.attributeNamePrefix.length)
         : attrKey;
-      attrValues[cleanKey] = attrGroup[attrKey];
+      attrValues[cleanKey] = (0,_util_js__WEBPACK_IMPORTED_MODULE_4__.escapeAttribute)(attrGroup[attrKey]);
       hasAttrs = true;
     }
   } else {
@@ -13834,7 +13939,7 @@ Builder.prototype.extractAttributes = function (obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
       const attr = this.isAttribute(key);
       if (attr) {
-        attrValues[attr] = obj[key];
+        attrValues[attr] = (0,_util_js__WEBPACK_IMPORTED_MODULE_4__.escapeAttribute)(obj[key]);
         hasAttrs = true;
       }
     }
@@ -13951,8 +14056,10 @@ Builder.prototype.buildObjectNode = function (val, key, attrStr, level) {
     else {
       return this.indentate(level) + '<' + key + attrStr + this.closeTag(key) + this.tagEndChar;
     }
+  } else if (key[0] === "?") {
+    // PI/XML-declaration tags never have body content — treat them like empty.
+    return this.indentate(level) + '<' + key + attrStr + '?' + this.tagEndChar;
   } else {
-
     let tagEndExp = '</' + key + this.tagEndChar;
     let piClosingChar = "";
 
@@ -14005,19 +14112,16 @@ function buildEmptyObjNode(val, key, attrStr, level) {
     if (key[0] === "?") return this.indentate(level) + '<' + key + attrStr + '?' + this.tagEndChar;
     else {
       return this.indentate(level) + '<' + key + attrStr + '/' + this.tagEndChar;
-      // return this.buildTagStr(level,key, attrStr);
     }
   }
 }
 
 Builder.prototype.buildTextValNode = function (val, key, attrStr, level, matcher) {
   if (this.options.cdataPropName !== false && key === this.options.cdataPropName) {
-    const safeVal = String(val).replace(/\]\]>/g, ']]]]><![CDATA[>');
+    const safeVal = (0,_util_js__WEBPACK_IMPORTED_MODULE_4__.safeCdata)(val);
     return this.indentate(level) + `<![CDATA[${safeVal}]]>` + this.newLine;
   } else if (this.options.commentPropName !== false && key === this.options.commentPropName) {
-    const safeVal = String(val)
-      .replace(/--/g, '- -')   // -- is illegal anywhere in comment content
-      .replace(/-$/, '- ');    // trailing - would form -- with the closing -->
+    const safeVal = (0,_util_js__WEBPACK_IMPORTED_MODULE_4__.safeComment)(val);
     return this.indentate(level) + `<!--${safeVal}-->` + this.newLine;
   } else if (key[0] === "?") {//PI tag
     return this.indentate(level) + '<' + key + attrStr + '?' + this.tagEndChar;
@@ -14105,19 +14209,62 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var path_expression_matcher__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! path-expression-matcher */ "./node_modules/path-expression-matcher/src/Expression.js");
 /* harmony import */ var path_expression_matcher__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! path-expression-matcher */ "./node_modules/path-expression-matcher/src/Matcher.js");
+/* harmony import */ var _util_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./util.js */ "./node_modules/fast-xml-builder/src/util.js");
+/* harmony import */ var xml_naming__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! xml-naming */ "./node_modules/xml-naming/src/index.js");
+
+
 
 
 const EOL = "\n";
 
 /**
- * 
- * @param {array} jArray 
- * @param {any} options 
- * @returns 
+ * Detect XML version from the first element of the ordered array input.
+ * The first element must be a ?xml processing instruction with a version attribute.
+ * Returns '1.0' if not found.
+ *
+ * @param {array}  jArray
+ * @param {object} options
+ */
+function detectXmlVersionFromArray(jArray, options) {
+    if (!Array.isArray(jArray) || jArray.length === 0) return '1.0';
+    const first = jArray[0];
+    const firstKey = propName(first);
+    if (firstKey === '?xml') {
+        const attrs = first[':@'];
+        if (attrs) {
+            const versionKey = options.attributeNamePrefix + 'version';
+            if (attrs[versionKey]) return attrs[versionKey];
+        }
+    }
+    return '1.0';
+}
+
+/**
+ * Resolve a tag or attribute name through sanitizeName if configured.
+ * Validation via xml-naming's qName is performed first; the sanitizeName
+ * callback is invoked only when the name is invalid. If sanitizeName is
+ * false (default), no validation occurs and the name is used as-is.
+ *
+ * @param {string}  name        - raw name from the JS object
+ * @param {boolean} isAttribute - true when resolving an attribute name
+ * @param {object}  options
+ * @param {Matcher} matcher     - current matcher state (readonly from callback perspective)
+ * @param {string}  xmlVersion  - '1.0' or '1.1', forwarded to xml-naming
+ */
+function resolveTagName(name, isAttribute, options, matcher, xmlVersion) {
+    if (!options.sanitizeName) return name;
+    if ((0,xml_naming__WEBPACK_IMPORTED_MODULE_3__.qName)(name, { xmlVersion })) return name;
+    return options.sanitizeName(name, { isAttribute, matcher: matcher.readOnly() });
+}
+
+/**
+ * @param {array} jArray
+ * @param {any} options
+ * @returns
  */
 function toXml(jArray, options) {
     let indentation = "";
-    if (options.format && options.indentBy.length > 0) {
+    if (options.format) {
         indentation = EOL;
     }
 
@@ -14134,13 +14281,16 @@ function toXml(jArray, options) {
         }
     }
 
+    // Detect XML version for use in name validation
+    const xmlVersion = detectXmlVersionFromArray(jArray, options);
+
     // Initialize matcher for path tracking
     const matcher = new path_expression_matcher__WEBPACK_IMPORTED_MODULE_1__["default"]();
 
-    return arrToStr(jArray, options, indentation, matcher, stopNodeExpressions);
+    return arrToStr(jArray, options, indentation, matcher, stopNodeExpressions, xmlVersion);
 }
 
-function arrToStr(arr, options, indentation, matcher, stopNodeExpressions) {
+function arrToStr(arr, options, indentation, matcher, stopNodeExpressions, xmlVersion) {
     let xmlStr = "";
     let isPreviousElementTag = false;
 
@@ -14160,20 +14310,32 @@ function arrToStr(arr, options, indentation, matcher, stopNodeExpressions) {
 
     for (let i = 0; i < arr.length; i++) {
         const tagObj = arr[i];
-        const tagName = propName(tagObj);
-        if (tagName === undefined) continue;
+        const rawTagName = propName(tagObj);
+        if (rawTagName === undefined) continue;
+
+        // Special names are exempt from sanitizeName: internal conventions and PI tags
+        // are not user-supplied XML element names.
+        const isSpecialName = rawTagName === options.textNodeName
+            || rawTagName === options.cdataPropName
+            || rawTagName === options.commentPropName
+            || rawTagName[0] === '?';
+
+        // Resolve tag name (may transform it; may throw for invalid names)
+        const tagName = isSpecialName
+            ? rawTagName
+            : resolveTagName(rawTagName, false, options, matcher, xmlVersion);
 
         // Extract attributes from ":@" property
         const attrValues = extractAttributeValues(tagObj[":@"], options);
 
-        // Push tag to matcher WITH attributes
+        // Push resolved tag to matcher WITH attributes
         matcher.push(tagName, attrValues);
 
         // Check if this is a stop node using Expression matching
         const isStopNode = checkStopNode(matcher, stopNodeExpressions);
 
         if (tagName === options.textNodeName) {
-            let tagText = tagObj[tagName];
+            let tagText = tagObj[rawTagName];
             if (!isStopNode) {
                 tagText = options.tagValueProcessor(tagName, tagText);
                 tagText = replaceEntitiesValue(tagText, options);
@@ -14189,27 +14351,25 @@ function arrToStr(arr, options, indentation, matcher, stopNodeExpressions) {
             if (isPreviousElementTag) {
                 xmlStr += indentation;
             }
-            const val = tagObj[tagName][0][options.textNodeName];
-            const safeVal = String(val).replace(/\]\]>/g, ']]]]><![CDATA[>');
+            const val = tagObj[rawTagName][0][options.textNodeName];
+            const safeVal = (0,_util_js__WEBPACK_IMPORTED_MODULE_2__.safeCdata)(val);
             xmlStr += `<![CDATA[${safeVal}]]>`;
             isPreviousElementTag = false;
             matcher.pop();
             continue;
         } else if (tagName === options.commentPropName) {
-            const val = tagObj[tagName][0][options.textNodeName]
-            const safeVal = String(val)
-                .replace(/--/g, '- -')   // -- is illegal anywhere in comment content
-                .replace(/-$/, '- ');    // trailing - would form -- with the closing -->
+            const val = tagObj[rawTagName][0][options.textNodeName];
+            const safeVal = (0,_util_js__WEBPACK_IMPORTED_MODULE_2__.safeComment)(val);
             xmlStr += indentation + `<!--${safeVal}-->`;
             isPreviousElementTag = true;
             matcher.pop();
             continue;
         } else if (tagName[0] === "?") {
-            const attStr = attr_to_str(tagObj[":@"], options, isStopNode);
+            const attStr = attr_to_str(tagObj[":@"], options, isStopNode, matcher, xmlVersion);
             const tempInd = tagName === "?xml" ? "" : indentation;
-            let piTextNodeName = tagObj[tagName][0][options.textNodeName];
-            piTextNodeName = piTextNodeName.length !== 0 ? " " + piTextNodeName : ""; //remove extra spacing
-            xmlStr += tempInd + `<${tagName}${piTextNodeName}${attStr}?>`;
+            // Text node content on PI/XML declaration tags is intentionally ignored.
+            // Only attributes are valid on these tags per the XML spec.
+            xmlStr += tempInd + `<${tagName}${attStr}?>`;
             isPreviousElementTag = true;
             matcher.pop();
             continue;
@@ -14221,16 +14381,15 @@ function arrToStr(arr, options, indentation, matcher, stopNodeExpressions) {
         }
 
         // Pass isStopNode to attr_to_str so attributes are also not processed for stopNodes
-        const attStr = attr_to_str(tagObj[":@"], options, isStopNode);
+        const attStr = attr_to_str(tagObj[":@"], options, isStopNode, matcher, xmlVersion);
         const tagStart = indentation + `<${tagName}${attStr}`;
 
         // If this is a stopNode, get raw content without processing
         let tagValue;
         if (isStopNode) {
-            tagValue = getRawContent(tagObj[tagName], options);
+            tagValue = getRawContent(tagObj[rawTagName], options);
         } else {
-
-            tagValue = arrToStr(tagObj[tagName], options, newIdentation, matcher, stopNodeExpressions);
+            tagValue = arrToStr(tagObj[rawTagName], options, newIdentation, matcher, stopNodeExpressions, xmlVersion);
         }
 
         if (options.unpairedTags.indexOf(tagName) !== -1) {
@@ -14274,7 +14433,7 @@ function extractAttributeValues(attrMap, options) {
         const cleanAttrName = attr.startsWith(options.attributeNamePrefix)
             ? attr.substr(options.attributeNamePrefix.length)
             : attr;
-        attrValues[cleanAttrName] = attrMap[attr];
+        attrValues[cleanAttrName] = (0,_util_js__WEBPACK_IMPORTED_MODULE_2__.escapeAttribute)(attrMap[attr]);
         hasAttrs = true;
     }
 
@@ -14312,9 +14471,7 @@ function getRawContent(arr, options) {
             // Processing instruction - skip for stopNodes
             continue;
         } else if (tagName) {
-            // Nested tags within stopNode
-            // Recursively get raw content and reconstruct the tag
-            // For stopNodes, we don't process attributes either
+            // Nested tags within stopNode — no sanitizeName, content is raw
             const attStr = attr_to_str_raw(item[":@"], options);
             const nestedContent = getRawContent(item[tagName], options);
 
@@ -14341,7 +14498,7 @@ function attr_to_str_raw(attrMap, options) {
             if (attrVal === true && options.suppressBooleanAttributes) {
                 attrStr += ` ${attr.substr(options.attributeNamePrefix.length)}`;
             } else {
-                attrStr += ` ${attr.substr(options.attributeNamePrefix.length)}="${attrVal}"`;
+                attrStr += ` ${attr.substr(options.attributeNamePrefix.length)}="${(0,_util_js__WEBPACK_IMPORTED_MODULE_2__.escapeAttribute)(attrVal)}"`;
             }
         }
     }
@@ -14357,13 +14514,23 @@ function propName(obj) {
     }
 }
 
-function attr_to_str(attrMap, options, isStopNode) {
+/**
+ * Build attribute string, resolving attribute names through sanitizeName when configured.
+ * Accepts matcher so the callback has path context.
+ */
+function attr_to_str(attrMap, options, isStopNode, matcher, xmlVersion) {
     let attrStr = "";
     if (attrMap && !options.ignoreAttributes) {
         for (let attr in attrMap) {
             if (!Object.prototype.hasOwnProperty.call(attrMap, attr)) continue;
-            let attrVal;
 
+            // Strip prefix to get the clean XML attribute name, then optionally sanitize it
+            const cleanAttrName = attr.substr(options.attributeNamePrefix.length);
+            const resolvedAttrName = isStopNode
+                ? cleanAttrName  // stopNodes are raw — skip sanitizeName for attr names too
+                : resolveTagName(cleanAttrName, true, options, matcher, xmlVersion);
+
+            let attrVal;
             if (isStopNode) {
                 // For stopNodes, use raw value without any processing
                 attrVal = attrMap[attr];
@@ -14374,9 +14541,9 @@ function attr_to_str(attrMap, options, isStopNode) {
             }
 
             if (attrVal === true && options.suppressBooleanAttributes) {
-                attrStr += ` ${attr.substr(options.attributeNamePrefix.length)}`;
+                attrStr += ` ${resolvedAttrName}`;
             } else {
-                attrStr += ` ${attr.substr(options.attributeNamePrefix.length)}="${attrVal}"`;
+                attrStr += ` ${resolvedAttrName}="${(0,_util_js__WEBPACK_IMPORTED_MODULE_2__.escapeAttribute)(attrVal)}"`;
             }
         }
     }
@@ -14404,12 +14571,36 @@ function replaceEntitiesValue(textValue, options) {
     return textValue;
 }
 
-function cdataVal(val) {
+/***/ },
 
+/***/ "./node_modules/fast-xml-builder/src/util.js"
+/*!***************************************************!*\
+  !*** ./node_modules/fast-xml-builder/src/util.js ***!
+  \***************************************************/
+(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   escapeAttribute: () => (/* binding */ escapeAttribute),
+/* harmony export */   safeCdata: () => (/* binding */ safeCdata),
+/* harmony export */   safeComment: () => (/* binding */ safeComment)
+/* harmony export */ });
+
+
+function safeComment(val) {
+  return String(val)
+    .replace(/--/g, '- -')   // -- is illegal anywhere in comment content
+    .replace(/--/g, '- -')   // handle the scenario when 2 consiucative dashes appears 
+    .replace(/-$/, '- ');    // trailing - would form -- with the closing -->
 }
 
-function commentVal(val) {
+function safeCdata(val) {
+  return String(val).replace(/\]\]>/g, ']]]]><![CDATA[>')
+}
 
+function escapeAttribute(val) {
+  return String(val).replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 }
 
 /***/ },
@@ -46586,6 +46777,297 @@ module.exports = styleTagTransform;
 
 /***/ },
 
+/***/ "./node_modules/xml-naming/src/index.js"
+/*!**********************************************!*\
+  !*** ./node_modules/xml-naming/src/index.js ***!
+  \**********************************************/
+(__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   name: () => (/* binding */ name),
+/* harmony export */   ncName: () => (/* binding */ ncName),
+/* harmony export */   nmToken: () => (/* binding */ nmToken),
+/* harmony export */   nmTokens: () => (/* binding */ nmTokens),
+/* harmony export */   qName: () => (/* binding */ qName),
+/* harmony export */   sanitize: () => (/* binding */ sanitize),
+/* harmony export */   validate: () => (/* binding */ validate),
+/* harmony export */   validateAll: () => (/* binding */ validateAll)
+/* harmony export */ });
+/**
+ * xml-naming
+ * Validates XML Name productions as defined in the XML 1.0 and 1.1 specifications.
+ * Covers: Name, NCName, QName, NMToken, NMTokens
+ *
+ * XML 1.0 spec: https://www.w3.org/TR/xml/#NT-Name
+ * XML 1.1 spec: https://www.w3.org/TR/xml11/#NT-NameStartChar
+ * XML NS spec:  https://www.w3.org/TR/xml-names/#NT-NCName
+ */
+
+// ---------------------------------------------------------------------------
+// Character class strings — XML 1.0
+//
+// NameStartChar ::= ":" | [A-Z] | "_" | [a-z]
+//   | [#xC0-#xD6]   | [#xD8-#xF6]   | [#xF8-#x2FF]
+//   | [#x370-#x37D] | [#x37F-#x1FFF]    <- split to exclude #x0487
+//   | [#x200C-#x200D]
+//   | [#x2070-#x218F] | [#x2C00-#x2FEF]
+//   | [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD]
+//
+// NameChar ::= NameStartChar | "-" | "." | [0-9]
+//   | #xB7 | [#x0300-#x036F] | [#x203F-#x2040]
+//
+// Note: \u0487 (Combining Cyrillic Millions Sign) was added in Unicode 4.0,
+// after XML 1.0 was defined against Unicode 2.0. It falls inside the range
+// \u037F-\u1FFF but must be excluded. We split that range into
+// \u037F-\u0486 and \u0488-\u1FFF to exclude it explicitly.
+// ---------------------------------------------------------------------------
+
+const nameStartChar10 =
+  ':A-Za-z_' +
+  '\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF' +
+  '\u0370-\u037D' +
+  '\u037F-\u0486\u0488-\u1FFF' +  // split to exclude \u0487
+  '\u200C-\u200D' +
+  '\u2070-\u218F' +
+  '\u2C00-\u2FEF' +
+  '\u3001-\uD7FF' +
+  '\uF900-\uFDCF' +
+  '\uFDF0-\uFFFD';
+
+const nameChar10 =
+  nameStartChar10 +
+  '\\-\\.\\d' +
+  '\u00B7' +
+  '\u0300-\u036F' +
+  '\u203F-\u2040';
+
+// ---------------------------------------------------------------------------
+// Character class strings — XML 1.1
+//
+// Differences from XML 1.0:
+//
+// NameStartChar:
+//   1.0 has split ranges: \u00C0-\u00D6, \u00D8-\u00F6, \u00F8-\u02FF
+//   1.1 merges them into: \u00C0-\u02FF
+//   (\u00D7 x and \u00F7 / are division symbols, excluded in both versions)
+//
+//   1.0 tops out at \uFFFD (BMP only)
+//   1.1 adds \u{10000}-\u{EFFFF} (supplementary planes)
+//   These require the /u flag on the RegExp — see buildRegexes below.
+//
+// NameChar:
+//   1.1 adds \u0487 (Combining Cyrillic Millions Sign, added in Unicode 4.0)
+// ---------------------------------------------------------------------------
+
+const nameStartChar11 =
+  ':A-Za-z_' +
+  '\u00C0-\u02FF' +                    // merged — 1.0 had three split ranges here
+  '\u0370-\u037D' +
+  '\u037F-\u0486\u0488-\u1FFF' +       // split to exclude \u0487 (combining mark, never a NameStartChar)
+  '\u200C-\u200D' +
+  '\u2070-\u218F' +
+  '\u2C00-\u2FEF' +
+  '\u3001-\uD7FF' +
+  '\uF900-\uFDCF' +
+  '\uFDF0-\uFFFD' +
+  '\u{10000}-\u{EFFFF}';     // supplementary planes — REQUIRES /u flag on RegExp
+
+const nameChar11 =
+  nameStartChar11 +
+  '\\-\\.\\d' +
+  '\u00B7' +
+  '\u0300-\u036F' +
+  '\u0487' +                 // Combining Cyrillic Millions Sign — valid in 1.1, not 1.0
+  '\u203F-\u2040';
+
+// ---------------------------------------------------------------------------
+// Regex builders
+//
+// XML 1.0 regexes: no flags — BMP only, standard JS regex behaviour.
+// XML 1.1 regexes: /u flag — required for \u{10000}-\u{EFFFF} to match actual
+//   supplementary code points rather than lone surrogates (which are illegal XML).
+// ---------------------------------------------------------------------------
+
+const buildRegexes = (startChar, char, flags = '') => {
+  const ncStart = startChar.replace(':', '');
+  const ncChar = char.replace(':', '');
+  const ncNamePat = `[${ncStart}][${ncChar}]*`;
+
+  return {
+    name: new RegExp(`^[${startChar}][${char}]*$`, flags),
+    ncName: new RegExp(`^${ncNamePat}$`, flags),
+    qName: new RegExp(`^${ncNamePat}(?::${ncNamePat})?$`, flags),
+    nmToken: new RegExp(`^[${char}]+$`, flags),
+    nmTokens: new RegExp(`^[${char}]+(?:\\s+[${char}]+)*$`, flags),
+  };
+};
+
+const regexes10 = buildRegexes(nameStartChar10, nameChar10);       // no /u — BMP only
+const regexes11 = buildRegexes(nameStartChar11, nameChar11, 'u');  // /u — enables \u{10000}-\u{EFFFF}
+
+const getRegexes = (xmlVersion = '1.0') =>
+  xmlVersion === '1.1' ? regexes11 : regexes10;
+
+// ---------------------------------------------------------------------------
+// Boolean validators
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if the string is a valid XML Name.
+ * Colons are allowed anywhere (Name production).
+ * Used for: DOCTYPE entity names, notation names, DTD element declarations.
+ */
+const name = (str, { xmlVersion = '1.0' } = {}) =>
+  getRegexes(xmlVersion).name.test(str);
+
+/**
+ * Returns true if the string is a valid NCName (Non-Colonized Name).
+ * Colons are not permitted.
+ * Used for: namespace prefixes, local names, SVG id attributes.
+ */
+const ncName = (str, { xmlVersion = '1.0' } = {}) =>
+  getRegexes(xmlVersion).ncName.test(str);
+
+/**
+ * Returns true if the string is a valid QName (Qualified Name).
+ * Allows exactly one colon as a prefix separator: prefix:localName.
+ * Used for: element and attribute names in namespace-aware XML/SVG.
+ */
+const qName = (str, { xmlVersion = '1.0' } = {}) =>
+  getRegexes(xmlVersion).qName.test(str);
+
+/**
+ * Returns true if the string is a valid NMToken.
+ * Like Name but no restriction on the first character.
+ * Used for: DTD NMTOKEN attribute values.
+ */
+const nmToken = (str, { xmlVersion = '1.0' } = {}) =>
+  getRegexes(xmlVersion).nmToken.test(str);
+
+/**
+ * Returns true if the string is a valid NMTokens value.
+ * A whitespace-separated list of NMToken values.
+ * Used for: DTD NMTOKENS attribute values.
+ */
+const nmTokens = (str, { xmlVersion = '1.0' } = {}) =>
+  getRegexes(xmlVersion).nmTokens.test(str);
+
+// ---------------------------------------------------------------------------
+// Diagnostic validator
+// ---------------------------------------------------------------------------
+
+const PRODUCTIONS = ['name', 'ncName', 'qName', 'nmToken', 'nmTokens'];
+
+/**
+ * Validates a string against a named production and returns a detailed result.
+ *
+ * @param {string} str
+ * @param {'name'|'ncName'|'qName'|'nmToken'|'nmTokens'} production
+ * @param {{ xmlVersion?: '1.0'|'1.1' }} [opts]
+ * @returns {{ valid: boolean, production: string, input: string, reason?: string, position?: number }}
+ */
+const validate = (str, production, { xmlVersion = '1.0' } = {}) => {
+  if (!PRODUCTIONS.includes(production)) {
+    throw new TypeError(
+      `Unknown production "${production}". Must be one of: ${PRODUCTIONS.join(', ')}`
+    );
+  }
+
+  const validators = { name, ncName, qName, nmToken, nmTokens };
+  const isValid = validators[production](str, { xmlVersion });
+
+  if (isValid) return { valid: true, production, input: str };
+
+  let reason = 'Does not match the production rules';
+  let position;
+
+  if (str.length === 0) {
+    reason = 'Input is empty';
+  } else if (production === 'ncName' && str.includes(':')) {
+    position = str.indexOf(':');
+    reason = 'Colon is not allowed in NCName';
+  } else if (production === 'qName' && str.startsWith(':')) {
+    reason = 'QName cannot start with a colon';
+    position = 0;
+  } else if (production === 'qName' && str.endsWith(':')) {
+    reason = 'QName cannot end with a colon';
+    position = str.length - 1;
+  } else if (production === 'qName' && (str.match(/:/g) || []).length > 1) {
+    reason = 'QName can have at most one colon';
+    position = str.lastIndexOf(':');
+  } else if (
+    ['name', 'ncName', 'qName'].includes(production) &&
+    !/^[:A-Za-z_\u00C0-\uFFFD]/.test(str[0])
+  ) {
+    reason = `First character "${str[0]}" is not a valid NameStartChar`;
+    position = 0;
+  } else {
+    for (let i = 0; i < str.length; i++) {
+      if (!/[\w\-\\.:\u00B7\u00C0-\uFFFD]/.test(str[i])) {
+        reason = `Character "${str[i]}" at position ${i} is not a valid NameChar`;
+        position = i;
+        break;
+      }
+    }
+  }
+
+  return { valid: false, production, input: str, reason, position };
+};
+
+// ---------------------------------------------------------------------------
+// Batch validator
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates an array of strings against a named production.
+ *
+ * @param {string[]} strings
+ * @param {'name'|'ncName'|'qName'|'nmToken'|'nmTokens'} production
+ * @param {{ xmlVersion?: '1.0'|'1.1' }} [opts]
+ * @returns {Array<{ valid: boolean, production: string, input: string, reason?: string, position?: number }>}
+ */
+const validateAll = (strings, production, opts = {}) =>
+  strings.map(str => validate(str, production, opts));
+
+// ---------------------------------------------------------------------------
+// Sanitizer
+// ---------------------------------------------------------------------------
+
+/**
+ * Transforms an invalid string into the nearest valid XML name for the given production.
+ *
+ * @param {string} str
+ * @param {'name'|'ncName'|'qName'|'nmToken'|'nmTokens'} production
+ * @param {{ replacement?: string }} [opts]
+ * @returns {string}
+ */
+const sanitize = (str, production = 'name', { replacement = '_' } = {}) => {
+  if (!str) return replacement;
+
+  let result = str;
+
+  // Strip colons for NCName
+  if (production === 'ncName') {
+    result = result.replace(/:/g, '');
+  }
+
+  // Replace illegal characters
+  result = result.replace(/[^\w\-\.:\u00B7\u00C0-\uFFFD]/g, replacement);
+
+  // Fix invalid start character for Name / NCName / QName
+  if (production !== 'nmToken' && production !== 'nmTokens') {
+    if (/^[\-\.\d]/.test(result)) {
+      result = replacement + result;
+    }
+  }
+
+  return result || replacement;
+};
+
+/***/ },
+
 /***/ "./www/scripts/tileDownloader.ts"
 /*!***************************************!*\
   !*** ./www/scripts/tileDownloader.ts ***!
@@ -46602,6 +47084,11 @@ __webpack_require__.r(__webpack_exports__);
 //type UrlsType = {usgs: string, osm: string, usgs: string, mapbox: string}
 
 
+/**
+ * NOTE: Samsung phones may have the Gallery AI feature that scans the Directory.Documents
+ * files and places discovered images in the Gallery - including map tiles being saved!!
+ * Hence, the write routines use a '.nomedia' parameter to cause AI to skip those images.
+ */
 class TileDownloader {
     #osm_head = "https://openstreetmap.org";
     #usgs_head = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile";
@@ -46613,11 +47100,6 @@ class TileDownloader {
         const permission_status = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.requestPermissions();
         return permission_status.publicStorage;
     }
-    /**
-     * Due to recent changes, Directory.Documents is no longer accessible,
-     * hence all file system accesses are to Directory.Documents. The following
-     * section pertains to text files.
-     */
     async docFileExists(path) {
         try {
             await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.stat({
@@ -46780,6 +47262,36 @@ class TileDownloader {
             return false;
         }
     }
+    async writeUnsavedData(path, data) {
+        try {
+            await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.writeFile({
+                path: `${path}`,
+                data: data,
+                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents,
+                encoding: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Encoding.UTF8,
+                recursive: true
+            });
+            return true;
+        }
+        catch (error) {
+            console.error(`Could not write data: ${path}`);
+            return false;
+        }
+    }
+    async readUnsavedData(path) {
+        try {
+            const data = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.readFile({
+                path: `${path}`,
+                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents,
+                encoding: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Encoding.UTF8
+            });
+            return data.data;
+        }
+        catch (error) {
+            console.error(`Could not read unsaved data: ${path}`);
+            return false;
+        }
+    }
     async removeData(path) {
         try {
             await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.rmdir({
@@ -46795,8 +47307,19 @@ class TileDownloader {
         }
     }
     /**
-     * This section pertains to map tiles
+     * This section pertains to map tiles: 'createNoMedia' causes Samsung's gallery
+     * AI program to skip 'map' file images - otherwise the user finds a ton of
+     * map tile images in his Gallery!!
      */
+    async createNoMedia(mapName) {
+        await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.writeFile({
+            path: `${mapName}/.nomedia`,
+            data: '',
+            directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents,
+            encoding: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Encoding.UTF8,
+            recursive: true
+        });
+    }
     // FILESYSTEM PATH [NOT fetch url]
     getTilePath(map, z, x, y, source) {
         if (source === 'osm') {
@@ -47444,8 +47967,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_14__ = __webpack_require__(/*! @capacitor/local-notifications */ "./node_modules/@capacitor/local-notifications/dist/esm/index.js");
 /* harmony import */ var _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_15__ = __webpack_require__(/*! @capacitor/filesystem */ "./node_modules/@capacitor/filesystem/dist/esm/index.js");
 /* harmony import */ var _capacitor_share__WEBPACK_IMPORTED_MODULE_16__ = __webpack_require__(/*! @capacitor/share */ "./node_modules/@capacitor/share/dist/esm/index.js");
+/* harmony import */ var _capacitor_preferences__WEBPACK_IMPORTED_MODULE_17__ = __webpack_require__(/*! @capacitor/preferences */ "./node_modules/@capacitor/preferences/dist/esm/index.js");
 /// <reference types="jqueryui" />
-/// <reference path="./leaflet-offline.d.ts" />
+/// <reference path="../types/leaflet-offline.d.ts" />
+
 
 
 
@@ -47477,6 +48002,12 @@ __webpack_require__.r(__webpack_exports__);
 /**
  *  ----------------- Phone Specific Actions -----------------
  */
+async function androidReadWrite() {
+    if (await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.androidPermissions() === 'denied') {
+        notice("This phone is not granting permission to write certain data");
+    }
+    return;
+}
 // Back navigation: iOS swipe-back gesture works automatically via browser history
 if (_capacitor_core__WEBPACK_IMPORTED_MODULE_8__.Capacitor.getPlatform() === 'android') {
     let backPressedOnce = false;
@@ -47495,32 +48026,13 @@ if (_capacitor_core__WEBPACK_IMPORTED_MODULE_8__.Capacitor.getPlatform() === 'an
             }
         }
     });
+    androidReadWrite();
 }
+// Landscape/Portrait
 if (screen.orientation) {
     screen.orientation.addEventListener('change', () => {
         map.invalidateSize();
     });
-}
-else {
-    // allow for limited browser testing
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()(window).on('resize', () => {
-        map.invalidateSize();
-    });
-}
-// Android requires certain priveleges
-const isAndroid = () => {
-    return /Android/i.test(navigator.userAgent);
-};
-async function androidReadWrite() {
-    if (await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.androidPermissions() === 'denied') {
-        notice("This phone is not granting permission to write certain data");
-    }
-}
-if (isAndroid()) {
-    androidReadWrite();
-}
-else { // testing only:
-    androidReadWrite();
 }
 // Prevent pinch-zoom on document
 document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -47530,8 +48042,6 @@ document.addEventListener('gestureend', (e) => e.preventDefault());
  * ----------------- Icon Settings -----------------
  */
 var internetConnected;
-// On page load:
-internetConnected = navigator.onLine ? true : false;
 const internetIcon = (state) => {
     if (state === 'on') {
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#won').css('display', 'table-row');
@@ -47544,9 +48054,11 @@ const internetIcon = (state) => {
 };
 // On page load:
 if (navigator.onLine) {
+    internetConnected = true;
     internetIcon('on');
 }
 else {
+    internetConnected = false;
     internetIcon('off');
 }
 async function checkConnectivity() {
@@ -47559,13 +48071,13 @@ async function checkConnectivity() {
             }
         });
         const ok = response.status >= 200 && response.status < 300;
-        internetConnected = true;
-        return ok;
+        internetConnected = ok ? true : false;
+        return;
     }
     catch (error) {
         console.log("Status: Offline (Request failed or timed out)");
         internetConnected = false;
-        return false;
+        return;
     }
 }
 setInterval(checkConnectivity, 20000);
@@ -47583,6 +48095,22 @@ function followIcon(state) {
 // page load state:
 var following = false;
 followIcon(true);
+function trackingState(state) {
+    if (state === 'off') {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#start_tracking').css('display', 'table-row');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#tracking_on').css('display', 'none');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#tracking_off').css('display', 'table-row');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#stop_tracking').css('display', 'none');
+    }
+    else {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#start_tracking').css('display', 'none');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#tracking_on').css('display', 'table-row');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#tracking_off').css('display', 'none');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#stop_tracking').css('display', 'table-row');
+    }
+}
+// page load state:
+trackingState('off');
 /**
  * The notification dialog box is a substitute for the window.alert()
  * which can be problematic.
@@ -47606,10 +48134,18 @@ const saverDiv = document.getElementById('save_type');
 const save_type_modal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(saverDiv);
 const drawingRect = document.getElementById('draw_setup');
 const drawModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(drawingRect);
+const start_modal = document.getElementById('maps_available');
+const maps_available = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(start_modal);
 const mapSave = document.getElementById('om_save');
 const save_om_map_modal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(mapSave);
+const map_not_saved = document.getElementById('unsaved');
+const unsaved = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(map_not_saved);
+const marker_text = document.getElementById('marker_text');
+const textModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(marker_text);
 const downloadDiv = document.getElementById('save_gpx');
 const downloadModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(downloadDiv);
+const restore_data = document.getElementById('restore');
+const restoreModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(restore_data);
 /**
  * ----------------- Main display page -----------------
  */
@@ -47647,6 +48183,7 @@ async function loadSelectedMap(mapname) {
         map = null;
         online_loaded = offline_loaded = false;
     }
+    _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeUnsavedData('sessionMap.txt', mapname);
     displayMap(mapname); // will set offline_loaded via offlineMap()
 }
 /**
@@ -47654,6 +48191,9 @@ async function loadSelectedMap(mapname) {
  */
 var map;
 var permissions_requested = false;
+var permissions_granted = false;
+var sessionChecked = false;
+_tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeUnsavedData('sessionMap.txt', '');
 const tile_server = "usgs"; // current tile server for ktesa_app
 const ONLINE_LAYER_OPTIONS = {
     attribution: 'USGS The National Map',
@@ -47669,12 +48209,12 @@ const pulseIcon = leaflet__WEBPACK_IMPORTED_MODULE_3___default().divIcon({
         <div class="pulse-dot"></div>
       </div>
     `,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
 });
-var zoom_level = 6; // initial display value
-var marker;
-//var initial_load   = true;
+var zoom_level = 7; // initial display value
+var marker; // global for geolocation marker only
+var zooming = false;
 var online_loaded = false;
 var offline_loaded = false;
 var zctrl;
@@ -47688,11 +48228,12 @@ const zoom_handler = () => {
             zooming = false;
         }, 200);
     }
+    return;
 };
 var dropMarker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().icon({
     iconUrl: 'images/app_marker.png',
     iconSize: [32, 32],
-    iconAnchor: [32, 16]
+    iconAnchor: [15, 32]
 });
 function zoomctl_setup(start_zoom) {
     zctrl = document.createElement("DIV");
@@ -47708,6 +48249,7 @@ function zoomctl_setup(start_zoom) {
     zctrl.append(zsym, zval);
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('.leaflet-top.leaflet-left').append(zctrl);
     map.addEventListener("zoom", zoom_handler);
+    return;
 }
 async function initMap() {
     // DISPLAY THE MAP:
@@ -47715,7 +48257,7 @@ async function initMap() {
     map = leaflet__WEBPACK_IMPORTED_MODULE_3___default().map('map', {
         center: latlng,
         minZoom: 5,
-        maxZoom: 16,
+        maxZoom: 17,
         zoom: zoom_level,
         zoomSnap: 1 // no fractional zooms for zoomOptimizer
     });
@@ -47753,12 +48295,17 @@ async function initMap() {
     if (!permissions_requested) {
         requestNotificationPermission();
     }
+    if (!sessionChecked) {
+        checkLastSession();
+        sessionChecked = true;
+    }
+    return;
 }
 // Create modal offline map selections for user
 async function prepareMapNames() {
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#select_map').empty();
     const mapnamesFile = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.docFileExists('mapnames.txt');
     if (mapnamesFile) {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#select_map').empty();
         const savedMaps = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readMapnames();
         const userMaps = savedMaps.split(",");
         for (const map of userMaps) {
@@ -47767,6 +48314,8 @@ async function prepareMapNames() {
         }
     }
     else {
+        const option = "<option value='No Maps'>No Maps</option>";
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#select_map').append(option);
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#available').css('display', 'none'); //
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#no_maps').css('display', 'block');
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#use_map').prop('disabled', true);
@@ -47787,11 +48336,23 @@ else {
 /**
  * ----------------- Menu Actions -----------------
  */
+function clearPrevious() {
+    if (onlineRectangle) {
+        map.removeLayer(onlineRectangle);
+        map.removeLayer(onlineTrack);
+    }
+}
 function menu_close() {
+    //enusure any 'left over' buttons are hidden:
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_save, #clear_rect, #rect').css('display', 'none');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#disp').text("Closed");
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu').animate({ left: "-=230" }, 500);
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu').animate({ left: "-=230" }, 1500);
     return;
 }
+let menu = document.getElementById('menu');
+let menuHt = menu.offsetHeight;
+let displayHt = menuHt + 30;
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu').height(displayHt);
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu_trigger').on('click', () => {
     if (jquery__WEBPACK_IMPORTED_MODULE_0___default()('#disp').text() === 'Closed') {
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#disp').text("Open");
@@ -47805,6 +48366,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu_trigger').on('click', () =>
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '.save_display', () => {
     if (internetConnected) {
         menu_close();
+        maps_available.hide();
         if (offline_loaded) {
             map.remove();
             map = null;
@@ -47820,40 +48382,67 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '.save_display
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#off_goto', () => {
     // #off_goto won't be shown if not connected to internet
-    if (onlineRectangle) {
-        map.removeLayer(onlineRectangle);
-        map.removeLayer(onlineTrack);
-    }
+    clearPrevious();
     menu_close();
     offlineSelect();
     return;
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#play', () => {
     tracking = true;
-    menu_close();
-});
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#pause', () => {
-    tracking_actions('continue');
-    tracking = false;
+    trackingGeolocation();
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#info').css('display', 'block');
+    trackingState('on');
     menu_close();
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#stop', () => {
-    tracking_actions('close');
     tracking = false;
+    trackingGeolocation();
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#info').css('display', 'none');
+    trackingState('off');
     menu_close();
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#dwnld', () => {
     menu_close();
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#save_clear').css('display', 'inline');
     downloadModal.show();
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#trash', () => {
+    menu_close();
+    let resume = tracking;
+    tracking = false;
+    trackingGeolocation();
+    miles = 0;
+    gpx_pts = [];
+    waypts = [];
+    if (typeof hike !== 'undefined') {
+        map.removeLayer(hike);
+    }
+    for (let i = 0; i < wayMrkrs.length; i++) {
+        map.removeLayer(wayMrkrs[i]);
+    }
+    tracking = resume;
+    if (tracking) {
+        trackingGeolocation();
+    }
+    markSessionClean();
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#marker', () => {
     menu_close();
     map.locate({ enableHighAccuracy: true, watch: false });
     map.once('locationfound', function (e) {
-        let myloc = e.latlng;
-        leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(myloc, { icon: dropMarker }).addTo(map);
-        let waypt = [myloc.lat, myloc.lng];
+        const myloc = e.latlng;
+        const waypt = [myloc.lat, myloc.lng];
         waypts.push(waypt);
+        const wmrkr = leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(myloc, { icon: dropMarker }).addTo(map);
+        wmrkr.on('click', () => {
+            map.setView(myloc);
+        });
+        wayMrkrs.push(wmrkr);
+        let indx = wayMrkrs.length;
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#mrkr_indx').text(indx);
+        textModal.show();
+        markSessionDirty();
+        saveSessionState();
     });
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#locate', () => {
@@ -47885,6 +48474,21 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#use_map', ()
     loadSelectedMap(user_map);
     return;
 });
+// --- multiple items associated with saving maps ---
+var isSaved = false;
+function saveUserMap() {
+    if (rect_complete) {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_save').css('display', 'none');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#clear_rect').css('display', 'none');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#rect').css('display', 'none');
+        rect_complete = false;
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map').off(); // DOM events only
+        map.dragging.enable();
+    }
+    isSaved = true;
+    tile_save();
+    return;
+}
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#map_save', () => {
     save_om_map_modal.show();
 });
@@ -47894,18 +48498,31 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_om', ()
         notice("You must supply a name for the map");
         return false;
     }
-    if (rect_complete) {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_save').css('display', 'none');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#clear_rect').css('display', 'none');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#rect').css('display', 'none');
-        rect_complete = false;
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map').off(); // DOM events only
-        map.dragging.enable();
-    }
-    tile_save();
+    save_om_map_modal.hide();
+    saveUserMap();
     return;
 });
+mapSave.addEventListener('hidden.bs.modal', () => {
+    if (!isSaved) {
+        unsaved.show();
+    }
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#resave', () => {
+    mapName = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#resave_as').val();
+    if (mapName == '') {
+        notice("You must supply a name for the map");
+        return false;
+    }
+    unsaved.hide();
+    saveUserMap();
+    return;
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#ignore_save', () => {
+    unsaved.hide();
+});
+// --- end map saving items ---
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#begin_draw', () => {
+    clearPrevious();
     save_type_modal.hide();
     drawModal.show();
 });
@@ -47920,7 +48537,28 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#clear_rect',
     map.removeLayer(rect);
     rect_complete = false;
 });
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#add_marker_text', () => {
+    let tooltip = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#id_text').val();
+    let indx = parseInt(jquery__WEBPACK_IMPORTED_MODULE_0___default()('#mrkr_indx').text()) - 1;
+    if (tooltip === '') {
+        notice('Please enter tooltip text');
+        return false;
+    }
+    wayMrkrs[indx].bindTooltip(tooltip, {
+        permanent: true,
+        direction: 'right',
+    });
+    textModal.hide();
+    return;
+});
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_dwnld', () => {
+    downloadRoutine();
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_clear', () => {
+    clear_track = true;
+    downloadRoutine();
+});
+function downloadRoutine() {
     const gpx_name = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#dwnld_name').val();
     if (gpx_name == '') {
         notice("Please supply a name for the download file");
@@ -47928,7 +48566,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_dwnld',
     }
     createAndDownloadGPX(gpx_name);
     return;
-});
+}
 // ----------------- Defining Offline Map -----------------
 var save_type;
 var map_center;
@@ -47939,6 +48577,7 @@ var onlineRectangle;
  * 1. Import a site hike (imports map center, bounds, and gpx file)
  */
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#site', () => {
+    clearPrevious();
     let hikename = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#search').val();
     if (hikename == '') {
         notice("Please select a hike");
@@ -48025,6 +48664,7 @@ var gpx_btn = document.getElementById('gpx');
 var file2import;
 var xml;
 gpx_btn.onclick = function () {
+    clearPrevious();
     gpximport.value = "";
     gpx_btn.disabled = true;
     gpximport.style.setProperty('--btn-color', 'mediumseagreen');
@@ -48194,7 +48834,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#rect', funct
     jquery__WEBPACK_IMPORTED_MODULE_0___default()(this).addClass('btn-secondary');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()(this).prop("disabled", true);
     if (typeof rect !== 'undefined') {
-        rect.remove();
+        map.removeLayer(rect);
     }
     // Setup touch event handling
     map.dragging.disable(); // restored after save
@@ -48379,7 +49019,6 @@ function zoom_out_tile(row, col) {
 }
 ;
 const tile_save = async () => {
-    save_om_map_modal.hide();
     // parameter validation:
     zoom_level = map.getZoom();
     if (zoom_level < 13) {
@@ -48387,13 +49026,14 @@ const tile_save = async () => {
         return false;
     }
     var stored_zoom = zoom_level.toString();
+    var names_list = [];
     const fileExists = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.docFileExists("mapnames.txt");
     if (!fileExists) {
         names_list = [];
     }
     else {
         const saved_names = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readMapnames();
-        var names_list = saved_names.split(",");
+        names_list = saved_names.split(",");
     }
     if (names_list.includes(mapName)) {
         notice("This name is already used; please supply a new name");
@@ -48447,6 +49087,7 @@ const tile_save = async () => {
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#bar').css('width', '2px');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#base').text("Saving Base Map...");
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#base').css('display', 'inline');
+    await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.createNoMedia(mapName);
     // top row
     for (let row = ur - 1, i = uc - 1; i <= lc + 1; i++) {
         await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, row, i, tile_server, mapName);
@@ -48498,6 +49139,7 @@ const tile_save = async () => {
     // dowload the zoom-ins for the 'bounds' region
     await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_save').css('display', 'none');
+    isSaved = false; // reset for the next event
     return;
 };
 /**
@@ -48516,11 +49158,7 @@ function saveProgress(complete, total) {
 /**
  * ----------------- Use Offline Map -----------------
  */
-const start_modal = document.getElementById('maps_available');
-const maps_available = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(start_modal);
 var track_poly;
-var zooming = false;
-var marker;
 var tracking = false; // initial load
 var hike;
 /**
@@ -48564,6 +49202,62 @@ var hike;
 (leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer).offline = function (url, options) {
     return new (leaflet__WEBPACK_IMPORTED_MODULE_3___default().TileLayer).Offline(url, options);
 };
+//L.tileLayer.offline = (url, options) => new L.TileLayer.Offline(url, options);
+// Create Hybrid to allow for online occurrences by extending L.TileLayer.Offline:
+(leaflet__WEBPACK_IMPORTED_MODULE_3___default().TileLayer).Hybrid = leaflet__WEBPACK_IMPORTED_MODULE_3___default().TileLayer.Offline.extend({
+    createTile: function (coords) {
+        // ----- Repeat L.TileLayer.Offline 'createTile' up to 'docFileExist'...
+        const tile = document.createElement('img');
+        const options = this.options;
+        const mapname = options.mapname;
+        // use maxNative zoom to clamp tile loads
+        const maxNativeZoom = this.options.maxNativeZoom;
+        const nativeZoom = maxNativeZoom !== undefined
+            ? Math.min(coords.z, maxNativeZoom)
+            : coords.z;
+        const url = _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getTilePath(mapname, nativeZoom, coords.x, coords.y, 'usgs');
+        // ----- end repeat
+        _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.docFileExists(url)
+            .then((found) => found ? _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getTile(url) : false)
+            .then((mapTile) => {
+            if (mapTile) {
+                // ✅ Offline hit — same as before
+                tile.src = `data:image/png;base64,${mapTile.data ?? mapTile}`;
+            }
+            else {
+                // 🌐 Offline miss — try network if online
+                return this._fetchAndCacheOnlineTile(coords, nativeZoom, tile);
+            }
+        })
+            .catch((err) => {
+            console.error('Tile error:', err);
+        });
+        return tile;
+    },
+    _fetchAndCacheOnlineTile: async function (coords, nativeZoom, tile) {
+        if (!internetConnected)
+            return;
+        try {
+            const options = this.options;
+            const mapname = options.mapname;
+            const success = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(nativeZoom, coords.x, coords.y, 'usgs', mapname);
+            if (!success)
+                return;
+            // Read it back the same way the offline path does
+            const tilePath = _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getTilePath(mapname, nativeZoom, coords.x, coords.y, 'usgs');
+            const mapTile = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getTile(tilePath);
+            if (mapTile) {
+                tile.src = `data:image/png;base64,${mapTile.data ?? mapTile}`;
+            }
+        }
+        catch (err) {
+            console.error('Online tile fetch/cache failed:', err);
+        }
+    }
+});
+(leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer).hybrid = function (url, options) {
+    return new (leaflet__WEBPACK_IMPORTED_MODULE_3___default().TileLayer).Hybrid(url, options);
+};
 async function displayMap(map_name) {
     const mapCtr = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readCenter(map_name);
     if (!mapCtr) {
@@ -48605,15 +49299,14 @@ function offlineMap(mapname, map_ctr, map_zoom, track) {
         minZoom: 10,
         maxZoom: 18,
         zoom: map_zoom,
-        zoomSnap: 1
     });
-    leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer.offline('', {
+    leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer.hybrid('', {
         mapname,
         maxNativeZoom: 16,
         maxZoom: 18,
     }).addTo(map);
-    leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer.offline('', {
-        attribution: 'USGS'
+    leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer.hybrid('', {
+        attribution: 'USGS The National Map'
     }).addTo(map);
     // Geolocation dot
     map.locate({ enableHighAccuracy: true, watch: false });
@@ -48625,31 +49318,22 @@ function offlineMap(mapname, map_ctr, map_zoom, track) {
     zoomctl_setup(map_zoom);
     if (track !== '') {
         const latlng_arr = JSON.parse(track);
-        leaflet__WEBPACK_IMPORTED_MODULE_3___default().polyline(latlng_arr, { color: 'blue' }).addTo(map);
+        offline_track = leaflet__WEBPACK_IMPORTED_MODULE_3___default().polyline(latlng_arr, { color: 'blue' }).addTo(map);
     }
     map.invalidateSize();
     offline_loaded = true;
+    if (!sessionChecked) { // timing doesn't matter here for async fct
+        checkLastSession();
+        sessionChecked = true;
+    }
     return;
 }
-function tracking_actions(gpx_stat) {
-    if (gpx_stat === 'stop') {
-        // close current gpx, start new one?
-    }
-}
 /**
- * Once set, Geolocation is not affected by switching online/offline maps
- * 'marker' must be defined before calling this routine
+ * Background geolocation consumes battery power, so the only time it
+ * is enabled is when tracking is enabled via the 'play' svg icon.
  */
-async function requestNotificationPermission() {
-    permissions_requested = true;
-    // Check the current status
-    let permStatus = await _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_14__.LocalNotifications.checkPermissions();
-    // If not already granted, request it
-    if (permStatus.display !== 'granted') {
-        permStatus = await _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_14__.LocalNotifications.requestPermissions();
-    }
-    if (permStatus.display === 'granted') {
-        // Setup Geolocation...
+function trackingGeolocation() {
+    if (permissions_granted && tracking) {
         (async () => {
             try {
                 const initial = await _capacitor_geolocation__WEBPACK_IMPORTED_MODULE_12__.Geolocation.getCurrentPosition({
@@ -48695,19 +49379,35 @@ async function requestNotificationPermission() {
                 const lat = position?.latitude;
                 const lng = position?.longitude;
                 const ele = position?.altitude;
-                jquery__WEBPACK_IMPORTED_MODULE_0___default()('#lat').text(lat.toFixed(5));
-                jquery__WEBPACK_IMPORTED_MODULE_0___default()('#lng').text(lng.toFixed(5));
                 const latlng = [lat, lng];
                 marker.setLatLng(latlng);
                 if (following) {
                     map.setView(latlng);
                 }
-                if (tracking)
-                    tracker(lat, lng, ele);
+                tracker(lat, lng, ele);
                 return;
             };
             await _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_13__.BackgroundGeolocation.start(config, onPosition);
         })();
+    }
+    else {
+        _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_13__.BackgroundGeolocation.stop();
+    }
+}
+/**
+ * Once set, Geolocation is not affected by switching online/offline maps
+ * 'marker' must be defined before calling this routine
+ */
+async function requestNotificationPermission() {
+    permissions_requested = true;
+    // Check the current status
+    let permStatus = await _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_14__.LocalNotifications.checkPermissions();
+    // If not already granted, request it
+    if (permStatus.display !== 'granted') {
+        permStatus = await _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_14__.LocalNotifications.requestPermissions();
+    }
+    if (permStatus.display === 'granted') {
+        permissions_granted = true;
     }
     else {
         let msg = "Notification permission denied: Tracking will be disabled";
@@ -48739,21 +49439,28 @@ var gpx_pts = [];
 var map_pt;
 var map_line = [];
 var waypts = [];
+var wayMrkrs = [];
+var offline_track;
+var clear_track = false;
 function tracker(lat, lng, ele) {
     track_pt = { lat: lat, lng: lng, elevation: ele };
     gpx_pts.push(track_pt);
     map_pt = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(lat, lng); // => {lat: lat, lng: lng}
     map_line.push(map_pt);
+    let altitude = track_pt.elevation * 3.28084;
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#feet').text(altitude.toFixed(0));
     let pts = map_line.length;
     if (pts > 1) {
         let dist_incr = distInMiles(map_line[pts - 1].lat, map_line[pts - 1].lng, map_line[pts - 2].lat, map_line[pts - 2].lng);
         miles += dist_incr;
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#miles').text(miles.toFixed(2));
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#distance').text(miles.toFixed(2));
         if (pts > 2) {
-            hike.remove();
+            map.removeLayer(hike);
         }
         hike = leaflet__WEBPACK_IMPORTED_MODULE_3___default().polyline(map_line, { color: 'red' }).addTo(map);
     }
+    saveSessionState();
+    markSessionDirty();
     return;
 }
 // Data for creating GPX File
@@ -48767,11 +49474,13 @@ const gpx_eof = "    </trkseg>\n  </trk>\n</gpx>";
 async function createAndDownloadGPX(dwnld_name) {
     if (waypts.length === 0 && gpx_pts.length === 0) {
         notice("There is nothing to download");
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#dwnld_name').val("");
         return false;
     }
-    if (waypts.length > 0) {
-        for (let pt in waypts) {
-            let newpt = `\n  <wpt lat="${pt[0]}" lng="${pt[1]}">`;
+    let wptcnt = waypts.length;
+    if (wptcnt > 0) {
+        for (let j = 0; j < wptcnt; j++) {
+            let newpt = "\n  " + '<wpt lat="' + waypts[j][0] + '" lon="' + waypts[j][1] + '"></wpt>';
             gpx_file += newpt;
         }
     }
@@ -48794,6 +49503,17 @@ async function createAndDownloadGPX(dwnld_name) {
         recursive: true
     });
     await saveOrShareGpxFile(result);
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#dwnld_name').val("");
+    if (clear_track) {
+        map.removeLayer(offline_track);
+        for (let i = 0; i < wayMrkrs.length; i++) {
+            const deletion = wayMrkrs[i];
+            map.removeLayer(deletion);
+        }
+        clear_track = false;
+    }
+    downloadModal.hide();
+    markSessionClean();
     async function saveOrShareGpxFile(result) {
         const platform = _capacitor_core__WEBPACK_IMPORTED_MODULE_8__.Capacitor.getPlatform();
         if (platform === 'android') {
@@ -48837,6 +49557,12 @@ async function createAndDownloadGPX(dwnld_name) {
  * 'mapname' resides in the 'mapnames.txt' file when 'delmap' is clicked.
  */
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#delmap', async function () {
+    const map_sel = document.getElementById('select_map');
+    let optCount = map_sel.options.length;
+    if (optCount === 1) {
+        const option = "<option value='No Maps'>No Maps</option>";
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#select_map').append(option);
+    }
     const choice = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#select_map').val();
     const choice_opt = "option[value=" + choice + "]";
     jquery__WEBPACK_IMPORTED_MODULE_0___default()("#select_map " + choice_opt).remove();
@@ -48855,6 +49581,64 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#delmap', asy
     }
     await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.removeData(choice);
     return;
+});
+/**
+ * If the app is closed with unsaved track/marker data present,
+ * ensure that it can be restored when the app is opened again.
+ * Note that there is no explicit mechanism to detect app closure.
+ */
+const saveSessionState = async () => {
+    // Save any track or marker data
+    if (gpx_pts.length > 0) {
+        let track_json = JSON.stringify(gpx_pts);
+        _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeUnsavedData("unsavedTrack.json", track_json);
+    }
+    if (waypts.length > 0) {
+        let marker_json = JSON.stringify(waypts);
+        _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeUnsavedData("unsavedMarkers.json", marker_json);
+    }
+};
+// On app start — check if last session ended cleanly
+async function checkLastSession() {
+    const { value } = await _capacitor_preferences__WEBPACK_IMPORTED_MODULE_17__.Preferences.get({ key: 'session_dirty' });
+    if (value === 'true') {
+        let lastMap = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readUnsavedData('sessionMap.txt');
+        if (lastMap.length > 0) {
+            jquery__WEBPACK_IMPORTED_MODULE_0___default()('#usmap').text(lastMap);
+        }
+        else {
+            jquery__WEBPACK_IMPORTED_MODULE_0___default()('#usmap').text('Online');
+        }
+        restoreModal.show();
+    }
+}
+// When unsaved data exists, mark the session as dirty
+async function markSessionDirty() {
+    await _capacitor_preferences__WEBPACK_IMPORTED_MODULE_17__.Preferences.set({ key: 'session_dirty', value: 'true' });
+}
+// When data is saved, clear the flag
+async function markSessionClean() {
+    await _capacitor_preferences__WEBPACK_IMPORTED_MODULE_17__.Preferences.set({ key: 'session_dirty', value: 'false' });
+}
+var prevent_bs_modal_close = false; // re-initialized every app open
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#restore_session', async () => {
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#save_clear').css('display', 'none');
+    let oldgpx = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readUnsavedData("unsavedTrack.json");
+    gpx_pts = JSON.parse(oldgpx);
+    let oldwaypts = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readUnsavedData("unsavedMarkers.json");
+    waypts = JSON.parse(oldwaypts);
+    markSessionClean();
+    prevent_bs_modal_close = true;
+    restoreModal.hide();
+    downloadModal.show();
+});
+restore_data.addEventListener('hidden.bs.modal', () => {
+    if (!prevent_bs_modal_close) {
+        gpx_pts = [];
+        waypts = [];
+        markSessionClean();
+        restoreModal.hide();
+    }
 });
 
 })();
