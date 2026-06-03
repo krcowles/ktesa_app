@@ -43,11 +43,11 @@
             <table>
                 <tr>
                     <td><img class="save_display" src="images/GreenSave.png" /></td>
-                    <td class="tbl_txt">Create Offline Map</td>
+                    <td class="tbl_txt">Create Map</td>
                 </tr>
                 <tr>
                     <td><img id="off_goto" src="images/offline.png" /></td>
-                    <td class="tbl_txt">Select Offline Map</td>
+                    <td class="tbl_txt">Select Map</td>
                 </tr>
             </table>
         </div>
@@ -422,6 +422,29 @@
             <div class="modal-footer">
                 <button  class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
                     Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Multiple Tracks to Import -->
+<div id="multi" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Multiple Tracks</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+               <p>This hike has multiple tracks, but only the main one will be
+                imported here. To import other tracks, go to the page on nmhikes.com
+                and click the 'Download GPX File', which will present all the tracks. 
+                When downloaded, import the download file as a GPX file.
+               </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>

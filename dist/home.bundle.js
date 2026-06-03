@@ -47236,32 +47236,6 @@ class TileDownloader {
             return false;
         }
     }
-    async deleteFile(path) {
-        try {
-            await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.deleteFile({
-                path: path,
-                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents
-            });
-            return true;
-        }
-        catch (error) {
-            //console.error(`Could not delete ${path}`, error);
-            return false;
-        }
-    }
-    async readDirFiles(path) {
-        try {
-            const dirFiles = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.readdir({
-                path: path,
-                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents
-            });
-            return dirFiles.files;
-        }
-        catch (error) {
-            //console.error(`Could not read directory ${path}`, error);
-            return false;
-        }
-    }
     async writeUnsavedData(path, data) {
         try {
             await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.writeFile({
@@ -47289,6 +47263,33 @@ class TileDownloader {
         }
         catch (error) {
             console.error(`Could not read unsaved data: ${path}`);
+            return false;
+        }
+    }
+    async deleteFile(path) {
+        try {
+            await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.deleteFile({
+                path: path,
+                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents
+            });
+            return true;
+        }
+        catch (error) {
+            //console.error(`Could not delete ${path}`, error);
+            return false;
+        }
+    }
+    // The following routines were made available for debug
+    async readDirFiles(path) {
+        try {
+            const dirFiles = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.readdir({
+                path: path,
+                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Documents
+            });
+            return dirFiles.files;
+        }
+        catch (error) {
+            //console.error(`Could not read directory ${path}`, error);
             return false;
         }
     }
@@ -47330,7 +47331,7 @@ class TileDownloader {
         }
         return; // no other sources defined at this point
     }
-    // FETCH URL: Filesystem requires file extensions
+    // FETCH URL:
     getTileUrl(z, x, y, source) {
         if (source === 'osm') {
             return `${this.#osm_head}/${z}/${x}/${y}.png`;
@@ -47363,7 +47364,7 @@ class TileDownloader {
      * saved in their respective offline directories.
      */
     // Download and cache tile: map must be specified by user
-    async downloadTile(z, x, y, source = 'usgs', map = 'initial') {
+    async downloadTile(z, x, y, source = 'usgs', map) {
         try {
             const tileUrl = this.getTileUrl(z, x, y, source);
             const response = await _capacitor_core__WEBPACK_IMPORTED_MODULE_1__.CapacitorHttp.get({
@@ -47944,8 +47945,7 @@ var __webpack_exports__ = {};
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   checkConnectivity: () => (/* binding */ checkConnectivity),
-/* harmony export */   initMap: () => (/* binding */ initMap),
-/* harmony export */   resetMap: () => (/* binding */ resetMap)
+/* harmony export */   initMap: () => (/* binding */ initMap)
 /* harmony export */ });
 /* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! jquery */ "./node_modules/jquery/dist/jquery.js");
 /* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(jquery__WEBPACK_IMPORTED_MODULE_0__);
@@ -48000,7 +48000,7 @@ __webpack_require__.r(__webpack_exports__);
  * @version 2.0 Replaces osm method with topo tile from USGS
  */
 /**
- *  ----------------- Phone Specific Actions -----------------
+ *  ----------------- Phone-Specific Actions -----------------
  */
 async function androidReadWrite() {
     if (await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.androidPermissions() === 'denied') {
@@ -48039,28 +48039,9 @@ document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('gesturechange', (e) => e.preventDefault());
 document.addEventListener('gestureend', (e) => e.preventDefault());
 /**
- * ----------------- Icon Settings -----------------
+ * ----------------- Internet connectivity -----------------
  */
-var internetConnected;
-const internetIcon = (state) => {
-    if (state === 'on') {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#won').css('display', 'table-row');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#woff').css('display', 'none');
-    }
-    else {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#won').css('display', 'none');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#woff').css('display', 'table-row');
-    }
-};
-// On page load:
-if (navigator.onLine) {
-    internetConnected = true;
-    internetIcon('on');
-}
-else {
-    internetConnected = false;
-    internetIcon('off');
-}
+var internetConnected = navigator.onLine ? true : false;
 async function checkConnectivity() {
     try {
         const response = await _capacitor_core__WEBPACK_IMPORTED_MODULE_8__.CapacitorHttp.request({
@@ -48108,6 +48089,7 @@ function trackingState(state) {
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#tracking_off').css('display', 'none');
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#stop_tracking').css('display', 'table-row');
     }
+    return;
 }
 // page load state:
 trackingState('off');
@@ -48146,30 +48128,11 @@ const downloadDiv = document.getElementById('save_gpx');
 const downloadModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(downloadDiv);
 const restore_data = document.getElementById('restore');
 const restoreModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(restore_data);
+const multiTrack = document.getElementById('multi');
+const multiModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(multiTrack);
 /**
  * ----------------- Main display page -----------------
  */
-// Map Globals and Initialization
-/**
- * It is necessary to completely destroy any existing map in order to
- * display a new offline map: Note this routine apparently is no longer
- * needed as 'map.remove()' and 'map = null' seem to solve any issues...
- * Leaving code in case a situation arises later.
- */
-function resetMap(containerId = 'map') {
-    if (window._leafletMap) {
-        window._leafletMap.off();
-        window._leafletMap.remove();
-        window._leafletMap = undefined;
-    }
-    const container = document.getElementById(containerId);
-    if (container) {
-        container._leaflet_id = null;
-    }
-    const map = leaflet__WEBPACK_IMPORTED_MODULE_3___default().map(containerId);
-    window._leafletMap = map;
-    return map;
-}
 /**
  * This function will destroy any currently implemented map and
  * then display the offline map selected by the user. Also
@@ -48183,17 +48146,17 @@ async function loadSelectedMap(mapname) {
         map = null;
         online_loaded = offline_loaded = false;
     }
-    _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeUnsavedData('sessionMap.txt', mapname);
+    _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeUnsavedData('sessionMap.txt', mapname); // indicates offline map
     displayMap(mapname); // will set offline_loaded via offlineMap()
 }
 /**
  * Module-level globals including functions
  */
 var map;
+var container;
 var permissions_requested = false;
 var permissions_granted = false;
 var sessionChecked = false;
-_tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeUnsavedData('sessionMap.txt', '');
 const tile_server = "usgs"; // current tile server for ktesa_app
 const ONLINE_LAYER_OPTIONS = {
     attribution: 'USGS The National Map',
@@ -48262,7 +48225,7 @@ async function initMap() {
         zoomSnap: 1 // no fractional zooms for zoomOptimizer
     });
     leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer(ONLINE_TILE_URL, ONLINE_LAYER_OPTIONS)
-        .addTo(map);
+        .addTo(map); // standard leaflet tile layer
     marker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(latlng, { icon: pulseIcon }).addTo(map);
     map.locate({ enableHighAccuracy: true, watch: false });
     map.once('locationfound', function (e) {
@@ -48292,6 +48255,7 @@ async function initMap() {
     }
     map.addLayer(new GridDebug());
     online_loaded = true;
+    _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeUnsavedData('sessionMap.txt', ''); // indicates online, no map
     if (!permissions_requested) {
         requestNotificationPermission();
     }
@@ -48299,6 +48263,8 @@ async function initMap() {
         checkLastSession();
         sessionChecked = true;
     }
+    // Only for online: needed for drawing rectangle
+    container = map.getContainer();
     return;
 }
 // Create modal offline map selections for user
@@ -48482,10 +48448,12 @@ function saveUserMap() {
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#clear_rect').css('display', 'none');
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#rect').css('display', 'none');
         rect_complete = false;
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map').off(); // DOM events only
+        leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.off(container, 'touchstart', drawingHandlers.touchstart);
+        leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.off(container, 'touchmove', drawingHandlers.touchmove);
+        leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.off(container, 'touchend', drawingHandlers.touchend);
         map.dragging.enable();
+        map.removeLayer(rect);
     }
-    isSaved = true;
     tile_save();
     return;
 }
@@ -48498,6 +48466,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_om', ()
         notice("You must supply a name for the map");
         return false;
     }
+    isSaved = true;
     save_om_map_modal.hide();
     saveUserMap();
     return;
@@ -48505,6 +48474,9 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_om', ()
 mapSave.addEventListener('hidden.bs.modal', () => {
     if (!isSaved) {
         unsaved.show();
+    }
+    else {
+        isSaved = false;
     }
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#resave', () => {
@@ -48536,6 +48508,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#draw_routine
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#clear_rect', () => {
     map.removeLayer(rect);
     rect_complete = false;
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#rect').prop('disabled', false);
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#add_marker_text', () => {
     let tooltip = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#id_text').val();
@@ -48652,7 +48625,8 @@ function siteHike(map_data) {
         var lng = result_array[2][1];
         map_center = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(lat, lng);
         var track_poly = result_array[3];
-        displayImportedTrack(nw, se, map_center, track_poly);
+        var multi = parseInt(result_array[4]);
+        displayImportedTrack(nw, se, map_center, track_poly, multi);
         return;
     }
 }
@@ -48752,7 +48726,7 @@ function processGpxFile(xml) {
  * For imports (site hike or gpx file), this function renders the captured data
  * as a track on the map. From this point, the relevant data can be saved.
  */
-function displayImportedTrack(nw, se, mapctr, polyline) {
+function displayImportedTrack(nw, se, mapctr, polyline, multi = 0) {
     save_type_modal.hide();
     /**
      * Negative numbers can be confusing, so here I use
@@ -48787,6 +48761,9 @@ function displayImportedTrack(nw, se, mapctr, polyline) {
     endY = se.lng;
     save_type = "import";
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_save').css('display', 'inline');
+    if (multi > 0) {
+        multiModal.show();
+    }
     return;
 }
 /**
@@ -48827,6 +48804,75 @@ tile_coords[13] = [];
 tile_coords[14] = [];
 tile_coords[15] = [];
 var rect_complete = false;
+/**
+ * Establish touch handlers such that the touch events can be
+ * turned off when done
+ */
+function onTouchStart(e) {
+    leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.preventDefault(e);
+    save_type = "draw";
+    start_rect(e);
+}
+function onTouchMove(e) {
+    leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.preventDefault(e);
+    draw_rect(e);
+}
+function onTouchEnd(e) {
+    leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.preventDefault(e);
+    end_rect(e);
+}
+const drawingHandlers = {
+    touchstart: (e) => onTouchStart(e),
+    touchmove: (e) => onTouchMove(e),
+    touchend: (e) => onTouchEnd(e)
+};
+function start_rect(ev) {
+    if (!rect_complete) {
+        var touch = ev.touches[0];
+        var startRect = map.mouseEventToLatLng(touch);
+        startX = startRect.lat;
+        startY = startRect.lng;
+        var rectX = startX + 0.005;
+        var rectY = startY + 0.005;
+        var crnr1 = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(startX, startY);
+        var crnr2 = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(rectX, rectY);
+        var latlngs = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
+        var rectOpts = { color: 'Green', weight: 1 };
+        rect = leaflet__WEBPACK_IMPORTED_MODULE_3___default().rectangle(latlngs, rectOpts);
+        rect.addTo(map);
+    }
+}
+function draw_rect(ev) {
+    if (!rect_complete) {
+        rect.removeFrom(map);
+        var touch = ev.touches[0];
+        var newRect = map.mouseEventToLatLng(touch);
+        var rectX = newRect.lat;
+        var rectY = newRect.lng;
+        var crnr1 = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(startX, startY);
+        var crnr2 = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(rectX, rectY);
+        var latlngs = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
+        var rectOpts = { color: 'Green', weight: 1 };
+        rect = leaflet__WEBPACK_IMPORTED_MODULE_3___default().rectangle(latlngs, rectOpts);
+        rect.addTo(map);
+    }
+}
+function end_rect(ev) {
+    if (!rect_complete) {
+        var touchlist = ev.changedTouches;
+        var items = touchlist.length;
+        var touch = touchlist.item(items - 1);
+        var endRect = map.mouseEventToLatLng(touch);
+        endX = endRect.lat;
+        endY = endRect.lng;
+        var lat_ctr = startX - (startX - endX) / 2;
+        var lng_ctr = startY + (endY - startY) / 2;
+        map_center = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(lat_ctr, lng_ctr);
+        bounds = getRectBounds();
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#rect').prop('disabled', true);
+        rect_complete = true;
+    }
+}
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#rect', function () {
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#rect').prop('disabled', true);
     rect_complete = false;
@@ -48836,72 +48882,10 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#rect', funct
     if (typeof rect !== 'undefined') {
         map.removeLayer(rect);
     }
-    // Setup touch event handling
     map.dragging.disable(); // restored after save
-    var container = map.getContainer();
-    leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.on(container, 'touchstart', function (e) {
-        leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.preventDefault(e);
-        save_type = "draw";
-        start_rect(e);
-    });
-    leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.on(container, 'touchmove', function (e) {
-        leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.preventDefault(e);
-        draw_rect(e);
-    });
-    leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.on(container, 'touchend', function (e) {
-        leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.preventDefault(e);
-        end_rect(e);
-    });
-    function start_rect(ev) {
-        if (!rect_complete) {
-            var touch = ev.touches[0];
-            //var startRect = map.mouseEventToLatLng(ev.originalEvent);
-            var startRect = map.mouseEventToLatLng(touch);
-            startX = startRect.lat;
-            startY = startRect.lng;
-            var rectX = startX + 0.005;
-            var rectY = startY + 0.005;
-            var crnr1 = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(startX, startY);
-            var crnr2 = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(rectX, rectY);
-            var latlngs = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
-            var rectOpts = { color: 'Green', weight: 1 };
-            rect = leaflet__WEBPACK_IMPORTED_MODULE_3___default().rectangle(latlngs, rectOpts);
-            rect.addTo(map);
-            //click_cnt = 1;
-        }
-    }
-    function draw_rect(ev) {
-        if (!rect_complete) {
-            rect.removeFrom(map);
-            var touch = ev.touches[0];
-            var newRect = map.mouseEventToLatLng(touch);
-            //var newRect = map.mouseEventToLatLng(ev.originalEvent);
-            var rectX = newRect.lat;
-            var rectY = newRect.lng;
-            var crnr1 = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(startX, startY);
-            var crnr2 = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(rectX, rectY);
-            var latlngs = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
-            var rectOpts = { color: 'Green', weight: 1 };
-            rect = leaflet__WEBPACK_IMPORTED_MODULE_3___default().rectangle(latlngs, rectOpts);
-            rect.addTo(map);
-        }
-    }
-    function end_rect(ev) {
-        if (!rect_complete) {
-            var touchlist = ev.changedTouches;
-            var items = touchlist.length;
-            var touch = touchlist.item(items - 1);
-            var endRect = map.mouseEventToLatLng(touch);
-            //var endRect = map.mouseEventToLatLng(ev.originalEvent);
-            endX = endRect.lat;
-            endY = endRect.lng;
-            var lat_ctr = startX - (startX - endX) / 2;
-            var lng_ctr = startY + (endY - startY) / 2;
-            map_center = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(lat_ctr, lng_ctr);
-            bounds = getRectBounds();
-            rect_complete = true;
-        }
-    }
+    leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.on(container, 'touchstart', drawingHandlers.touchstart);
+    leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.on(container, 'touchmove', drawingHandlers.touchmove);
+    leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.on(container, 'touchend', drawingHandlers.touchend);
     return;
 });
 /**
@@ -49006,6 +48990,7 @@ function loadZoomOutTiles(ul_corner, maxz, minz) {
             }
         }
     }
+    return;
 }
 function zoom_out_tile(row, col) {
     //const zoomDiff = currZoom - outZoom;
@@ -49028,10 +49013,7 @@ const tile_save = async () => {
     var stored_zoom = zoom_level.toString();
     var names_list = [];
     const fileExists = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.docFileExists("mapnames.txt");
-    if (!fileExists) {
-        names_list = [];
-    }
-    else {
+    if (fileExists) {
         const saved_names = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readMapnames();
         names_list = saved_names.split(",");
     }
@@ -49139,7 +49121,6 @@ const tile_save = async () => {
     // dowload the zoom-ins for the 'bounds' region
     await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_save').css('display', 'none');
-    isSaved = false; // reset for the next event
     return;
 };
 /**

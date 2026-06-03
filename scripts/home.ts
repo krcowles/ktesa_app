@@ -1,8 +1,5 @@
 /// <reference types="jqueryui" />
 /// <reference path="../types/leaflet-offline.d.ts" />
-interface LeafletHTMLElement extends HTMLElement {
-    _leaflet_id?: number | null;
-  }
 interface OfflineTileLayerOptions extends L.TileLayerOptions {
     mapname?: string;
 }
@@ -62,7 +59,7 @@ import { Preferences } from '@capacitor/preferences';
  */
 
 /**
- *  ----------------- Phone Specific Actions -----------------
+ *  ----------------- Phone-Specific Actions -----------------
  */
 async function androidReadWrite() {
     if (await tileDownloader.androidPermissions() === 'denied') {
@@ -75,15 +72,15 @@ if (Capacitor.getPlatform() === 'android') {
     let backPressedOnce = false;
     App.addListener('backButton', ({ canGoBack }) => {
       if (canGoBack) {
-        window.history.back();
-        backPressedOnce = false; // reset if they navigated away
+            window.history.back();
+            backPressedOnce = false; // reset if they navigated away
       } else {
-        if (backPressedOnce) {
-          App.exitApp();
-        } else {
-          backPressedOnce = true;
-          setTimeout(() => (backPressedOnce = false), 2000); // reset after 2s
-        }
+            if (backPressedOnce) {
+                App.exitApp();
+            } else {
+                backPressedOnce = true;
+                setTimeout(() => (backPressedOnce = false), 2000); // reset after 2s
+            }
       }
     });
     androidReadWrite();
@@ -101,27 +98,9 @@ document.addEventListener('gesturechange', (e) => e.preventDefault());
 document.addEventListener('gestureend', (e) => e.preventDefault());
 
 /**
- * ----------------- Icon Settings -----------------
+ * ----------------- Internet connectivity -----------------
  */
-var internetConnected: boolean;
-const internetIcon = (state:string) => {
-    if (state === 'on') {
-        $('#won').css('display', 'table-row');
-        $('#woff').css('display', 'none');
-    } else {
-        $('#won').css('display', 'none');
-        $('#woff').css('display', 'table-row');
-    }
-};
-// On page load:
-if (navigator.onLine) {
-    internetConnected = true;
-    internetIcon('on');
-} else {
-    internetConnected = false;
-    internetIcon('off');
-}
-
+var internetConnected = navigator.onLine ? true : false;
 export async function checkConnectivity() {
     try {
         const response = await CapacitorHttp.request({
@@ -167,6 +146,7 @@ function trackingState(state: string) {
         $('#tracking_off').css('display', 'none');
         $('#stop_tracking').css('display', 'table-row');
     }
+    return;
 }
 // page load state:
 trackingState('off');
@@ -207,32 +187,13 @@ const downloadDiv = document.getElementById('save_gpx') as HTMLDivElement;
 const downloadModal = new bootstrap.Modal(downloadDiv);
 const restore_data = document.getElementById('restore') as HTMLDivElement;
 const restoreModal = new bootstrap.Modal(restore_data);
+const multiTrack = document.getElementById('multi') as HTMLDivElement;
+const multiModal = new bootstrap.Modal(multiTrack);
 
 /**
  * ----------------- Main display page -----------------
  */
 
-// Map Globals and Initialization
-/**
- * It is necessary to completely destroy any existing map in order to
- * display a new offline map: Note this routine apparently is no longer
- * needed as 'map.remove()' and 'map = null' seem to solve any issues...
- * Leaving code in case a situation arises later.
- */
-export function resetMap(containerId = 'map'): L.Map {
-    if (window._leafletMap) {
-        window._leafletMap.off();
-        window._leafletMap.remove();
-        window._leafletMap = undefined;
-    }
-    const container = document.getElementById(containerId) as LeafletHTMLElement | null;
-    if (container) {
-        container._leaflet_id = null;
-    }
-    const map = L.map(containerId);
-    window._leafletMap = map;
-    return map;
-}
 /**
  * This function will destroy any currently implemented map and
  * then display the offline map selected by the user. Also
@@ -246,7 +207,7 @@ async function loadSelectedMap(mapname: string):Promise<void>  {
         map = null!;
         online_loaded = offline_loaded = false;
     }
-    tileDownloader.writeUnsavedData('sessionMap.txt', mapname);
+    tileDownloader.writeUnsavedData('sessionMap.txt', mapname); // indicates offline map
     displayMap(mapname); // will set offline_loaded via offlineMap()
 }
 
@@ -254,10 +215,10 @@ async function loadSelectedMap(mapname: string):Promise<void>  {
  * Module-level globals including functions
  */
 var map: L.Map;
+var container: HTMLElement;
 var permissions_requested = false;
 var permissions_granted = false;
 var sessionChecked = false;
-tileDownloader.writeUnsavedData('sessionMap.txt', '');
 const tile_server = "usgs"; // current tile server for ktesa_app
 const ONLINE_LAYER_OPTIONS: L.TileLayerOptions = {
     attribution: 'USGS The National Map',
@@ -327,7 +288,7 @@ export async function initMap() {
         zoomSnap: 1 // no fractional zooms for zoomOptimizer
     });
     L.tileLayer(ONLINE_TILE_URL, ONLINE_LAYER_OPTIONS)
-        .addTo(map);
+        .addTo(map); // standard leaflet tile layer
     marker = L.marker(latlng, { icon: pulseIcon }).addTo(map);
     map.locate({enableHighAccuracy: true, watch: false});
     map.once('locationfound', function (e) {
@@ -357,6 +318,7 @@ export async function initMap() {
     }
     map.addLayer(new GridDebug());
     online_loaded = true;
+    tileDownloader.writeUnsavedData('sessionMap.txt', ''); // indicates online, no map
     if (!permissions_requested) {
         requestNotificationPermission()
     } 
@@ -364,6 +326,8 @@ export async function initMap() {
         checkLastSession();
         sessionChecked = true;
     }
+    // Only for online: needed for drawing rectangle
+    container = map.getContainer();
     return;
 }
 
@@ -548,22 +512,25 @@ function saveUserMap() {
         $('#clear_rect').css('display', 'none');
         $('#rect').css('display', 'none');
         rect_complete = false;
-        $('#map').off(); // DOM events only
+        L.DomEvent.off(container, 'touchstart', drawingHandlers.touchstart);
+        L.DomEvent.off(container, 'touchmove', drawingHandlers.touchmove);
+        L.DomEvent.off(container, 'touchend', drawingHandlers.touchend);
         map.dragging.enable();
+        map.removeLayer(rect);
     }
-    isSaved = true;
     tile_save();
     return;
 }
-$('body').on('click', '#map_save', () => {
+$('body').on('click', '#map_save', () => { // 'Save' btn at bottom of map
     save_om_map_modal.show();
 });
-$('body').on('click', '#save_om', () => {
+$('body').on('click', '#save_om', () => { // 'Save Map' btn on modal
     mapName = $('#map_name').val() as string;
     if (mapName == '') {
         notice("You must supply a name for the map");
         return false;
     }
+    isSaved = true;
     save_om_map_modal.hide();
     saveUserMap();
     return;
@@ -571,7 +538,9 @@ $('body').on('click', '#save_om', () => {
 mapSave.addEventListener('hidden.bs.modal', () => {
     if (!isSaved) {
         unsaved.show();
-    }   
+    } else {
+        isSaved = false;
+    }  
 });
 $('body').on('click', '#resave', () => {
     mapName = $('#resave_as').val() as string;
@@ -603,6 +572,7 @@ $('body').on('click', '#draw_routine', () => {
 $('body').on('click', '#clear_rect', () => {
     map.removeLayer(rect);
     rect_complete = false;
+    $('#rect').prop('disabled', false);
 });
 $('body').on('click', '#add_marker_text', () => {
     let tooltip = $('#id_text').val() as string;
@@ -719,7 +689,8 @@ function siteHike(map_data: string) {
         var lng = result_array[2][1] as number;
         map_center = L.latLng(lat, lng);
         var track_poly = result_array[3] as L.LatLng[];
-        displayImportedTrack(nw, se, map_center, track_poly)
+        var multi = parseInt(result_array[4]);
+        displayImportedTrack(nw, se, map_center, track_poly, multi);
         return;
     }
 }
@@ -822,7 +793,7 @@ function processGpxFile(xml: string) {
  * as a track on the map. From this point, the relevant data can be saved.
  */
 function displayImportedTrack(
-    nw: L.LatLng, se: L.LatLng, mapctr: L.LatLng, polyline: L.LatLng[]
+    nw: L.LatLng, se: L.LatLng, mapctr: L.LatLng, polyline: L.LatLng[], multi=0
 ): void {
     save_type_modal.hide();
     /**
@@ -860,6 +831,9 @@ function displayImportedTrack(
     endY   = se.lng;
     save_type = "import";
     $('#map_save').css('display', 'inline');
+    if (multi > 0) {
+        multiModal.show();
+    }
     return;
 }
 /**
@@ -900,6 +874,75 @@ tile_coords[13] = [];
 tile_coords[14] = [];
 tile_coords[15] = [];
 var rect_complete = false;
+/**
+ * Establish touch handlers such that the touch events can be
+ * turned off when done
+ */
+function onTouchStart(e: Event) {
+    L.DomEvent.preventDefault(e);
+    save_type = "draw";
+    start_rect(e);
+}
+function onTouchMove(e: Event) {
+    L.DomEvent.preventDefault(e);
+    draw_rect(e)
+}
+function onTouchEnd(e: Event) {
+    L.DomEvent.preventDefault(e);
+    end_rect(e)
+}
+const drawingHandlers = {
+    touchstart: (e: Event) => onTouchStart(e),
+    touchmove:  (e: Event) => onTouchMove(e),
+    touchend:   (e: Event) => onTouchEnd(e)
+}
+function start_rect(ev: any) {
+    if (!rect_complete) {
+        var touch = ev.touches[0];
+        var startRect = map.mouseEventToLatLng(touch);
+        startX = startRect.lat;
+        startY = startRect.lng;
+        var rectX = startX + 0.005;
+        var rectY = startY + 0.005;
+        var crnr1 = L.latLng(startX, startY);
+        var crnr2 = L.latLng(rectX, rectY);
+        var latlngs = L.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
+        var rectOpts = { color: 'Green', weight: 1 };
+        rect = L.rectangle(latlngs, rectOpts);
+        rect.addTo(map);
+    }
+}
+function draw_rect(ev: any) {
+    if (!rect_complete) {
+        rect.removeFrom(map);
+        var touch = ev.touches[0];
+        var newRect = map.mouseEventToLatLng(touch);
+        var rectX = newRect.lat;
+        var rectY = newRect.lng;
+        var crnr1 = L.latLng(startX, startY);
+        var crnr2 = L.latLng(rectX, rectY);
+        var latlngs = L.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
+        var rectOpts = { color: 'Green', weight: 1 };
+        rect = L.rectangle(latlngs, rectOpts);
+        rect.addTo(map);
+    }
+}
+function end_rect(ev: any) {
+    if (!rect_complete) {
+        var touchlist = ev.changedTouches;
+        var items = touchlist.length;
+        var touch = touchlist.item(items-1);
+        var endRect = map.mouseEventToLatLng(touch);
+        endX = endRect.lat;
+        endY = endRect.lng;
+        var lat_ctr = startX - (startX - endX)/2;
+        var lng_ctr = startY + (endY - startY)/2;
+        map_center = L.latLng(lat_ctr, lng_ctr);
+        bounds = getRectBounds();
+        $('#rect').prop('disabled', true);
+        rect_complete = true;
+    }
+}
 $('body').on('click', '#rect', function () {
     $('#rect').prop('disabled', true);
     rect_complete = false;
@@ -909,73 +952,10 @@ $('body').on('click', '#rect', function () {
     if (typeof rect !== 'undefined') {
         map.removeLayer(rect);
     }
-
-    // Setup touch event handling
     map.dragging.disable();  // restored after save
-    var container = map.getContainer();
-    L.DomEvent.on(container, 'touchstart', function(e) {
-        L.DomEvent.preventDefault(e);
-        save_type = "draw";
-        start_rect(e);
-    });
-    L.DomEvent.on(container, 'touchmove', function(e) {
-        L.DomEvent.preventDefault(e);
-        draw_rect(e)
-    });
-    L.DomEvent.on(container, 'touchend', function(e) {
-        L.DomEvent.preventDefault(e);
-        end_rect(e)
-    });
-    function start_rect(ev: any) {
-        if (!rect_complete) {
-            var touch = ev.touches[0];
-            //var startRect = map.mouseEventToLatLng(ev.originalEvent);
-            var startRect = map.mouseEventToLatLng(touch);
-            startX = startRect.lat;
-            startY = startRect.lng;
-            var rectX = startX + 0.005;
-            var rectY = startY + 0.005;
-            var crnr1 = L.latLng(startX, startY);
-            var crnr2 = L.latLng(rectX, rectY);
-            var latlngs = L.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
-            var rectOpts = { color: 'Green', weight: 1 };
-            rect = L.rectangle(latlngs, rectOpts);
-            rect.addTo(map);
-            //click_cnt = 1;
-        }
-    }
-    function draw_rect(ev: any) {
-        if (!rect_complete) {
-            rect.removeFrom(map);
-            var touch = ev.touches[0];
-            var newRect = map.mouseEventToLatLng(touch);
-            //var newRect = map.mouseEventToLatLng(ev.originalEvent);
-            var rectX = newRect.lat;
-            var rectY = newRect.lng;
-            var crnr1 = L.latLng(startX, startY);
-            var crnr2 = L.latLng(rectX, rectY);
-            var latlngs = L.latLngBounds(crnr1, crnr2); //[[startX, startY], [rectX, rectY]];
-            var rectOpts = { color: 'Green', weight: 1 };
-            rect = L.rectangle(latlngs, rectOpts);
-            rect.addTo(map);
-        }
-    }
-    function end_rect(ev: any) {
-        if (!rect_complete) {
-            var touchlist = ev.changedTouches;
-            var items = touchlist.length;
-            var touch = touchlist.item(items-1);
-            var endRect = map.mouseEventToLatLng(touch);
-            //var endRect = map.mouseEventToLatLng(ev.originalEvent);
-            endX = endRect.lat;
-            endY = endRect.lng;
-            var lat_ctr = startX - (startX - endX)/2;
-            var lng_ctr = startY + (endY - startY)/2;
-            map_center = L.latLng(lat_ctr, lng_ctr);
-            bounds = getRectBounds();
-            rect_complete = true;
-        }
-    }
+    L.DomEvent.on(container, 'touchstart', drawingHandlers.touchstart);
+    L.DomEvent.on(container, 'touchmove', drawingHandlers.touchmove);
+    L.DomEvent.on(container, 'touchend', drawingHandlers.touchend);
     return;
 });
 /**
@@ -1080,6 +1060,7 @@ function loadZoomOutTiles(ul_corner: number[], maxz: number, minz: number) {
             }
         }
     }
+    return;
 }
 function zoom_out_tile(row: number, col: number) {  // for all cases, (currZoom, outZoom, col, row)
     //const zoomDiff = currZoom - outZoom;
@@ -1102,9 +1083,7 @@ const tile_save = async () => {
     var stored_zoom = zoom_level.toString();
     var names_list = [] as string[];
     const fileExists = await tileDownloader.docFileExists("mapnames.txt");
-    if (!fileExists) {
-        names_list = [];
-    } else {
+    if (fileExists) {
         const saved_names = await tileDownloader.readMapnames() as string;
         names_list = saved_names.split(",");
     }
@@ -1211,7 +1190,6 @@ const tile_save = async () => {
     // dowload the zoom-ins for the 'bounds' region
     await tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
     $('#map_save').css('display', 'none');
-    isSaved = false; // reset for the next event
     return;
 };
 /**

@@ -134,7 +134,6 @@ class TileDownloader {
             return false;
         }
     }
-
     async readSavedZoom(map: string) {
         try {
             const zoom_level = await Filesystem.readFile({
@@ -182,33 +181,6 @@ class TileDownloader {
         }
     }
 
-    async deleteFile(path: string) {
-        try {
-            await Filesystem.deleteFile({
-                path: path,
-                directory: Directory.Documents
-            });
-            return true;
-        }
-        catch (error) {
-            //console.error(`Could not delete ${path}`, error);
-            return false;
-        }
-
-    }
-    async readDirFiles(path: string) {
-        try {
-            const dirFiles =  await Filesystem.readdir({
-                path: path, 
-                directory: Directory.Documents
-            });
-            return dirFiles.files;
-        }
-        catch (error) {
-            //console.error(`Could not read directory ${path}`, error);
-            return false;
-        }
-    }
     async writeUnsavedData(path: string, data: string) {
         try {
             await Filesystem.writeFile({
@@ -238,7 +210,34 @@ class TileDownloader {
             return false;
         }
     }
- 
+    async deleteFile(path: string) {
+        try {
+            await Filesystem.deleteFile({
+                path: path,
+                directory: Directory.Documents
+            });
+            return true;
+        }
+        catch (error) {
+            //console.error(`Could not delete ${path}`, error);
+            return false;
+        }
+
+    }
+    // The following routines were made available for debug
+    async readDirFiles(path: string) {
+        try {
+            const dirFiles =  await Filesystem.readdir({
+                path: path, 
+                directory: Directory.Documents
+            });
+            return dirFiles.files;
+        }
+        catch (error) {
+            //console.error(`Could not read directory ${path}`, error);
+            return false;
+        }
+    }
     async removeData(path: string) {
         try {
             await Filesystem.rmdir({
@@ -280,7 +279,7 @@ class TileDownloader {
         }
         return;  // no other sources defined at this point
     }
-    // FETCH URL: Filesystem requires file extensions
+    // FETCH URL:
     getTileUrl(z: number, x: number, y: number, source: string) {
         if (source === 'osm') {
             return `${this.#osm_head}/${z}/${x}/${y}.png`;
@@ -315,7 +314,7 @@ class TileDownloader {
      */
 
     // Download and cache tile: map must be specified by user
-    async downloadTile(z: number, x: number, y: number, source='usgs', map='initial') {
+    async downloadTile(z: number, x: number, y: number, source='usgs', map: string) {
         try {
             const tileUrl = this.getTileUrl(z, x, y, source) as string;
             const response = await CapacitorHttp.get({
