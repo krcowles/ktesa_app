@@ -48062,37 +48062,6 @@ async function checkConnectivity() {
     }
 }
 setInterval(checkConnectivity, 20000);
-function followIcon(state) {
-    if (state) {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#no_follow_map').css('display', 'none');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#follow_map').css('display', 'table-row');
-    }
-    else {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#no_follow_map').css('display', 'table-row');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#follow_map').css('display', 'none');
-    }
-}
-;
-// page load state:
-var following = false;
-followIcon(true);
-function trackingState(state) {
-    if (state === 'off') {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#start_tracking').css('display', 'table-row');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#tracking_on').css('display', 'none');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#tracking_off').css('display', 'table-row');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#stop_tracking').css('display', 'none');
-    }
-    else {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#start_tracking').css('display', 'none');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#tracking_on').css('display', 'table-row');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#tracking_off').css('display', 'none');
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#stop_tracking').css('display', 'table-row');
-    }
-    return;
-}
-// page load state:
-trackingState('off');
 /**
  * The notification dialog box is a substitute for the window.alert()
  * which can be problematic.
@@ -48130,6 +48099,8 @@ const restore_data = document.getElementById('restore');
 const restoreModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(restore_data);
 const multiTrack = document.getElementById('multi');
 const multiModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(multiTrack);
+const unsavedGPX = document.getElementById('no_download');
+const unsavedGpxModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(unsavedGPX);
 /**
  * ----------------- Main display page -----------------
  */
@@ -48140,6 +48111,12 @@ const multiModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(multiTrack);
  */
 async function loadSelectedMap(mapname) {
     if (online_loaded || offline_loaded) {
+        // To provide clean map changeover, stop location tracking
+        map.stopLocate();
+        if (offline_loaded) {
+            tracking = false;
+            _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_13__.BackgroundGeolocation.stop();
+        }
         // only one type of map can be loaded at a time
         map.remove();
         // typescript non-null assertion: elminates redeclaring (map as L.Map)
@@ -48157,6 +48134,8 @@ var container;
 var permissions_requested = false;
 var permissions_granted = false;
 var sessionChecked = false;
+var following = false;
+var gpx_redos = 0;
 const tile_server = "usgs"; // current tile server for ktesa_app
 const ONLINE_LAYER_OPTIONS = {
     attribution: 'USGS The National Map',
@@ -48214,6 +48193,10 @@ function zoomctl_setup(start_zoom) {
     map.addEventListener("zoom", zoom_handler);
     return;
 }
+function markerUpdate(e) {
+    var new_latlng = e.latlng;
+    marker.setLatLng(new_latlng);
+}
 async function initMap() {
     // DISPLAY THE MAP:
     var latlng = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(35.2, -106.345);
@@ -48227,7 +48210,8 @@ async function initMap() {
     leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer(ONLINE_TILE_URL, ONLINE_LAYER_OPTIONS)
         .addTo(map); // standard leaflet tile layer
     marker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(latlng, { icon: pulseIcon }).addTo(map);
-    map.locate({ enableHighAccuracy: true, watch: false });
+    map.locate({ enableHighAccuracy: true, watch: true });
+    map.on('locationfound', markerUpdate);
     map.once('locationfound', function (e) {
         latlng = e.latlng;
         map.panTo(latlng);
@@ -48300,8 +48284,149 @@ else {
     offlineSelect();
 }
 /**
- * ----------------- Menu Actions -----------------
+ * ----------------- Menu Actions & Position -----------------
+ *
  */
+// Menu position on page
+let menu = document.getElementById('menu');
+let menuHt = menu.offsetHeight;
+let displayHt = menuHt + 30;
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu').height(displayHt);
+let safeArea = menu.getBoundingClientRect().top;
+let space = window.innerHeight;
+let newTop = safeArea + (space - menuHt) / 2 + "px";
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu').css('top', newTop);
+// Icon_div position on page
+let icon_div = document.getElementById('icon_div');
+let icon_div_ht = icon_div.offsetHeight;
+let icon_div_loc = safeArea + (space - icon_div_ht) / 4 + "px";
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('#icon_div').css('top', icon_div_loc);
+let winwidth = window.innerWidth;
+// Follow GPS icon position
+let follow_pos = (winwidth - 36) / 2;
+let $follow_icon = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#follow_icon');
+$follow_icon.css('left', follow_pos);
+// Define alternate icons:
+let $play = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#play');
+let $stop = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#stop');
+let $pause = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#pause');
+let $unpause = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#unpause');
+let $unfollow_icon = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#unfollow_icon');
+$unfollow_icon.css('left', follow_pos);
+// Toggle sliders in menu
+const recordButtons = document.getElementById('menu-recording');
+recordButtons.addEventListener('change', (e) => {
+    const target = e.target;
+    if (target.checked) {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#icon_div').css('display', 'block');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row2').css('display', 'none');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row3').css('display', 'none');
+    }
+    else {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#icon_div').css('display', 'none');
+    }
+});
+const followState = document.getElementById('menu-follows');
+followState.addEventListener('change', (e) => {
+    const target = e.target;
+    if (target.checked) {
+        $follow_icon.css('display', 'inline');
+        $unfollow_icon.css('display', 'none');
+    }
+    else {
+        $follow_icon.css('display', 'none');
+        $unfollow_icon.css('display', 'none');
+    }
+});
+const geoIcon = document.getElementById('menu-location');
+geoIcon.addEventListener('change', (e) => {
+    const target = e.target;
+    if (target.checked) {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#findme_icon').css('display', 'inline');
+    }
+    else {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#findme_icon').css('display', 'none');
+    }
+});
+// end toggles
+// Tracking activities
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#play', () => {
+    // start fresh:
+    if (typeof offline_track !== 'undefined') {
+        map.removeLayer(offline_track);
+        for (let i = 0; i < wayMrkrs.length; i++) {
+            const deletion = wayMrkrs[i];
+            map.removeLayer(deletion);
+        }
+    }
+    gpx_pts = [];
+    waypts = [];
+    wayMrkrs = [];
+    // begin ...
+    tracking = true;
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row2').css('display', 'inline');
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row3').css('display', 'inline');
+    $play.replaceWith($stop);
+    $stop.css('display', 'inline');
+    trackingGeolocation();
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#info').css('display', 'block');
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#stop', () => {
+    tracking = false;
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row2').css('display', 'none');
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row3').css('display', 'none');
+    $stop.replaceWith($play);
+    trackingGeolocation();
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#info').css('display', 'none');
+    downloadModal.show();
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#pause', () => {
+    $pause.replaceWith($unpause);
+    $unpause.css('display', 'inline');
+    tracking = false;
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#unpause', () => {
+    $unpause.replaceWith($pause);
+    tracking = true;
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#green_marker', () => {
+    menu_close();
+    map.locate({ enableHighAccuracy: true, watch: false });
+    map.once('locationfound', function (e) {
+        const myloc = e.latlng;
+        const waypt = [myloc.lat, myloc.lng];
+        waypts.push(waypt);
+        const wmrkr = leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(myloc, { icon: dropMarker }).addTo(map);
+        wmrkr.on('click', () => {
+            map.setView(myloc);
+        });
+        wayMrkrs.push(wmrkr);
+        let indx = wayMrkrs.length;
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#mrkr_indx').text(indx);
+        textModal.show();
+        markSessionDirty();
+        saveSessionState();
+    });
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#follow_icon', () => {
+    $follow_icon.css('display', 'none');
+    $unfollow_icon.css('display', 'inline');
+    following = true;
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#unfollow_icon', () => {
+    $unfollow_icon.css('display', 'none');
+    $follow_icon.css('display', 'inline');
+    following = false;
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#findme_icon', () => {
+    map.locate({ enableHighAccuracy: true, watch: false });
+    map.once('locationfound', function (e) {
+        let myloc = e.latlng;
+        map.setView(myloc);
+    });
+    menu_close();
+});
+// ----- Menu Related Items ----
 function clearPrevious() {
     if (onlineRectangle) {
         map.removeLayer(onlineRectangle);
@@ -48309,16 +48434,12 @@ function clearPrevious() {
     }
 }
 function menu_close() {
-    //enusure any 'left over' buttons are hidden:
+    //ensure any 'left over' buttons are hidden:
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_save, #clear_rect, #rect').css('display', 'none');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#disp').text("Closed");
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu').animate({ left: "-=230" }, 1500);
     return;
 }
-let menu = document.getElementById('menu');
-let menuHt = menu.offsetHeight;
-let displayHt = menuHt + 30;
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu').height(displayHt);
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu_trigger').on('click', () => {
     if (jquery__WEBPACK_IMPORTED_MODULE_0___default()('#disp').text() === 'Closed') {
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#disp').text("Open");
@@ -48329,7 +48450,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu_trigger').on('click', () =>
     }
     return;
 });
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '.save_display', () => {
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_display', () => {
     if (internetConnected) {
         menu_close();
         maps_available.hide();
@@ -48353,83 +48474,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#off_goto', (
     offlineSelect();
     return;
 });
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#play', () => {
-    tracking = true;
-    trackingGeolocation();
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#info').css('display', 'block');
-    trackingState('on');
-    menu_close();
-});
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#stop', () => {
-    tracking = false;
-    trackingGeolocation();
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#info').css('display', 'none');
-    trackingState('off');
-    menu_close();
-});
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#dwnld', () => {
-    menu_close();
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#save_clear').css('display', 'inline');
-    downloadModal.show();
-});
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#trash', () => {
-    menu_close();
-    let resume = tracking;
-    tracking = false;
-    trackingGeolocation();
-    miles = 0;
-    gpx_pts = [];
-    waypts = [];
-    if (typeof hike !== 'undefined') {
-        map.removeLayer(hike);
-    }
-    for (let i = 0; i < wayMrkrs.length; i++) {
-        map.removeLayer(wayMrkrs[i]);
-    }
-    tracking = resume;
-    if (tracking) {
-        trackingGeolocation();
-    }
-    markSessionClean();
-});
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#marker', () => {
-    menu_close();
-    map.locate({ enableHighAccuracy: true, watch: false });
-    map.once('locationfound', function (e) {
-        const myloc = e.latlng;
-        const waypt = [myloc.lat, myloc.lng];
-        waypts.push(waypt);
-        const wmrkr = leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(myloc, { icon: dropMarker }).addTo(map);
-        wmrkr.on('click', () => {
-            map.setView(myloc);
-        });
-        wayMrkrs.push(wmrkr);
-        let indx = wayMrkrs.length;
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#mrkr_indx').text(indx);
-        textModal.show();
-        markSessionDirty();
-        saveSessionState();
-    });
-});
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#locate', () => {
-    map.locate({ enableHighAccuracy: true, watch: false });
-    map.once('locationfound', function (e) {
-        let myloc = e.latlng;
-        map.setView(myloc);
-    });
-    menu_close();
-});
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#follows', () => {
-    following = true;
-    followIcon(false); // show available next state
-    menu_close();
-});
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#no_follows', () => {
-    following = false;
-    followIcon(true);
-    menu_close();
-});
-// Modal/Secondary Buttons
+// ----- Modal/Secondary Buttons -----
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#use_map', () => {
     const user_map = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#select_map').val();
     if (user_map == '') {
@@ -48440,7 +48485,22 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#use_map', ()
     loadSelectedMap(user_map);
     return;
 });
-// --- multiple items associated with saving maps ---
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_from_offline', () => {
+    // Go online from offline & call up save display
+    if (internetConnected) {
+        map.stopLocate();
+        tracking = false;
+        _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_13__.BackgroundGeolocation.stop();
+        map.remove();
+        map = null;
+        initMap();
+        save_type_modal.show();
+    }
+    else {
+        notice("Cannot save maps when internet is not connected");
+    }
+});
+// --- Multiple items associated with saving maps ---
 var isSaved = false;
 function saveUserMap() {
     if (rect_complete) {
@@ -48524,14 +48584,8 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#add_marker_t
     textModal.hide();
     return;
 });
+// GPX File Saving, triggered by #stop click
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_dwnld', () => {
-    downloadRoutine();
-});
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_clear', () => {
-    clear_track = true;
-    downloadRoutine();
-});
-function downloadRoutine() {
     const gpx_name = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#dwnld_name').val();
     if (gpx_name == '') {
         notice("Please supply a name for the download file");
@@ -48539,7 +48593,21 @@ function downloadRoutine() {
     }
     createAndDownloadGPX(gpx_name);
     return;
-}
+});
+downloadDiv.addEventListener('hidden.bs.modal', () => {
+    if (gpx_redos === 0) {
+        gpx_redos++;
+        unsavedGpxModal.show();
+    }
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#retry_download', () => {
+    unsavedGpxModal.hide();
+    downloadModal.show();
+    return;
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#dontbother', () => {
+    unsavedGpxModal.hide();
+});
 // ----------------- Defining Offline Map -----------------
 var save_type;
 var map_center;
@@ -49315,6 +49383,7 @@ function offlineMap(mapname, map_ctr, map_zoom, track) {
  */
 function trackingGeolocation() {
     if (permissions_granted && tracking) {
+        map.stopLocate();
         (async () => {
             try {
                 const initial = await _capacitor_geolocation__WEBPACK_IMPORTED_MODULE_12__.Geolocation.getCurrentPosition({
@@ -49373,6 +49442,8 @@ function trackingGeolocation() {
     }
     else {
         _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_13__.BackgroundGeolocation.stop();
+        map.locate({ enableHighAccuracy: true, watch: true });
+        map.on('locationfound', markerUpdate);
     }
 }
 /**
@@ -49422,7 +49493,6 @@ var map_line = [];
 var waypts = [];
 var wayMrkrs = [];
 var offline_track;
-var clear_track = false;
 function tracker(lat, lng, ele) {
     track_pt = { lat: lat, lng: lng, elevation: ele };
     gpx_pts.push(track_pt);
@@ -49485,15 +49555,8 @@ async function createAndDownloadGPX(dwnld_name) {
     });
     await saveOrShareGpxFile(result);
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#dwnld_name').val("");
-    if (clear_track) {
-        map.removeLayer(offline_track);
-        for (let i = 0; i < wayMrkrs.length; i++) {
-            const deletion = wayMrkrs[i];
-            map.removeLayer(deletion);
-        }
-        clear_track = false;
-    }
     downloadModal.hide();
+    gpx_redos = 0;
     markSessionClean();
     async function saveOrShareGpxFile(result) {
         const platform = _capacitor_core__WEBPACK_IMPORTED_MODULE_8__.Capacitor.getPlatform();

@@ -26,23 +26,90 @@
         <img id="menu_trigger" src="images/hamburger.png" />
         <span id="disp" style="display:none;">Closed</span>
     </div>
+    <!-- Menu/Draw Icons -->
+    <div id="icon_div">
+        <table id="icon_tbl">
+            <tbody>
+                <tr id="row1">
+                    <td>
+                        <svg id="play" width="36px" height="36px" viewbox="0 0 36 36">
+                            <circle cx="18" cy="18" r="18" fill="red" />
+                            <polygon
+                                points="12,11 24,18 12,25"
+                                stroke="white"
+                                stroke-width="1"
+                                fill="white"
+                            />
+                        </svg>
+                    </td>
+                </tr>
+                <tr id="row2">
+                    <td>
+                        <svg id="pause" width="36px" height="36px" viewbox="0 0 36 36">
+                            <circle cx="18" cy="18" r="18" fill="red" />
+                            <rect x="12" y="12" width="3" height="12" stroke="white" fill="white" />
+                            <rect x="21" y="12" width="3" height="12" stroke="white" fill="white" />
+                        </svg>
+                    </td>
+                </tr>
+                <tr id="row3">
+                    <td>
+                        <svg id="green_marker" xmlns="http://w3.org" viewBox="0 0 24 24" width="46" height="46">
+                            <path fill="var(--marker-color, #006400)" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                            <circle fill="#FFFFFF" cx="12" cy="9" r="2.5"/>
+                        </svg>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="alt-icons">
+        <svg id="stop" class="clickable"
+            width="36px" height="36px" viewbox="0 0 36 36">
+            <circle cx="18" cy="18" r="18" stroke="red" stroke-width="1" fill="gray" />
+            <rect x="11" y="11" width="14" height="14" fill="white"/>
+        </svg>
+        <svg id="unpause" width="36px" height="36px" viewbox="0 0 36 36">
+            <circle cx="18" cy="18" r="18" stroke="red" stroke-width="1" fill="gray" />
+            <rect x="12" y="12" width="3" height="12" stroke="white" fill="white" />
+            <rect x="21" y="12" width="3" height="12" stroke="white" fill="white" />
+        </svg>
+        <svg id="follow_icon" width="36" height="36" viewbox="0 0 36 36">
+            <polygon
+                points="0,18 36,0 18,38 18,18"
+                stroke="blue"
+                stroke-width="1"
+                fill="blue"
+            />
+        </svg>
+        <svg id="unfollow_icon" width="36" height="36" viewbox="0 0 36 36">
+            <polygon
+                points="0,18 36,0 18,38 18,18"
+                stroke="blue"
+                stroke-width="1"
+                fill="darkgray"
+            />
+        </svg>
+        <img id="findme_icon" src="images/locate.png" />
+    </div>
+   
 
     <div id="secondary_btns">
         <button id="map_save" class="btn btn-sm btn-success">Save</button>
         <button id="clear_rect" class="btn btn-sm btn-warning">Redraw</button>
         <button id="rect" class="btn btn-sm btn-success">Draw</button>
     </div>
-
     <div id="info">
         <span id="distance">0</span> mis,&nbsp;&nbsp;alt: <span id="feet">0</span> ft.
     </div>
-
+    <!-- The Menu -->
     <div id="menu">
         <span class="line_override">Offline Maps</span>
         <div class="surround">
-            <table>
+            <table class="menu-table">
                 <tr>
-                    <td><img class="save_display" src="images/GreenSave.png" /></td>
+                    <td><img id="save_display" src="images/pallette.png" /></td>
                     <td class="tbl_txt">Create Map</td>
                 </tr>
                 <tr>
@@ -51,107 +118,40 @@
                 </tr>
             </table>
         </div>
-        <span class="line_override">Tracking</span>
+        <span class="line_override">Toggles</span>
         <div class="surround">
-            <table>
-                <tr id="start_tracking">
+            <table class="menu-table">
+                <tr>
                     <td>
-                        <svg id="play" class="clickable"
-                            width="36px" height="36px" viewbox="0 0 36 36">
-                            <circle cx="18" cy="18" r="18" fill="red" />
-                            <polygon
-                                points="12,11 24,18 12,25"
-                                stroke="white"
-                                stroke-width="1"
-                                fill="white"
-                            />
-                        </svg>
+                        <label id="toggle1" class="toggle">
+                            <input type="checkbox" id="menu-recording">
+                            <span class="toggle-track"><span class="thumb"></span></span>
+
+                        </label>
                     </td>
-                    <td class="tbl_txt">Record My Track</td>
-                </tr>
-                <tr id="tracking_on">
-                    <td>
-                        <svg class="clickable"
-                        width="36px" height="36px" viewbox="0 0 36 36">
-                            <circle cx="18" cy="18" r="18" fill="black" />
-                            <polygon
-                                points="12,11 24,18 12,25"
-                                stroke="white"
-                                stroke-width="1"
-                                fill="white"
-                            />
-                        </svg>
-                    </td>
-                    <td class="tbl_txt">Tracking&hellip;</td>
-                </tr>
-                <tr id="tracking_off">
-                    <td>
-                        <svg class="clickable"
-                            width="36px" height="36px" viewbox="0 0 36 36">
-                            <circle cx="18" cy="18" r="18" fill="black" />
-                            <rect x="11" y="11" width="14" height="14" fill="white"/>
-                        </svg>
-                    </td>
-                    <td class="tbl_txt">Not Tracking</td>
-                </tr>
-                <tr id="stop_tracking">
-                    <td>
-                        <svg id="stop" class="clickable"
-                            width="36px" height="36px" viewbox="0 0 36 36">
-                            <circle cx="18" cy="18" r="18" fill="red" />
-                            <rect x="11" y="11" width="14" height="14" fill="white"/>
-                        </svg>
-                    </td>
-                    <td class="tbl_txt">Stop Tracking</td>
+                    <td  class="tbl_txt">Tracking</td>
                 </tr>
                 <tr>
-                    <td><img id="dwnld" class="clickable" src="images/download.png" /></td>
-                    <td class="tbl_txt">Save Track</td>
-                </tr>
-                <tr>
-                    <td><img id="trash" class="clickable" src="images/trash.png" /></td>
-                    <td class="tbl_txt">Clear Data</td>
-                </tr>
-            </table>
-        </div>
-        <span class="line_override">Position</span>
-        <div class="surround">
-            <table>
-                <tr>
-                    <td><img id="marker" class="clickable" src="images/app_marker.png"
-                        width="40" height="40" /></td>
-                    <td>Add Marker</td>
-                </tr>
-                <tr>
-                    <td><img id="locate" class="clickable" src="images/locate.png" /></td>
-                    <td class="tbl_txt">Locate me</td>
-                </tr>
-                <tr id="follow_map">
                     <td>
-                        <svg id="follows" width="36px" height="36px" viewbox="0 0 36 36">
-                            <polyline
-                                points="0,18 18,18 18,36  36,0 0,18"
-                                stroke="blue"
-                                stroke-width="2"
-                                fill="blue"
-                            />
-                        </svg>
+                        <label id="toggle2" class="toggle">
+                            <input type="checkbox" id="menu-follows">
+                            <span class="toggle-track"><span class="thumb"></span></span>
+                            <span class="label-text"></span>
+                        </label>
                     </td>
-                    <td>Follow GPS</td>
+                    <td class="tbl_txt">Follow GPS</td>
                 </tr>
-                <tr id="no_follow_map">
+                <tr>
                     <td>
-                        <svg id="no_follows" width="36px" height="36px" viewbox="0 0 36 36">
-                            <polyline
-                                points="0,18 18,18 18,36  36,0 0,18"
-                                stroke="black"
-                                stroke-width="2"
-                                fill="papayawhip"
-                            />
-                        </svg>
+                        <label id="toggle3" class="toggle">
+                            <input type="checkbox" id="menu-location">
+                            <span class="toggle-track"><span class="thumb"></span></span>
+                            <span class="label-text"></span>
+                        </label>
                     </td>
-                    <td>Don't Follow GPS</td>
+                    <td class="tbl_txt">Location Icon</td>
                 </tr>
+                
             </table>
         </div>
     </div>
@@ -357,9 +357,9 @@
                 </div>
                 <div>
                     <br />
-                    <button class="save_display btn btn-sm btn-primary restart">
+                    <button id="save_from_offline" btn btn-sm btn-primary">
                         Save New Map
-                    </button> [Internet required]&nbsp;&nbsp;<span id="connection"></span>
+                    </button> [Internet required]&nbsp;&nbsp;
                     <br /><br />
                     <span id="batt">*** When done, completely close this app to prevent
                         battery drain.</span>
@@ -390,14 +390,38 @@
             <div class="modal-footer">
                 <button id="save_dwnld" class="dwnld_gpx btn btn-sm btn-success">
                     Save Track</button>
-                <button id="save_clear" class="dwnld_gpx btn btn-sm btn-success">
-                    Clear After Save</button>
-                <button id="off_close" type="button" class="btn btn-sm btn-secondary"
+                <button type="button" class="btn btn-sm btn-secondary"
                     data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
+<!-- GPX Track Not Saved -->
+<div id="no_download" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Unsaved Date</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>You are not saving the track: When you start a 
+                    new track recording session, the current data
+                    will be lost. If you meant to save this track,
+                    tap on the 'Save Track' button below.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button id="retry_download" class="dwnld_gpx btn btn-sm btn-success">
+                    Save Track</button>
+                <button id="dontbother" type="button" class="btn btn-sm btn-warning"
+                    data-bs-dismiss="modal">Ignore</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Restore Session Data From Previous Closing -->
 <div id="restore" class="modal" tabindex="-1">
     <div class="modal-dialog">
@@ -439,7 +463,7 @@
                <p>This hike has multiple tracks, but only the main one will be
                 imported here. To import other tracks, go to the page on nmhikes.com
                 and click the 'Download GPX File', which will present all the tracks. 
-                When downloaded, import the download file as a GPX file.
+                After downloading, import the downloaded file as a GPX file.
                </p>
             </div>
             <div class="modal-footer">

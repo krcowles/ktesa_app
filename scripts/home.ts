@@ -27,6 +27,9 @@ interface TrackPoint {
     lng: number;
     elevation: number;
 }
+interface Toggler extends EventTarget {
+    checked: boolean;
+}
   
 import $ from 'jquery';
 import 'jquery-ui/ui/widgets/autocomplete';
@@ -121,36 +124,6 @@ export async function checkConnectivity() {
 }
 setInterval(checkConnectivity, 20000);
 
-function followIcon(state: boolean) {
-    if (state) {
-        $('#no_follow_map').css('display', 'none');
-        $('#follow_map').css('display', 'table-row')
-    } else {
-        $('#no_follow_map').css('display', 'table-row');
-        $('#follow_map').css('display', 'none')
-    }
-};
-// page load state:
-var following = false;
-followIcon(true);
-
-function trackingState(state: string) {
-    if (state === 'off') {
-        $('#start_tracking').css('display', 'table-row');
-        $('#tracking_on').css('display', 'none');
-        $('#tracking_off').css('display', 'table-row');
-        $('#stop_tracking').css('display', 'none');
-    } else {
-        $('#start_tracking').css('display', 'none');
-        $('#tracking_on').css('display', 'table-row');
-        $('#tracking_off').css('display', 'none');
-        $('#stop_tracking').css('display', 'table-row');
-    }
-    return;
-}
-// page load state:
-trackingState('off');
-
 /**
  * The notification dialog box is a substitute for the window.alert()
  * which can be problematic.
@@ -189,6 +162,8 @@ const restore_data = document.getElementById('restore') as HTMLDivElement;
 const restoreModal = new bootstrap.Modal(restore_data);
 const multiTrack = document.getElementById('multi') as HTMLDivElement;
 const multiModal = new bootstrap.Modal(multiTrack);
+const unsavedGPX = document.getElementById('no_download') as HTMLDivElement;
+const unsavedGpxModal = new bootstrap.Modal(unsavedGPX);
 
 /**
  * ----------------- Main display page -----------------
@@ -201,6 +176,12 @@ const multiModal = new bootstrap.Modal(multiTrack);
  */
 async function loadSelectedMap(mapname: string):Promise<void>  {
     if (online_loaded || offline_loaded) {
+        // To provide clean map changeover, stop location tracking
+        map.stopLocate();
+        if (offline_loaded) {
+            tracking = false;
+            BackgroundGeolocation.stop();
+        }
         // only one type of map can be loaded at a time
         map.remove();
         // typescript non-null assertion: elminates redeclaring (map as L.Map)
@@ -219,6 +200,8 @@ var container: HTMLElement;
 var permissions_requested = false;
 var permissions_granted = false;
 var sessionChecked = false;
+var following = false;
+var gpx_redos = 0;
 const tile_server = "usgs"; // current tile server for ktesa_app
 const ONLINE_LAYER_OPTIONS: L.TileLayerOptions = {
     attribution: 'USGS The National Map',
@@ -276,7 +259,10 @@ function zoomctl_setup(start_zoom: number) {
     map.addEventListener("zoom", zoom_handler);
     return;
 }
-
+function markerUpdate(e: L.LocationEvent) {
+    var new_latlng = e.latlng
+    marker.setLatLng(new_latlng); 
+}
 export async function initMap() { 
     // DISPLAY THE MAP:
     var latlng = L.latLng(35.2, -106.345);
@@ -290,12 +276,14 @@ export async function initMap() {
     L.tileLayer(ONLINE_TILE_URL, ONLINE_LAYER_OPTIONS)
         .addTo(map); // standard leaflet tile layer
     marker = L.marker(latlng, { icon: pulseIcon }).addTo(map);
-    map.locate({enableHighAccuracy: true, watch: false});
+    map.locate({enableHighAccuracy: true, watch: true});
+    map.on('locationfound', markerUpdate);
     map.once('locationfound', function (e) {
         latlng = e.latlng;
         map.panTo(latlng);
         marker.setLatLng(latlng);
     });
+ 
     // track the zoom level on map
     zoomctl_setup(zoom_level);
     /**
@@ -363,26 +351,161 @@ if (internetConnected) { // after page load
 } 
 
 /**
- * ----------------- Menu Actions -----------------
+ * ----------------- Menu Actions & Position -----------------
+ * 
  */
-function clearPrevious(): void {
+// Menu position on page
+let menu = document.getElementById('menu') as HTMLDivElement;
+let menuHt = menu.offsetHeight;
+let displayHt = menuHt + 30;
+$('#menu').height(displayHt);
+let safeArea = menu.getBoundingClientRect().top;
+let space = window.innerHeight;
+let newTop = safeArea + (space - menuHt)/2 + "px"
+$('#menu').css('top', newTop);
+// Icon_div position on page
+let icon_div = document.getElementById('icon_div') as HTMLDivElement;
+let icon_div_ht = icon_div.offsetHeight;
+let icon_div_loc = safeArea + (space - icon_div_ht)/4 + "px";
+$('#icon_div').css('top', icon_div_loc);
+let winwidth = window.innerWidth;
+// Follow GPS icon position
+let follow_pos = (winwidth - 36)/2;
+let $follow_icon = $('#follow_icon');
+$follow_icon.css('left', follow_pos);
+// Define alternate icons:
+let $play = $('#play');
+let $stop = $('#stop');
+let $pause = $('#pause');
+let $unpause = $('#unpause');
+let $unfollow_icon = $('#unfollow_icon');
+$unfollow_icon.css('left', follow_pos)
+// Toggle sliders in menu
+const recordButtons = document.getElementById('menu-recording') as HTMLInputElement;
+recordButtons.addEventListener('change', (e) => {
+    const target = e.target as Toggler;
+    if (target.checked) {
+        $('#icon_div').css('display', 'block');
+        $('#row2').css('display', 'none')
+        $('#row3').css('display', 'none');
+    } else {
+        $('#icon_div').css('display', 'none');
+    }
+});
+const followState = document.getElementById('menu-follows') as HTMLInputElement;
+followState.addEventListener('change', (e) => {
+    const target = e.target as Toggler;
+    if (target.checked) {
+        $follow_icon.css('display', 'inline');
+        $unfollow_icon.css('display', 'none');
+    } else {
+        $follow_icon.css('display', 'none');
+        $unfollow_icon.css('display', 'none');
+    }
+});
+const geoIcon= document.getElementById('menu-location') as HTMLInputElement;
+geoIcon.addEventListener('change', (e) => {
+    const target = e.target as Toggler;
+    if (target.checked) {
+        $('#findme_icon').css('display', 'inline');
+    } else {
+        $('#findme_icon').css('display', 'none');
+    }
+});
+// end toggles
+
+// Tracking activities
+$('body').on('click', '#play', () => {
+    // start fresh:
+    if (typeof offline_track !== 'undefined') {
+        map.removeLayer(offline_track);
+        for (let i=0; i<wayMrkrs.length; i++) {
+            const deletion = wayMrkrs[i];
+            map.removeLayer(deletion);
+        }
+    }
+    gpx_pts = [];
+    waypts = [];
+    wayMrkrs = [];
+    // begin ...
+    tracking = true;
+    $('#row2').css('display', 'inline');
+    $('#row3').css('display', 'inline');
+    $play.replaceWith($stop);
+    $stop.css('display', 'inline');
+    trackingGeolocation();
+    $('#info').css('display', 'block');
+});
+$('body').on('click', '#stop', () => {
+    tracking = false;
+    $('#row2').css('display', 'none');
+    $('#row3').css('display', 'none');
+    $stop.replaceWith($play);
+    trackingGeolocation();
+    $('#info').css('display', 'none');
+    downloadModal.show();
+});
+$('body').on('click', '#pause', () => {
+    $pause.replaceWith($unpause);
+    $unpause.css('display', 'inline');
+    tracking = false;
+});
+$('body').on('click', '#unpause', () => {
+    $unpause.replaceWith($pause);
+    tracking = true;
+});
+$('body').on('click', '#green_marker', () => {
+    menu_close();
+    map.locate({enableHighAccuracy: true, watch: false});
+    map.once('locationfound', function (e) {
+        const myloc = e.latlng;
+        const waypt = [myloc.lat, myloc.lng] as number[];
+        waypts.push(waypt);
+        const wmrkr = L.marker(myloc, {icon: dropMarker}).addTo(map);
+        wmrkr.on('click', () => {
+            map.setView(myloc);
+        });
+        wayMrkrs.push(wmrkr);
+        let indx = wayMrkrs.length;
+        $('#mrkr_indx').text(indx);
+        textModal.show();
+        markSessionDirty();
+        saveSessionState();
+    });
+});
+$('body').on('click', '#follow_icon', () => {
+    $follow_icon.css('display', 'none');
+    $unfollow_icon.css('display', 'inline');
+    following = true;
+});
+$('body').on('click', '#unfollow_icon', () => {
+    $unfollow_icon.css('display', 'none');
+    $follow_icon.css('display', 'inline');
+    following = false;
+});
+$('body').on('click', '#findme_icon', () => {
+    map.locate({enableHighAccuracy: true, watch: false});
+    map.once('locationfound', function(e) {
+        let myloc = e.latlng;
+        map.setView(myloc);
+    });
+    menu_close();
+});
+
+// ----- Menu Related Items ----
+function clearPrevious(): void {  // eliminate existing import images
     if (onlineRectangle) {
         map.removeLayer(onlineRectangle);
         map.removeLayer(onlineTrack);
     }
 }
 function menu_close(): void {
-    //enusure any 'left over' buttons are hidden:
+    //ensure any 'left over' buttons are hidden:
     $('#map_save, #clear_rect, #rect').css('display', 'none');
     $('#disp').text("Closed");
     $('#menu').animate({ left: "-=230"}, 1500);
     return;
 }
-let menu = document.getElementById('menu') as HTMLDivElement;
-let menuHt = menu.offsetHeight;
-let displayHt = menuHt + 30;
-$('#menu').height(displayHt);
-
 $('#menu_trigger').on('click', () => {
     if ($('#disp').text() === 'Closed') {
         $('#disp').text("Open");
@@ -392,7 +515,7 @@ $('#menu_trigger').on('click', () => {
     }
     return;
 });
-$('body').on('click', '.save_display', () => {
+$('body').on('click', '#save_display', () => {
     if (internetConnected) {
         menu_close();
         maps_available.hide();
@@ -415,84 +538,8 @@ $('body').on('click', '#off_goto', () => {
     offlineSelect();
     return;
 });
-$('body').on('click', '#play', () => {
-    tracking = true;
-    trackingGeolocation();
-    $('#info').css('display', 'block');
-    trackingState('on');
-    menu_close();
-});
-$('body').on('click', '#stop', () => {
-    tracking = false;
-    trackingGeolocation();
-    $('#info').css('display', 'none');
-    trackingState('off');
-    menu_close();
-});
-$('body').on('click', '#dwnld', () => {
-    menu_close();
-    $('#save_clear').css('display', 'inline');
-    downloadModal.show();
-});
-$('body').on('click', '#trash', () => {
-    menu_close()
-    let resume = tracking;
-    tracking = false;
-    trackingGeolocation();
-    miles = 0;
-    gpx_pts = [];
-    waypts = [];
-    if (typeof hike !== 'undefined') {
-        map.removeLayer(hike);
-    }
-    for (let i=0; i<wayMrkrs.length; i++) {
-        map.removeLayer(wayMrkrs[i]);
-    }
-    tracking = resume;
-    if (tracking) {
-        trackingGeolocation();
-    }
-    markSessionClean();
-});
-$('body').on('click', '#marker', () => {
-    menu_close();
-    map.locate({enableHighAccuracy: true, watch: false});
-    map.once('locationfound', function (e) {
-        const myloc = e.latlng;
-        const waypt = [myloc.lat, myloc.lng] as number[];
-        waypts.push(waypt);
-        const wmrkr = L.marker(myloc, {icon: dropMarker}).addTo(map);
-        wmrkr.on('click', () => {
-            map.setView(myloc);
-        });
-        wayMrkrs.push(wmrkr);
-        let indx = wayMrkrs.length;
-        $('#mrkr_indx').text(indx);
-        textModal.show();
-        markSessionDirty();
-        saveSessionState();
-    });
-});
-$('body').on('click', '#locate', () => {
-    map.locate({enableHighAccuracy: true, watch: false});
-    map.once('locationfound', function(e) {
-        let myloc = e.latlng;
-        map.setView(myloc);
-    });
-    menu_close();
-});
-$('body').on('click', '#follows', () => {
-    following = true;
-    followIcon(false); // show available next state
-    menu_close();
-});
-$('body').on('click', '#no_follows', () => {
-    following = false;
-    followIcon(true);
-    menu_close();
-});
 
-// Modal/Secondary Buttons
+// ----- Modal/Secondary Buttons -----
 $('body').on('click', '#use_map', () => {
     const user_map = $('#select_map').val() as string;
     if (user_map == '') {
@@ -503,8 +550,22 @@ $('body').on('click', '#use_map', () => {
     loadSelectedMap(user_map);
     return;
 });
+$('body').on('click', '#save_from_offline', () => {
+    // Go online from offline & call up save display
+    if (internetConnected) {
+        map.stopLocate();
+        tracking = false;
+        BackgroundGeolocation.stop();
+        map.remove();
+        map = null!;
+        initMap();
+        save_type_modal.show();
+    } else {
+        notice("Cannot save maps when internet is not connected");
+    }
+});
 
-// --- multiple items associated with saving maps ---
+// --- Multiple items associated with saving maps ---
 var isSaved = false;
 function saveUserMap() {
     if (rect_complete) {
@@ -588,23 +649,30 @@ $('body').on('click', '#add_marker_text', () => {
     textModal.hide();
     return
 });
+// GPX File Saving, triggered by #stop click
 $('body').on('click', '#save_dwnld', () => {
-    downloadRoutine();    
-});
-$('body').on('click', '#save_clear', () => {
-    clear_track = true;
-    downloadRoutine(); 
-});
-function downloadRoutine() {
     const gpx_name = $('#dwnld_name').val() as string;
     if (gpx_name == '') {
         notice("Please supply a name for the download file");
         return false;
     }
     createAndDownloadGPX(gpx_name);
+    return;    
+});
+downloadDiv.addEventListener('hidden.bs.modal', () => {
+    if (gpx_redos === 0) {
+        gpx_redos++;
+        unsavedGpxModal.show();
+    }
+});
+$('body').on('click', '#retry_download', () => {
+    unsavedGpxModal.hide();
+    downloadModal.show()
     return;
-}
-
+});
+$('body').on('click', '#dontbother', () => {
+    unsavedGpxModal.hide();
+});
 
 // ----------------- Defining Offline Map -----------------
 var save_type: string;
@@ -1397,6 +1465,7 @@ function offlineMap (mapname: string, map_ctr: L.LatLng, map_zoom: number, track
  */
 function trackingGeolocation() {
     if (permissions_granted && tracking) {
+        map.stopLocate();
         (async () => {
             try {
                 const initial = await Geolocation.getCurrentPosition({
@@ -1453,6 +1522,8 @@ function trackingGeolocation() {
         })();    
     } else {
         BackgroundGeolocation.stop();
+        map.locate({enableHighAccuracy: true, watch: true});
+        map.on('locationfound', markerUpdate);
     }
 }
 /**
@@ -1502,7 +1573,6 @@ var map_line = [] as L.LatLng[];
 var waypts = [] as number[][];
 var wayMrkrs: L.Marker<L.MarkerOptions>[] = [];
 var offline_track: L.Polyline;
-var clear_track = false;
 function tracker(lat: number, lng: number, ele: number) {
     track_pt = {lat: lat, lng: lng, elevation: ele} as TrackPoint;
     gpx_pts.push(track_pt);
@@ -1569,15 +1639,8 @@ async function createAndDownloadGPX(dwnld_name: string) {
     });
     await saveOrShareGpxFile(result);
     $('#dwnld_name').val("");
-    if (clear_track) {
-        map.removeLayer(offline_track);
-        for (let i=0; i<wayMrkrs.length; i++) {
-            const deletion = wayMrkrs[i];
-            map.removeLayer(deletion);
-        }
-        clear_track = false;
-    }
     downloadModal.hide();
+    gpx_redos = 0;
     markSessionClean();
     async function saveOrShareGpxFile(result: WriteFileResult) {
         const platform = Capacitor.getPlatform();
