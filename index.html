@@ -65,8 +65,7 @@
     </div>
 
     <div id="alt-icons">
-        <svg id="stop" class="clickable"
-            width="36px" height="36px" viewbox="0 0 36 36">
+        <svg id="stop" width="36px" height="36px" viewbox="0 0 36 36">
             <circle cx="18" cy="18" r="18" stroke="red" stroke-width="1" fill="gray" />
             <rect x="11" y="11" width="14" height="14" fill="white"/>
         </svg>
@@ -103,13 +102,15 @@
     <div id="info">
         <span id="distance">0</span> mis,&nbsp;&nbsp;alt: <span id="feet">0</span> ft.
     </div>
+
     <!-- The Menu -->
+     <div id="menu-backdrop"></div>
     <div id="menu">
         <span class="line_override">Offline Maps</span>
         <div class="surround">
             <table class="menu-table">
                 <tr>
-                    <td><img id="save_display" src="images/pallette.png" /></td>
+                    <td><img class="save_display" src="images/pallette.png" /></td>
                     <td class="tbl_txt">Create Map</td>
                 </tr>
                 <tr>
@@ -252,7 +253,7 @@
             </div>
             <div class="modal-body">
                 Map Name:
-                <input id="map_name" type="text" /><br />
+                <input id="map_name" type="text" /><br /><br />
                 <button type="button" id="save_om" class="btn btn-success btn-sm">
                     Save Map</button><br /><br />
             </div>
@@ -342,11 +343,12 @@
                     <div>
                         <select id="select_map" style="min-width:120px;">
                             <option value="No Maps">No Maps</option>
-                        </select>&nbsp;&nbsp;
+                        </select>&nbsp;&nbsp;File size: <span id="filesize"></span> MB<br /><br />
                         <button id="use_map" class="btn btn-sm btn-success">Use Map
-                        </button><br /><br />
+                        </button>&nbsp;&nbsp;&nbsp;&nbsp;
                         <button id="delmap" class="btn btn-sm btn-danger">
-                            Delete Selection</button>
+                            Delete Map</button>
+                        <span id="listing"></span>
                     </div>
                 </div>
                 <div id="no_maps" style="display:none;">
@@ -357,7 +359,7 @@
                 </div>
                 <div>
                     <br />
-                    <button id="save_from_offline" btn btn-sm btn-primary">
+                    <button class="save_display btn btn-sm btn-primary">
                         Save New Map
                     </button> [Internet required]&nbsp;&nbsp;
                     <br /><br />
@@ -421,7 +423,6 @@
         </div>
     </div>
 </div>
-
 <!-- Restore Session Data From Previous Closing -->
 <div id="restore" class="modal" tabindex="-1">
     <div class="modal-dialog">
@@ -465,6 +466,31 @@
                 and click the 'Download GPX File', which will present all the tracks. 
                 After downloading, import the downloaded file as a GPX file.
                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Saving Hybrid Tiles -->
+<div id="hybrid_save" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Additional Tiles</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+               <p>While using the offline map <span id="offmap"></span>, 
+                internet became available and additional tiles were temporarily
+                saved. These temporary tiles would add <span id="add_size"></span> MB
+                to your file if if you decide to keep them.
+               </p>
+               <button id="keep_tmp" class="btn btn-sm btn-success">Keep</button><br /><br />
+               <button id="kill_tmp" class="btn btn-sm btn-primary">Discard</button>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-sm btn-secondary"

@@ -24,7 +24,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { CapacitorHttp } from '@capacitor/core';
 
 /**
- * NOTE: Samsung phones may have the Gallery AI feature that scans the Directory.Documents
+ * NOTE: Samsung phones may have the Gallery AI feature that scans the Directory.Data
  * files and places discovered images in the Gallery - including map tiles being saved!!
  * Hence, the write routines use a '.nomedia' parameter to cause AI to skip those images.
  */
@@ -33,23 +33,16 @@ class TileDownloader {
     #osm_head    = "https://openstreetmap.org";
     #usgs_head   = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile";
     //#mapbox_head = "https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles";
-    /**
-     * Android requires permission to use 'Directory.Documents'
-     */
-    async androidPermissions() {
-        const permission_status = await Filesystem.requestPermissions();
-        return permission_status.publicStorage;
-    }
-
+    
     async docFileExists(path: string) {
         try {
             await Filesystem.stat({
                 path: path,
-                directory: Directory.Documents
+                directory: Directory.Data
             });
             return true;
         } catch (error) {
-            //console.error("File item or doc does not exist");
+            console.error("Error: ", error);
             return false;
         }
     }
@@ -60,7 +53,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: "mapnames.txt",
                 data: mapnames,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8
             });
             return true;
@@ -74,12 +67,12 @@ class TileDownloader {
         try {
             const mapnames = await Filesystem.readFile({
                 path: "mapnames.txt",
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8
             });
             return mapnames.data;
         } catch (error) {
-            //console.error('Could not read mapnames:', error);
+            console.error('Could not read mapnames:', error);
             return false;
         }
     }
@@ -90,7 +83,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: `${map}/center.txt`,
                 data: center,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8,
                 recursive: true
             });
@@ -105,7 +98,7 @@ class TileDownloader {
         try {
             const center = await Filesystem.readFile({
                 path: `${map}/center.txt`,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: 
                 Encoding.UTF8
             });
@@ -123,7 +116,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: `${map}/zoom.txt`,
                 data: zoom_str,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8,
                 recursive: true
             });
@@ -138,7 +131,7 @@ class TileDownloader {
         try {
             const zoom_level = await Filesystem.readFile({
                 path: `${map}/zoom.txt`,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8
             });
             return zoom_level;
@@ -155,7 +148,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: `${map}/tracks/track.json`,
                 data: polyline,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8,
                 recursive: true
             });
@@ -170,7 +163,7 @@ class TileDownloader {
         try {
             const poly = await Filesystem.readFile({
                 path: `${map}/tracks/track.json`,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8
             });
             return poly;
@@ -180,13 +173,40 @@ class TileDownloader {
             return false;
         }
     }
-
+    async writeSessionText(textContents: string) {
+        try {
+            await Filesystem.writeFile({
+                path: "session.txt",
+                data: textContents,
+                directory: Directory.Data,
+                encoding: Encoding.UTF8
+            });
+            return true;
+        }
+        catch (error) {
+            //console.error('Could not create mapnames:', error);
+            return false;
+        }
+    }
+    async readSessionText() {
+        try {
+            const sessionText = await Filesystem.readFile({
+                path: "session.txt",
+                directory: Directory.Data,
+                encoding: Encoding.UTF8
+            });
+            return sessionText.data;
+        } catch (error) {
+            //console.error('Could not read mapnames:', error);
+            return false;
+        }
+    }
     async writeUnsavedData(path: string, data: string) {
         try {
             await Filesystem.writeFile({
-                path: `${path}`,
+                path: path,
                 data: data,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8,
                 recursive: true
             });
@@ -201,7 +221,7 @@ class TileDownloader {
         try {
             const data = await Filesystem.readFile({
                 path: `${path}`,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 encoding: Encoding.UTF8
             });
             return data.data;
@@ -210,11 +230,72 @@ class TileDownloader {
             return false;
         }
     }
+    async fetchAndCacheHybridTile(z: number, x: number, y: number, source='usgs', map: string) {
+        try {
+            const tileUrl = this.getTileUrl(z, x, y, source) as string;
+            const response = await CapacitorHttp.get({
+                url: tileUrl,
+                headers: {
+                    'User-Agent': 'ktesa_app/1.0'
+                },
+                responseType: 'blob'
+            });
+            if (response.status !== 200) {
+                throw new Error(`HTTP ${response.status}: Failed`);
+            }
+            if (!response.data) {
+                throw new Error('No data in response');
+            }
+            const tilePath = this.getTilePath(map, z, x, y, source) as string;
+            // Filesystem writes must have an extension!!
+            await Filesystem.writeFile({
+                path: `tmpFiles/${tilePath}`,
+                data: response.data,
+                directory: Directory.Data,
+                recursive: true
+            });
+            //console.log('File written successfully');
+            return true;
+        } catch (error) {
+            //console.error('Download tile failed:', error);
+            return false;
+        }
+    }
+    async getHybridTile(tile_url: string) {
+        try {
+            const map_tile = await Filesystem.readFile({
+                path: `tmpFiles/${tile_url}`,
+                directory: Directory.Data,
+            });
+            return map_tile;
+        }
+        catch (error) {
+            console.log(`Can't retrieve ${tile_url}: `, error);
+            return false;
+        }
+    }
+    async transferHybridTiles() {
+        
+
+    }
+    async getHybridTileSize(tile_url: string) {
+        try {
+            const file_stat = await Filesystem.stat({
+                path: tile_url,
+                directory: Directory.Data
+            });
+            return file_stat.size as number;
+        }
+        catch (error) {
+            console.log(`Can't retrieve ${tile_url}: `, error);
+            return false;
+        }
+    }
     async deleteFile(path: string) {
         try {
             await Filesystem.deleteFile({
                 path: path,
-                directory: Directory.Documents
+                directory: Directory.Data
             });
             return true;
         }
@@ -224,12 +305,44 @@ class TileDownloader {
         }
 
     }
+    async getDirectorySize(dirPath: string) {
+        const directory = Directory.Data;
+        let totalSize = 0;
+        try {
+            const result = await Filesystem.readdir({
+                path: dirPath,
+                directory: directory,
+            });
+        
+            for (const file of result.files) {
+                const filePath = `${dirPath}/${file.name}`;
+        
+                if (file.type === 'directory') {
+                // Recurse into subdirectory
+                totalSize += await this.getDirectorySize(filePath);
+                } else {
+                    try {
+                        const statResult = await Filesystem.stat({
+                        path: filePath,
+                        directory: directory,
+                        });
+                        totalSize += statResult.size;
+                    } catch (e) {
+                        console.warn(`Could not stat file: ${filePath}`, e);
+                    }
+                }
+            }
+        } catch (e) {
+          console.warn(`Could not read directory: ${dirPath}`, e);
+        }
+        return totalSize;
+    }   
     // The following routines were made available for debug
     async readDirFiles(path: string) {
         try {
             const dirFiles =  await Filesystem.readdir({
                 path: path, 
-                directory: Directory.Documents
+                directory: Directory.Data
             });
             return dirFiles.files;
         }
@@ -242,32 +355,15 @@ class TileDownloader {
         try {
             await Filesystem.rmdir({
                 path: path,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 recursive: true
             });
             return true;
-           
         }
         catch (error) {
             //console.error(`Could not remove data for ${path}`, error);
             return false;
-        }
-        
-    }
-
-    /**
-     * This section pertains to map tiles: 'createNoMedia' causes Samsung's gallery
-     * AI program to skip 'map' file images - otherwise the user finds a ton of 
-     * map tile images in his Gallery!!
-     */
-    async createNoMedia(mapName: string) {
-        await Filesystem.writeFile({
-            path: `${mapName}/.nomedia`,
-            data: '',
-            directory: Directory.Documents,
-            encoding: Encoding.UTF8,
-            recursive: true
-        });
+        } 
     }
 
     // FILESYSTEM PATH [NOT fetch url]
@@ -297,7 +393,7 @@ class TileDownloader {
         try {
             const map_tile = await Filesystem.readFile({
                 path: tile_url,
-                directory: Directory.Documents,
+                directory: Directory.Data,
             });
             return map_tile;
         }
@@ -337,7 +433,7 @@ class TileDownloader {
             await Filesystem.writeFile({
                 path: tilePath,
                 data: response.data,
-                directory: Directory.Documents,
+                directory: Directory.Data,
                 recursive: true
             });
             //console.log('File written successfully');

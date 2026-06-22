@@ -30,7 +30,11 @@ interface TrackPoint {
 interface Toggler extends EventTarget {
     checked: boolean;
 }
-  
+interface HybridSize {
+    map: string;
+    size: number;
+}
+
 import $ from 'jquery';
 import 'jquery-ui/ui/widgets/autocomplete';
 import 'jquery-ui/themes/base/all.css';
@@ -48,57 +52,16 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Filesystem, Directory, Encoding, WriteFileResult, type ReadFileResult } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Preferences } from '@capacitor/preferences';
+
 /**
- * @fileoverview This app has ported some code from the v1.0 ktesa_app
- * which utilized osm tiles. V2.0 relies on the USGS ArcGIS topo/contour
- * tiles for a better hike experience. Note that the USGS schema swaps the
- * x and y (row/col) coordinates when fetching tiles. The User Interface
- * has been significantly modified to provide the user a better view of
- * options via the new menu system. Owing to file size, some exports are
- * utilized and use of arrow functions is reduced to force typescript to
- * handle them properly.
+ * @fileoverview V2.1 relies on the USGS ArcGIS topo/contour tiles for a 
+ * better hike experience. Note that the USGS schema swaps the x and y 
+ * (row/col) coordinates when fetching tiles compared to the 'osm' schema.
+ * Owing to file size of this app, some exports are utilized and use of arrow
+ * functions is reduced to force typescript to handle them properly.
  * 
- * @version 2.0 Replaces osm method with topo tile from USGS
+ * @version 2.1 Revise UI
  */
-
-/**
- *  ----------------- Phone-Specific Actions -----------------
- */
-async function androidReadWrite() {
-    if (await tileDownloader.androidPermissions() === 'denied') {
-        notice("This phone is not granting permission to write certain data");
-    }
-    return;
-}
-// Back navigation: iOS swipe-back gesture works automatically via browser history
-if (Capacitor.getPlatform() === 'android') {
-    let backPressedOnce = false;
-    App.addListener('backButton', ({ canGoBack }) => {
-      if (canGoBack) {
-            window.history.back();
-            backPressedOnce = false; // reset if they navigated away
-      } else {
-            if (backPressedOnce) {
-                App.exitApp();
-            } else {
-                backPressedOnce = true;
-                setTimeout(() => (backPressedOnce = false), 2000); // reset after 2s
-            }
-      }
-    });
-    androidReadWrite();
-}
-// Landscape/Portrait
-if (screen.orientation) {
-    screen.orientation.addEventListener('change', () => {
-        map.invalidateSize();
-    });
-}
-
-// Prevent pinch-zoom on document
-document.addEventListener('gesturestart', (e) => e.preventDefault());
-document.addEventListener('gesturechange', (e) => e.preventDefault());
-document.addEventListener('gestureend', (e) => e.preventDefault());
 
 /**
  * ----------------- Internet connectivity -----------------
@@ -142,6 +105,78 @@ ok.addEventListener('click', () => {
 });
 
 /**
+ *  ----------------- Phone-Specific Actions -----------------
+ * 
+ * NOTE: Permissions are tricky, and one can block or deny the other if not
+ * properly sequenced. For this reason, the initPermissions function is used.
+ * BackgroundGeolocation permissions are requested when that mode is enabled.
+ */
+async function initAllPermissions() {
+    const locResult = await Geolocation.requestPermissions();
+    console.log('Foreground location:', locResult.location);
+    await requestNotificationPermission();
+}
+initAllPermissions()
+.then( () => {
+    // Map loading on initial page load:
+    if (internetConnected) {
+        initMap(); // normal situation
+    } else {
+        offlineSelect();
+    } 
+    return
+});
+
+async function requestNotificationPermission() {
+    // Check the current status
+    let permStatus = await LocalNotifications.checkPermissions();
+    // If not already granted, request it
+    if (permStatus.display !== 'granted') {
+        permStatus = await LocalNotifications.requestPermissions();
+        if (permStatus.display === 'granted') {
+            permissions_granted = true;
+        } else {
+            permissions_granted = false;
+            let msg = "Notification permission denied: Tracking will be disabled";
+            notice(msg);
+        }
+    } else {
+        permissions_granted = true;
+    }
+    return;
+};
+
+// Back navigation: iOS swipe-back gesture works automatically via browser history
+if (Capacitor.getPlatform() === 'android') {
+    let backPressedOnce = false;
+    App.addListener('backButton', ({ canGoBack }) => {
+      if (canGoBack) {
+            window.history.back();
+            backPressedOnce = false; // reset if they navigated away
+      } else {
+            if (backPressedOnce) {
+                App.exitApp();
+            } else {
+                backPressedOnce = true;
+                setTimeout(() => (backPressedOnce = false), 2000); // reset after 2s
+            }
+      }
+    });
+}
+// Landscape/Portrait
+if (screen.orientation) {
+    screen.orientation.addEventListener('change', () => {
+        map.invalidateSize();
+    });
+}
+
+// Prevent pinch-zoom on document
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('gesturechange', (e) => e.preventDefault());
+document.addEventListener('gestureend', (e) => e.preventDefault());
+
+//tileDownloader.debugMapnames();
+/**
  * ----------------- Modals -----------------
  */
 const saverDiv = document.getElementById('save_type') as HTMLDivElement;
@@ -157,13 +192,17 @@ const unsaved = new bootstrap.Modal(map_not_saved);
 const marker_text = document.getElementById('marker_text') as HTMLDivElement;
 const textModal = new bootstrap.Modal(marker_text);
 const downloadDiv = document.getElementById('save_gpx') as HTMLDivElement;
-const downloadModal = new bootstrap.Modal(downloadDiv);
+const trackSaveModal = new bootstrap.Modal(downloadDiv);
 const restore_data = document.getElementById('restore') as HTMLDivElement;
 const restoreModal = new bootstrap.Modal(restore_data);
 const multiTrack = document.getElementById('multi') as HTMLDivElement;
 const multiModal = new bootstrap.Modal(multiTrack);
-const unsavedGPX = document.getElementById('no_download') as HTMLDivElement;
-const unsavedGpxModal = new bootstrap.Modal(unsavedGPX);
+//const unsavedGPX = document.getElementById('no_download') as HTMLDivElement;
+//const unsavedGpxModal = new bootstrap.Modal(unsavedGPX);
+//const hybrid_tiles = document.getElementById('hybrid_save') as HTMLDivElement;
+//const hybridDisposition = new bootstrap.Modal(hybrid_tiles);
+const save_progress = document.getElementById('stat') as HTMLDivElement;
+const save_status = new bootstrap.Modal(save_progress);
 
 /**
  * ----------------- Main display page -----------------
@@ -173,23 +212,23 @@ const unsavedGpxModal = new bootstrap.Modal(unsavedGPX);
  * This function will destroy any currently implemented map and
  * then display the offline map selected by the user. Also
  * destroyed are all map objects: markers, polyline, rectangle, etc.
+ * NOTE: marker layer is gone, but the marker var is already defined
+ * when switching from online or previous offline. If app is initially
+ * loaded with offline choice, marker will be defined by offlineMap().
  */
 async function loadSelectedMap(mapname: string):Promise<void>  {
-    if (online_loaded || offline_loaded) {
-        // To provide clean map changeover, stop location tracking
+    // To provide clean map changeover, stop location tracking
+    if (leafletGeo) {
         map.stopLocate();
-        if (offline_loaded) {
-            tracking = false;
-            BackgroundGeolocation.stop();
-        }
-        // only one type of map can be loaded at a time
-        map.remove();
-        // typescript non-null assertion: elminates redeclaring (map as L.Map)
-        map = null!;
-        online_loaded = offline_loaded = false;
     }
-    tileDownloader.writeUnsavedData('sessionMap.txt', mapname); // indicates offline map
-    displayMap(mapname); // will set offline_loaded via offlineMap()
+    if (capgoGeo) {
+        BackgroundGeolocation.stop();
+    }
+    map.remove();
+    // typescript non-null assertion: elminates redeclaring (map as L.Map)
+    map = null!;
+    tileDownloader.writeSessionText(mapname); // indicates offline map
+    displayMap(mapname); // will set offline_loaded
 }
 
 /**
@@ -197,11 +236,13 @@ async function loadSelectedMap(mapname: string):Promise<void>  {
  */
 var map: L.Map;
 var container: HTMLElement;
-var permissions_requested = false;
 var permissions_granted = false;
+var leafletGeo = false;
+var capgoGeo = false;
+var sizes: number[] = [];
+var hybrid_size: HybridSize;
 var sessionChecked = false;
 var following = false;
-var gpx_redos = 0;
 const tile_server = "usgs"; // current tile server for ktesa_app
 const ONLINE_LAYER_OPTIONS: L.TileLayerOptions = {
     attribution: 'USGS The National Map',
@@ -223,7 +264,6 @@ const pulseIcon = L.divIcon({  // Create pulsing geolocation dot
 var zoom_level = 7;  // initial display value
 var marker: L.Marker; // global for geolocation marker only
 var zooming = false;
-var online_loaded  = false;
 var offline_loaded = false;
 var zctrl: HTMLElement;
 // 'zoomend' isn't working, use this debouncer for 'zoom' listener
@@ -238,8 +278,11 @@ const zoom_handler = () => {
     }
     return;
 };
-var dropMarker = L.icon({
-    iconUrl: 'images/app_marker.png',
+var svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="37" viewBox="0 0 24 37">
+                    <path fill="#FF0000" d="M12 0C5.4 0 0 5.4 0 12c0 9 12 25 12 25s12-16 12-25c0-6.6-5.4-12-12-12z"/>
+                 </svg>`;
+var wayptMarker = L.icon({
+    iconUrl: svgString,
     iconSize: [32, 32],
     iconAnchor: [15, 32]
 });
@@ -259,9 +302,17 @@ function zoomctl_setup(start_zoom: number) {
     map.addEventListener("zoom", zoom_handler);
     return;
 }
+var track_pt: TrackPoint;
+var miles = 0;
+var gpx_pts = [] as TrackPoint[];
+var map_pt: L.LatLng;
+var map_line = [] as L.LatLng[];
+var waypts = [] as number[][];
+var wayMrkrs: L.Marker<L.MarkerOptions>[] = [];
 function markerUpdate(e: L.LocationEvent) {
     var new_latlng = e.latlng
-    marker.setLatLng(new_latlng); 
+    marker.setLatLng(new_latlng);
+    return; 
 }
 export async function initMap() { 
     // DISPLAY THE MAP:
@@ -283,6 +334,7 @@ export async function initMap() {
         map.panTo(latlng);
         marker.setLatLng(latlng);
     });
+    leafletGeo = true;
  
     // track the zoom level on map
     zoomctl_setup(zoom_level);
@@ -305,14 +357,13 @@ export async function initMap() {
         }
     }
     map.addLayer(new GridDebug());
-    online_loaded = true;
-    tileDownloader.writeUnsavedData('sessionMap.txt', ''); // indicates online, no map
-    if (!permissions_requested) {
-        requestNotificationPermission()
-    } 
+    // End grid layer
+    tileDownloader.writeSessionText(''); // indicates online, no map name
+    map.invalidateSize(); // needed when switching from offline
     if (!sessionChecked) {
         checkLastSession();
         sessionChecked = true;
+        return;
     }
     // Only for online: needed for drawing rectangle
     container = map.getContainer();
@@ -326,7 +377,11 @@ async function prepareMapNames() {
     if (mapnamesFile) {
         const savedMaps = await tileDownloader.readMapnames() as string;
         const userMaps = savedMaps.split(",");
-        for (const map of userMaps) {
+        for (const map of userMaps) {  
+            const mapsize = await tileDownloader.getDirectorySize(map);
+            const megabytes = mapsize/1000000;
+            const mega = Math.round(megabytes*100)/100;
+            sizes.push(mega);
             const option = `<option value="${map}">${map}</option>`;
             $('#select_map').append(option);
         }
@@ -335,20 +390,25 @@ async function prepareMapNames() {
         $('#select_map').append(option);
         $('#available').css('display', 'none');//
         $('#no_maps').css('display', 'block');
-        $('#use_map').prop('disabled', true);
     }  
     return;
 }
+function appendFilesize() {
+    const map_selections = document.getElementById('select_map') as HTMLSelectElement;
+    var selectedIndex = map_selections.selectedIndex;
+    $('#filesize').text(sizes[selectedIndex]); 
+    return;
+}
+$('body').on('change', '#select_map', () => {
+    appendFilesize();
+});
+// offlineSelect is invoked either at startup when no internet, or by menu click
 async function offlineSelect() {
     await prepareMapNames();
-    menu_close();
     maps_available.show();
+    appendFilesize();
+    return;
 }
-if (internetConnected) { // after page load
-    initMap(); // normal situation
-} else {
-    offlineSelect();
-} 
 
 /**
  * ----------------- Menu Actions & Position -----------------
@@ -358,11 +418,16 @@ if (internetConnected) { // after page load
 let menu = document.getElementById('menu') as HTMLDivElement;
 let menuHt = menu.offsetHeight;
 let displayHt = menuHt + 30;
-$('#menu').height(displayHt);
-let safeArea = menu.getBoundingClientRect().top;
+$('#menu').height(displayHt); 
+let safeArea = menu.getBoundingClientRect().top; 
 let space = window.innerHeight;
 let newTop = safeArea + (space - menuHt)/2 + "px"
 $('#menu').css('top', newTop);
+// get menu mouse coords so that when touched outside, menu closes
+function touchClose(ev: TouchEvent) {
+    ev.stopPropagation();
+    menu_close();
+}
 // Icon_div position on page
 let icon_div = document.getElementById('icon_div') as HTMLDivElement;
 let icon_div_ht = icon_div.offsetHeight;
@@ -384,6 +449,11 @@ $unfollow_icon.css('left', follow_pos)
 const recordButtons = document.getElementById('menu-recording') as HTMLInputElement;
 recordButtons.addEventListener('change', (e) => {
     const target = e.target as Toggler;
+    if (tracking) {
+        target.checked = !target.checked;
+        notice("You cannot change the Tracking toggle while tracking is active ");
+        return;
+    }
     if (target.checked) {
         $('#icon_div').css('display', 'block');
         $('#row2').css('display', 'none')
@@ -391,6 +461,7 @@ recordButtons.addEventListener('change', (e) => {
     } else {
         $('#icon_div').css('display', 'none');
     }
+    return;
 });
 const followState = document.getElementById('menu-follows') as HTMLInputElement;
 followState.addEventListener('change', (e) => {
@@ -414,54 +485,76 @@ geoIcon.addEventListener('change', (e) => {
 });
 // end toggles
 
+
 // Tracking activities
 $('body').on('click', '#play', () => {
-    // start fresh:
-    if (typeof offline_track !== 'undefined') {
-        map.removeLayer(offline_track);
-        for (let i=0; i<wayMrkrs.length; i++) {
-            const deletion = wayMrkrs[i];
-            map.removeLayer(deletion);
-        }
+    /**
+     * When tracking is active, the 'Pause' and 'Waypoint' buttons
+     * are visible. When #play is clicked, a brand new track will be
+     * formed, so any previous track data is deleted. The #play icon
+     * will be replaced by the #stop icon. Tracking controls which
+     * of the geolocation services is enabled, as they cannot both
+     * be active at the same time. When tracking is on, the standard
+     * leaflet geolocation (no background capability) is removed and
+     * replaced by the @capgo background geolocation service. When
+     * tracking is turned off, geolocation control switches back.
+     * Tracking occurs independently of online or offline.
+     */
+    if (typeof hike !== 'undefined') {
+        map.removeLayer(hike);
+
+    }
+    for (let i=0; i<wayMrkrs.length; i++) {
+        const deletion = wayMrkrs[i];
+        map.removeLayer(deletion);
     }
     gpx_pts = [];
     waypts = [];
     wayMrkrs = [];
-    // begin ...
-    tracking = true;
+    // #pause and #green_marker [waypoint] icons:
     $('#row2').css('display', 'inline');
     $('#row3').css('display', 'inline');
     $play.replaceWith($stop);
     $stop.css('display', 'inline');
-    trackingGeolocation();
-    $('#info').css('display', 'block');
+    // begin ...
+    tracking = true;
+    useBackgroundGeolocation(true);
+    $('#info').css('display', 'block'); // shows miles & elevation
+    return;
 });
 $('body').on('click', '#stop', () => {
     tracking = false;
     $('#row2').css('display', 'none');
     $('#row3').css('display', 'none');
     $stop.replaceWith($play);
-    trackingGeolocation();
+    $stop.css('display', 'none');
+    useBackgroundGeolocation(false);
     $('#info').css('display', 'none');
-    downloadModal.show();
+    if (wayMrkrs.length === 0 && gpx_pts.length < 3) {
+        notice("There is nothing to save");
+    } else {
+        trackSaveModal.show();
+    }
 });
 $('body').on('click', '#pause', () => {
     $pause.replaceWith($unpause);
     $unpause.css('display', 'inline');
     tracking = false;
+    return;
 });
 $('body').on('click', '#unpause', () => {
+    $unpause.css('display', 'none');
     $unpause.replaceWith($pause);
     tracking = true;
+    return;
 });
 $('body').on('click', '#green_marker', () => {
-    menu_close();
     map.locate({enableHighAccuracy: true, watch: false});
     map.once('locationfound', function (e) {
         const myloc = e.latlng;
         const waypt = [myloc.lat, myloc.lng] as number[];
         waypts.push(waypt);
-        const wmrkr = L.marker(myloc, {icon: dropMarker}).addTo(map);
+        const wmrkr = L.marker(myloc, {icon: wayptMarker}).addTo(map);
         wmrkr.on('click', () => {
             map.setView(myloc);
         });
@@ -472,24 +565,26 @@ $('body').on('click', '#green_marker', () => {
         markSessionDirty();
         saveSessionState();
     });
+    return;
 });
 $('body').on('click', '#follow_icon', () => {
     $follow_icon.css('display', 'none');
     $unfollow_icon.css('display', 'inline');
     following = true;
+    return;
 });
 $('body').on('click', '#unfollow_icon', () => {
     $unfollow_icon.css('display', 'none');
     $follow_icon.css('display', 'inline');
     following = false;
+    return;
 });
 $('body').on('click', '#findme_icon', () => {
     map.locate({enableHighAccuracy: true, watch: false});
-    map.once('locationfound', function(e) {
-        let myloc = e.latlng;
-        map.setView(myloc);
+    map.once('locationfound', function(e) { 
+        map.setView(e.latlng);
     });
-    menu_close();
+    return;
 });
 
 // ----- Menu Related Items ----
@@ -498,28 +593,47 @@ function clearPrevious(): void {  // eliminate existing import images
         map.removeLayer(onlineRectangle);
         map.removeLayer(onlineTrack);
     }
+    return;
 }
 function menu_close(): void {
     //ensure any 'left over' buttons are hidden:
     $('#map_save, #clear_rect, #rect').css('display', 'none');
     $('#disp').text("Closed");
-    $('#menu').animate({ left: "-=230"}, 1500);
+    const backdrop = document.getElementById('menu-backdrop') as HTMLDivElement;
+    backdrop.style.display = "none";
+    backdrop.removeEventListener('touchstart', touchClose);
+    $('#menu').animate({ left: "-=230"}, 500);
     return;
 }
 $('#menu_trigger').on('click', () => {
     if ($('#disp').text() === 'Closed') {
         $('#disp').text("Open");
-        $('#menu').animate({ left: "0" }, 500)
+        const backdrop = document.getElementById('menu-backdrop') as HTMLDivElement;
+        backdrop.style.display = "block";
+        backdrop.addEventListener('touchstart', touchClose, { once: true});
+        $('#menu').animate({ left: "0" }, 300);
     } else {
         menu_close();
     }
     return;
 });
-$('body').on('click', '#save_display', () => {
+/**
+ * 'Create' map can be called when either online or offline. 
+ * If offline, the user must be placed back on the online map.
+ * 'Create' will trigger a modal allowing the user to pick a
+ * map-capturing type from 'save_type_modal'.
+ */
+$('body').on('click', '.save_display', () => {
     if (internetConnected) {
+        if (tracking) {
+            notice("Tracking must be stopped before creating new map");
+            return false;
+        }
         menu_close();
         maps_available.hide();
         if (offline_loaded) {
+            // since tracking is off, leafletGeo is true
+            map.stopLocate();
             map.remove();
             map = null!;
             offline_loaded = false;
@@ -527,12 +641,15 @@ $('body').on('click', '#save_display', () => {
         }
         save_type_modal.show();
     } else {
-        notice("Cannot save maps when internet is not connected");
+        notice("Cannot create new maps without internet connection");
     }
     return;
 });
 $('body').on('click', '#off_goto', () => {
-    // #off_goto won't be shown if not connected to internet
+    if (tracking) {
+        notice("Tracking must be stopped before switching to offline map");
+        return false;
+    }
     clearPrevious();
     menu_close();
     offlineSelect();
@@ -546,23 +663,10 @@ $('body').on('click', '#use_map', () => {
         notice("Please select an offline map");
         return false;
     }
+    $('#select_map').off('click');
     maps_available.hide();
     loadSelectedMap(user_map);
     return;
-});
-$('body').on('click', '#save_from_offline', () => {
-    // Go online from offline & call up save display
-    if (internetConnected) {
-        map.stopLocate();
-        tracking = false;
-        BackgroundGeolocation.stop();
-        map.remove();
-        map = null!;
-        initMap();
-        save_type_modal.show();
-    } else {
-        notice("Cannot save maps when internet is not connected");
-    }
 });
 
 // --- Multiple items associated with saving maps ---
@@ -582,9 +686,6 @@ function saveUserMap() {
     tile_save();
     return;
 }
-$('body').on('click', '#map_save', () => { // 'Save' btn at bottom of map
-    save_om_map_modal.show();
-});
 $('body').on('click', '#save_om', () => { // 'Save Map' btn on modal
     mapName = $('#map_name').val() as string;
     if (mapName == '') {
@@ -658,20 +759,6 @@ $('body').on('click', '#save_dwnld', () => {
     }
     createAndDownloadGPX(gpx_name);
     return;    
-});
-downloadDiv.addEventListener('hidden.bs.modal', () => {
-    if (gpx_redos === 0) {
-        gpx_redos++;
-        unsavedGpxModal.show();
-    }
-});
-$('body').on('click', '#retry_download', () => {
-    unsavedGpxModal.hide();
-    downloadModal.show()
-    return;
-});
-$('body').on('click', '#dontbother', () => {
-    unsavedGpxModal.hide();
 });
 
 // ----------------- Defining Offline Map -----------------
@@ -898,9 +985,13 @@ function displayImportedTrack(
     endX   = se.lat;
     endY   = se.lng;
     save_type = "import";
-    $('#map_save').css('display', 'inline');
     if (multi > 0) {
         multiModal.show();
+        multiTrack.addEventListener('hidden.bs.modal', () => {
+            save_om_map_modal.show();
+        });
+    } else {
+        save_om_map_modal.show();
     }
     return;
 }
@@ -1060,9 +1151,6 @@ function getRectBounds(): MapBounds {
 var ul_tile = [] as number[];
 var lr_tile = [] as number[];
 var mapName: string;
-const save_progress = document.getElementById('stat') as HTMLDivElement;
-const save_status = new bootstrap.Modal(save_progress);
-
 /**
  * User may draw from any corner, so establish matrix as if it were
  * drawn from upper left to lower right to simplify processing;
@@ -1206,7 +1294,6 @@ const tile_save = async () => {
     $('#bar').css('width', '2px');
     $('#base').text("Saving Base Map...");
     $('#base').css('display', 'inline');
-    await tileDownloader.createNoMedia(mapName);
     // top row
     for (let row = ur-1, i=uc-1; i<=lc+1; i++) {
         await tileDownloader.downloadTile(zoom_level, row, i, tile_server, mapName);
@@ -1257,7 +1344,6 @@ const tile_save = async () => {
     }
     // dowload the zoom-ins for the 'bounds' region
     await tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
-    $('#map_save').css('display', 'none');
     return;
 };
 /**
@@ -1279,16 +1365,18 @@ function saveProgress(complete: number, total: number) {
  */
 var track_poly: string;
 var tracking = false; // initial load
-var hike: L.Polyline;
+var hike: L.Polyline; // the polyline which captures user movements during tracking
 /**
  * Declare L.TileLayer.Offline and L.tileLayer.offline only once, then simply
  * switch the layers as needed.
  * 
  * Define offline layer object: here, 'createTile' this overrides the normal
- * layer object's method
+ * layer object's method - later overridden, in this case, by Hybrid layer.
  */
 L.TileLayer.Offline = L.TileLayer.extend({
     createTile: function (coords: L.Coords) {
+        const type = tile_server === 'usgs' ? 'image/jpg;' : 'image/png;';
+        const srcdata = `data:${type}base64`;
         const tile = document.createElement('img');
         const options = this.options as OfflineTileLayerOptions;
         const mapname = options.mapname!;
@@ -1310,7 +1398,7 @@ L.TileLayer.Offline = L.TileLayer.extend({
             })
             .then((mapTile) => {
                 if (mapTile) {
-                    tile.src = `data:image/png;base64,${mapTile.data ?? mapTile}`;
+                    tile.src = `${srcdata},${mapTile.data ?? mapTile}`;
                 }
             })
             .catch((err) => {
@@ -1328,13 +1416,15 @@ L.tileLayer.offline = function(url: string, options?: OfflineTileLayerOptions) {
 L.TileLayer.Hybrid = L.TileLayer.Offline.extend({
     createTile: function (coords: L.Coords) {
         // ----- Repeat L.TileLayer.Offline 'createTile' up to 'docFileExist'...
+        const type = tile_server === 'usgs' ? 'image/jpg;' : 'image/png;';
+        const srcdata = `data:${type}base64`;
         const tile = document.createElement('img');
         const options = this.options as OfflineTileLayerOptions;
         const mapname = options.mapname!;
         // use maxNative zoom to clamp tile loads
         const maxNativeZoom = this.options.maxNativeZoom;
         const nativeZoom = maxNativeZoom !== undefined
-            ? Math.min(coords.z, maxNativeZoom)
+            ? Math.min(coords.z, maxNativeZoom) // clips at max is z is too big
             : coords.z;
         const url = tileDownloader.getTilePath(
             mapname, nativeZoom, coords.x, coords.y, 'usgs'
@@ -1345,10 +1435,11 @@ L.TileLayer.Hybrid = L.TileLayer.Offline.extend({
             .then((mapTile) => {
                 if (mapTile) {
                     // ✅ Offline hit — same as before
-                    tile.src = `data:image/png;base64,${mapTile.data ?? mapTile}`;
+                    tile.src = `${srcdata},${mapTile.data ?? mapTile}`;
+                    //tile.src = `data:image/png;base64,${mapTile.data ?? mapTile}`;
                 } else {
                     // 🌐 Offline miss — try network if online
-                    return this._fetchAndCacheOnlineTile(coords, nativeZoom, tile);
+                    return this._fetchAndCacheOnlineTile(coords, nativeZoom, srcdata, tile);
                 }
             })
             .catch((err) => {
@@ -1359,24 +1450,30 @@ L.TileLayer.Hybrid = L.TileLayer.Offline.extend({
     _fetchAndCacheOnlineTile: async function (
         coords: L.Coords,
         nativeZoom: number,
+        srcdata: string,
         tile: HTMLImageElement
       ) {
             if (!internetConnected) return;
             try {
                 const options = this.options as OfflineTileLayerOptions;
                 const mapname = options.mapname!;
-                const success = await tileDownloader.downloadTile(
-                    nativeZoom, coords.x, coords.y, 'usgs', mapname
-                );
+                const success = await tileDownloader.fetchAndCacheHybridTile(
+                    nativeZoom, coords.x, coords.y, 'usgs', mapname);
                 if (!success) return;
-            
-                // Read it back the same way the offline path does
                 const tilePath = tileDownloader.getTilePath(
                     mapname, nativeZoom, coords.x, coords.y, 'usgs'
                 ) as string;
-                const mapTile = await tileDownloader.getTile(tilePath);
+                const tile_size = await tileDownloader.getHybridTileSize(tilePath) as number;
+                if (typeof hybrid_size === 'undefined') {
+                    hybrid_size = { map: mapname, size: tile_size }
+                } else {
+                    let nextSize = hybrid_size.size + tile_size;
+                    hybrid_size.size = nextSize;
+                }
+                // Read it back the same way the offline path does              
+                const mapTile = await tileDownloader.getHybridTile(tilePath);
                 if (mapTile) {
-                    tile.src = `data:image/png;base64,${mapTile.data ?? mapTile}`;
+                    tile.src = `${srcdata},${mapTile.data ?? mapTile}`;
                 }
             } catch (err) {
                 console.error('Online tile fetch/cache failed:', err);
@@ -1414,10 +1511,8 @@ async function displayMap(map_name: string) {
         const mapZoom = savedZoom.data as string;
         zoomSet = JSON.parse(mapZoom);
     }
+    hybrid_size = { map: map_name, size: 0 };
     offlineMap(map_name, center, zoomSet, track_poly);
-    if (!permissions_requested) {
-        requestNotificationPermission();
-    }
     return;
 }
 // Instantiate the offline map: arguments obtained when user selects map
@@ -1437,21 +1532,36 @@ function offlineMap (mapname: string, map_ctr: L.LatLng, map_zoom: number, track
     L.tileLayer.hybrid('', {
         attribution: 'USGS The National Map'
     }).addTo(map);
-    // Geolocation dot
-    map.locate({enableHighAccuracy: true, watch: false});
-    map.once('locationfound', function (e) {
-        let loc_now = e.latlng;
-        marker = L.marker(loc_now, { icon: pulseIcon }).addTo(map);
-    });
     // point to the starting zoom level
     zoomctl_setup(map_zoom);
     if (track !== '') {
         const latlng_arr = JSON.parse(track);
-        offline_track = L.polyline(latlng_arr, {color: 'blue'}).addTo(map);
+        L.polyline(latlng_arr, {color: 'blue'}).addTo(map);
     }
     map.invalidateSize();
     offline_loaded = true;
-
+    /** 
+     * When offline maps are loaded, tracking is off and there are no visible
+     * markers [if an offline initial load, marker is undefined; otherwise the
+     * marker has been defined in initMap()]. The user's standard geolocation
+     * (not background geolocation) is enabled and a marker is visible when within
+     * the map's bounds. At any time after, geolocation and background geolocation
+     * are toggled by the tracking icon ['#play'].
+     */
+    var orgBounds = map.getBounds();
+    // setup a marker - may be undefined...
+    if (typeof marker === 'undefined') {
+        marker = L.marker(map_ctr, { icon: pulseIcon });
+    }
+    marker.addTo(map); // may have been removed with 'loadSelectedMap()'
+    map.locate({enableHighAccuracy: true, watch: true});
+    map.on('locationfound', (e) => {
+        if (orgBounds.contains(e.latlng)) {
+            marker.setLatLng(e.latlng);
+        }
+        return;
+    });
+    leafletGeo = true;  
     if (!sessionChecked) { // timing doesn't matter here for async fct
         checkLastSession();
         sessionChecked = true;
@@ -1461,90 +1571,82 @@ function offlineMap (mapname: string, map_ctr: L.LatLng, map_zoom: number, track
 
 /**
  * Background geolocation consumes battery power, so the only time it
- * is enabled is when tracking is enabled via the 'play' svg icon. 
+ * is enabled is when tracking is enabled via the 'play' svg icon.
+ * Once set, Geolocation is not affected by internet connectivity.
+ * 'marker' must be defined before calling this routine 
  */
-function trackingGeolocation() {
-    if (permissions_granted && tracking) {
-        map.stopLocate();
-        (async () => {
-            try {
-                const initial = await Geolocation.getCurrentPosition({
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 5000
-                });
-                const lat = initial.coords.latitude;
-                const lng = initial.coords.longitude;
-                const latlng = [lat, lng] as L.LatLngExpression;
-                marker.setLatLng(latlng);
-            } catch (e) {
-                console.warn('Initial position failed:', e);
-            }
-            const config: StartOptions = {
-                backgroundMessage: "",
-                backgroundTitle: "Tracking...",
-                requestPermissions: true,
-                stale: false,  // Always get fresh data
-                distanceFilter: 5  // Highest frequency updates
-            };
-            const onPosition = (position?: Location | undefined, error?: CallbackError) => {
-                if (error) {
-                    if (error.code !== 'ALREADY_STARTED') {
-                        if (error.code === "NOT_AUTHORIZED") {
-                            if (window.confirm(
-                                "This app needs your location, " +
-                                "but does not have permission.\n\n" +
-                                "Open settings now?"
-                            )) {
-                                BackgroundGeolocation.openSettings();
+function useBackgroundGeolocation(capgo: boolean) {
+    if (capgo) {
+        if (permissions_granted && tracking) {
+            map.stopLocate();
+            leafletGeo = false;
+            (async () => {  // IIFE
+                try {
+                    const pos = await Geolocation.getCurrentPosition({
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 5000
+                    });
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    const latlng = [lat, lng] as L.LatLngExpression;
+                    marker.setLatLng(latlng);
+                } catch (e) {
+                    console.warn('Initial position failed:', e);
+                }
+                const config: StartOptions = {
+                    backgroundMessage: "",
+                    backgroundTitle: "Tracking...",
+                    requestPermissions: true,
+                    stale: false,  // Always get fresh data
+                    distanceFilter: 10  // Highest frequency updates
+                };
+                const onPosition = (position?: Location | undefined, error?: CallbackError) => {
+                    if (error) {
+                        if (error.code !== 'ALREADY_STARTED') {
+                            if (error.code === "NOT_AUTHORIZED") {
+                                if (window.confirm(
+                                    "This app needs your location, " +
+                                    "but does not have permission.\n\n" +
+                                    "Open settings now?"
+                                )) {
+                                    BackgroundGeolocation.openSettings();
+                                }
+                            } else {
+                                const msg = error.code as string;
+                                notice(msg);
                             }
-                        } else {
-                            const msg = error.code as string;
-                            notice(msg);
                         }
+                        return; 
                     }
-                    return; 
-                }
-                if (!position) return;
-                // Position logic
-                const lat = position?.latitude as number;
-                const lng = position?.longitude as number;
-                const ele = position?.altitude as number;
-                const latlng = [lat, lng] as L.LatLngExpression
-                marker.setLatLng(latlng);
-                if (following) {
-                    map.setView(latlng);
-                }
-                tracker(lat, lng, ele);
-                return;
-            };
-            await BackgroundGeolocation.start(config, onPosition);
-        })();    
+                    if (!position) return;
+                    // Position logic
+                    const lat = position?.latitude as number;
+                    const lng = position?.longitude as number;
+                    const ele = position?.altitude as number;
+                    const latlng = [lat, lng] as L.LatLngExpression
+                    marker.setLatLng(latlng);
+                    if (following) {
+                        map.setView(latlng);
+                    }
+                    tracker(lat, lng, ele);
+                    return;
+                };
+                await BackgroundGeolocation.start(config, onPosition);
+                capgoGeo = true;
+            })();    
+        } else {
+            notice("No permission provided")
+        }
     } else {
-        BackgroundGeolocation.stop();
-        map.locate({enableHighAccuracy: true, watch: true});
-        map.on('locationfound', markerUpdate);
+            BackgroundGeolocation.stop();
+            capgoGeo = false;
+            map.locate({enableHighAccuracy: true, watch: true});
+            map.on('locationfound', markerUpdate);
+            leafletGeo = true;
     }
-}
-/**
- * Once set, Geolocation is not affected by switching online/offline maps
- * 'marker' must be defined before calling this routine
- */ 
-async function requestNotificationPermission() {
-    permissions_requested = true;
-    // Check the current status
-    let permStatus = await LocalNotifications.checkPermissions();
-    // If not already granted, request it
-    if (permStatus.display !== 'granted') {
-        permStatus = await LocalNotifications.requestPermissions();
-    }
-    if (permStatus.display === 'granted') {
-        permissions_granted = true;
-    } else {
-        let msg = "Notification permission denied: Tracking will be disabled";
-        notice(msg);
-    }
-};
+    return;
+} 
 function distInMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
     var rads = Math.PI/180;
     var R = 6371; // Radius of the earth in km
@@ -1565,14 +1667,6 @@ function distInMiles(lat1: number, lon1: number, lat2: number, lon2: number): nu
 /**
  * ----------------- Tracking/Download -----------------
  */
-var track_pt: TrackPoint;
-var miles = 0;
-var gpx_pts = [] as TrackPoint[];
-var map_pt: L.LatLng;
-var map_line = [] as L.LatLng[];
-var waypts = [] as number[][];
-var wayMrkrs: L.Marker<L.MarkerOptions>[] = [];
-var offline_track: L.Polyline;
 function tracker(lat: number, lng: number, ele: number) {
     track_pt = {lat: lat, lng: lng, elevation: ele} as TrackPoint;
     gpx_pts.push(track_pt);
@@ -1581,18 +1675,18 @@ function tracker(lat: number, lng: number, ele: number) {
     let altitude = track_pt.elevation * 3.28084
     $('#feet').text(altitude.toFixed(0));
     let pts = map_line.length;
-        if (pts > 1) {
-            let dist_incr = distInMiles(
-                map_line[pts-1].lat, map_line[pts-1].lng,
-                map_line[pts-2].lat, map_line[pts-2].lng
-            )
-            miles += dist_incr;
-            $('#distance').text(miles.toFixed(2));
-            if (pts > 2) {
-                map.removeLayer(hike);
-            }
-            hike = L.polyline(map_line, {color: 'red'}).addTo(map);
+    if (pts > 1) {
+        let dist_incr = distInMiles(
+            map_line[pts-1].lat, map_line[pts-1].lng,
+            map_line[pts-2].lat, map_line[pts-2].lng
+        )
+        miles += dist_incr;
+        $('#distance').text(miles.toFixed(2));
+        if (pts > 2) {
+            map.removeLayer(hike);
         }
+        hike = L.polyline(map_line, {color: 'red'}).addTo(map);
+    }
     saveSessionState();
     markSessionDirty();
     return;
@@ -1606,12 +1700,42 @@ gpx_file += '<gpx xmlns="http://www.topografix.com/GPX/1/1" ' +
 let track_name = "\n  <trk>\n    <name>USER</name>\n    <trkseg>\n";
 const gpx_eof = "    </trkseg>\n  </trk>\n</gpx>";
 
-async function createAndDownloadGPX(dwnld_name: string) {
-    if (waypts.length === 0 && gpx_pts.length === 0) {
-        notice("There is nothing to download");
-        $('#dwnld_name').val("");
-        return false;
+async function saveOrShareGpxFile(result: WriteFileResult) {
+    const platform = Capacitor.getPlatform();
+    if (platform === 'android') {
+        try {
+            // Request permissions first (required on Android ≤ 10)
+            const permResult = await Filesystem.requestPermissions();
+            if (permResult.publicStorage !== 'granted') {
+                console.warn('Storage permission denied');
+                // Fallback to share sheet if permission denied
+                await Share.share({
+                    title: 'Save GPX File',
+                    url: result.uri,
+                    dialogTitle: 'Save or share your file',
+                });
+                return;
+            }
+            notice('File saved to your Files app: (Documents folder)');
+        } catch (e) {
+            console.error('Error saving file on Android:', e);
+            // Fallback to share sheet on error
+            await Share.share({
+                title: 'Save GPX File',
+                url: result.uri,
+                dialogTitle: 'Save or share your file',
+            });
+        }
+    } else {  // iOS
+        await Share.share({
+            title: 'Save GPX File',
+            url: result.uri,
+            dialogTitle: 'Save or share your file',
+        });
     }
+    return;
+}
+async function createAndDownloadGPX(dwnld_name: string) {
     let wptcnt = waypts.length;
     if (wptcnt > 0) {
         for (let j=0; j<wptcnt; j++) {
@@ -1639,43 +1763,8 @@ async function createAndDownloadGPX(dwnld_name: string) {
     });
     await saveOrShareGpxFile(result);
     $('#dwnld_name').val("");
-    downloadModal.hide();
-    gpx_redos = 0;
+    trackSaveModal.hide();
     markSessionClean();
-    async function saveOrShareGpxFile(result: WriteFileResult) {
-        const platform = Capacitor.getPlatform();
-        if (platform === 'android') {
-            try {
-                // Request permissions first (required on Android ≤ 10)
-                const permResult = await Filesystem.requestPermissions();
-                if (permResult.publicStorage !== 'granted') {
-                    console.warn('Storage permission denied');
-                    // Fallback to share sheet if permission denied
-                    await Share.share({
-                        title: 'Save GPX File',
-                        url: result.uri,
-                        dialogTitle: 'Save or share your file',
-                    });
-                    return;
-                }
-                alert('File saved to your Files app: (Documents folder).');
-            } catch (e) {
-                console.error('Error saving file on Android:', e);
-                // Fallback to share sheet on error
-                await Share.share({
-                    title: 'Save GPX File',
-                    url: result.uri,
-                    dialogTitle: 'Save or share your file',
-                });
-            }
-        } else {  // iOS
-            await Share.share({
-                title: 'Save GPX File',
-                url: result.uri,
-                dialogTitle: 'Save or share your file',
-            });
-        }
-    }
     return;
 }
 /**
@@ -1683,16 +1772,12 @@ async function createAndDownloadGPX(dwnld_name: string) {
  * 'mapname' resides in the 'mapnames.txt' file when 'delmap' is clicked.
  */
 $('body').on('click', '#delmap', async function() {
-    const map_sel = document.getElementById('select_map') as HTMLSelectElement;
-    let optCount = map_sel.options.length;
-    if (optCount === 1) {
-        const option = "<option value='No Maps'>No Maps</option>";
-        $('#select_map').append(option);
-    }
     const choice = $('#select_map').val() as string;
-    const choice_opt = "option[value=" + choice + "]";
-    $("#select_map " + choice_opt).remove();
-
+    const map_sel = document.getElementById('select_map') as HTMLSelectElement;
+    if (map_sel && map_sel.selectedIndex !== -1) {
+        // Remove the element at the index directly from the browser window's native collection
+        map_sel.remove(map_sel.selectedIndex);
+    }
     const stored_mapnames = await tileDownloader.readMapnames() as unknown as string;
     const map_list = stored_mapnames.split(",");
     const indx = map_list.indexOf(choice);
@@ -1706,6 +1791,7 @@ $('body').on('click', '#delmap', async function() {
         await tileDownloader.writeMapnames(new_map_list);
     }
     await tileDownloader.removeData(choice);
+    prepareMapNames();
     return;
 });
 /**
@@ -1713,7 +1799,15 @@ $('body').on('click', '#delmap', async function() {
  * ensure that it can be restored when the app is opened again.
  * Note that there is no explicit mechanism to detect app closure.
  */
-const saveSessionState = async () => {
+// When unsaved data exists, mark the session as dirty
+export async function markSessionDirty() {
+    await Preferences.set({ key: 'session_dirty', value: 'true' });
+}
+// When data is saved, clear the flag
+export async function markSessionClean() {
+    await Preferences.set({ key: 'session_dirty', value: 'false' });
+}
+export const saveSessionState = async () => {
     // Save any track or marker data
     if (gpx_pts.length > 0) {
         let track_json = JSON.stringify(gpx_pts);
@@ -1724,11 +1818,10 @@ const saveSessionState = async () => {
         tileDownloader.writeUnsavedData("unsavedMarkers.json", marker_json);
     }
 };
-// On app start — check if last session ended cleanly
-async function checkLastSession() {
+export async function checkLastSession() {
     const { value } = await Preferences.get({ key: 'session_dirty' });
     if (value === 'true') {
-        let lastMap = await tileDownloader.readUnsavedData('sessionMap.txt') as string;
+        let lastMap = await tileDownloader.readSessionText() as string;
         if (lastMap.length > 0) {
             $('#usmap').text(lastMap);
         } else {
@@ -1737,14 +1830,7 @@ async function checkLastSession() {
       restoreModal.show();
     }
 }
-// When unsaved data exists, mark the session as dirty
-async function markSessionDirty() {
-    await Preferences.set({ key: 'session_dirty', value: 'true' });
-}
-// When data is saved, clear the flag
-async function markSessionClean() {
-    await Preferences.set({ key: 'session_dirty', value: 'false' });
-}
+// On app start — check if last session ended cleanly
 var prevent_bs_modal_close = false;  // re-initialized every app open
 $('body').on('click', '#restore_session', async () => {
     $('#save_clear').css('display', 'none');
@@ -1755,7 +1841,7 @@ $('body').on('click', '#restore_session', async () => {
     markSessionClean();
     prevent_bs_modal_close = true;
     restoreModal.hide()
-    downloadModal.show();
+    trackSaveModal.show();
 });
 restore_data.addEventListener('hidden.bs.modal', () => {
     if (!prevent_bs_modal_close) {
