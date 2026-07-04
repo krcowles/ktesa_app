@@ -47072,13 +47072,15 @@ const sanitize = (str, production = 'name', { replacement = '_' } = {}) => {
 /*!*****************************!*\
   !*** ./www/scripts/home.ts ***!
   \*****************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
+__webpack_require__.a(module, async (__webpack_handle_async_dependencies__, __webpack_async_result__) => { try {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   checkConnectivity: () => (/* binding */ checkConnectivity),
 /* harmony export */   checkLastSession: () => (/* binding */ checkLastSession),
+/* harmony export */   continueOnline: () => (/* binding */ continueOnline),
 /* harmony export */   initMap: () => (/* binding */ initMap),
 /* harmony export */   markSessionClean: () => (/* binding */ markSessionClean),
 /* harmony export */   markSessionDirty: () => (/* binding */ markSessionDirty),
@@ -47125,13 +47127,13 @@ __webpack_require__.r(__webpack_exports__);
 
 
 /**
- * @fileoverview V2.1 relies on the USGS ArcGIS topo/contour tiles for a
+ * @fileoverview V2.2 relies on the USGS ArcGIS topo/contour tiles for a
  * better hike experience. Note that the USGS schema swaps the x and y
  * (row/col) coordinates when fetching tiles compared to the 'osm' schema.
  * Owing to file size of this app, some exports are utilized and use of arrow
  * functions is reduced to force typescript to handle them properly.
  *
- * @version 2.1 Revise UI
+ * @version 2.2 Stable minus tmpFile storage
  */
 /**
  * ----------------- Internet connectivity -----------------
@@ -47156,7 +47158,7 @@ async function checkConnectivity() {
         return;
     }
 }
-setInterval(checkConnectivity, 20000);
+setInterval(checkConnectivity, 30000);
 /**
  * The notification dialog box is a substitute for the window.alert()
  * which can be problematic.
@@ -47189,7 +47191,7 @@ initAllPermissions()
     .then(() => {
     // Map loading on initial page load:
     if (internetConnected) {
-        initMap(); // normal situation
+        initMap(false); // normal situation
     }
     else {
         offlineSelect();
@@ -47270,20 +47272,87 @@ const multiTrack = document.getElementById('multi');
 const multiModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(multiTrack);
 //const unsavedGPX = document.getElementById('no_download') as HTMLDivElement;
 //const unsavedGpxModal = new bootstrap.Modal(unsavedGPX);
-//const hybrid_tiles = document.getElementById('hybrid_save') as HTMLDivElement;
-//const hybridDisposition = new bootstrap.Modal(hybrid_tiles);
+const hybrid_tiles = document.getElementById('hybrid_save');
+const hybridDisposition = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(hybrid_tiles);
 const save_progress = document.getElementById('stat');
 const save_status = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(save_progress);
+const too_big = document.getElementById('too_big');
+const exceedsModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(too_big);
 /**
  * ----------------- Main display page -----------------
  */
+// ---- Hybrid Tile MAnagement ----
+async function hybridCheck() {
+    if (hybrid_info.map !== '') {
+        const exiting_map = hybrid_info.map;
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#offmap').text(exiting_map);
+        const offline_size = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getDirectorySize(exiting_map);
+        const megabytes = offline_size / 1000000;
+        const mb = Math.round(megabytes * 100) / 100;
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#offsize').text(mb);
+        const hybrid_size = hybrid_info.size / 1000000;
+        const hybridMB = hybrid_size.toFixed(1);
+        if (hybrid_info.size < 10000) {
+            jquery__WEBPACK_IMPORTED_MODULE_0___default()('#add_size').text("< 0.01");
+        }
+        else if (hybrid_info.size < 100000) {
+            jquery__WEBPACK_IMPORTED_MODULE_0___default()('#add_size').text("< 0.1");
+        }
+        else {
+            jquery__WEBPACK_IMPORTED_MODULE_0___default()('#add_size').text(hybridMB);
+        }
+        return true;
+    }
+    else
+        return false;
+}
+async function hybridModalWrapup(btn, last, next) {
+    if (btn === 'keep') {
+        const xfr = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.transferHybridTiles(last, tile_server);
+        if (xfr) {
+            console.log(`Failed to transfer [any/all] hybrid tiles to ${last}`);
+        }
+    }
+    else {
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.removeData('tmpFiles');
+    }
+    var modal_status = (jquery__WEBPACK_IMPORTED_MODULE_0___default()('#show_create_types').text() === 'yes') ? true : false;
+    hybridDisposition.hide();
+    hybrid_info = { map: '', qty: 0, size: 0 };
+    if (next === 'online') {
+        continueOnline(modal_status);
+    }
+    else {
+        displayMap(next);
+    }
+    return;
+}
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#keep_tmp', () => {
+    const last_map = hybrid_info.map;
+    const newmap = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#next_map').text();
+    hybridModalWrapup('keep', last_map, newmap);
+    return;
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#kill_tmp', () => {
+    const last_map = hybrid_info.map;
+    const newmap = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#next_map').text();
+    hybridModalWrapup('kill', last_map, newmap);
+    return;
+});
+// ---- End Hybrid Tile Management ----
 /**
- * This function will destroy any currently implemented map and
- * then display the offline map selected by the user. Also
- * destroyed are all map objects: markers, polyline, rectangle, etc.
- * NOTE: marker layer is gone, but the marker var is already defined
- * when switching from online or previous offline. If app is initially
- * loaded with offline choice, marker will be defined by offlineMap().
+ * Prior to loading an offline map, 'hybridCheck' is performed to see if,
+ * when leaving a displayed offline map, any 'hybrid' tiles were saved in
+ * tmpFiles. If so, the hybridDisplostionModal is preseented, and the user
+ * can choose whether or not to add them to the current offline map before
+ * proceeding to the new offline map.
+ *
+ * This function will destroy any currently implemented map and then display
+ * the offline map selected by the user. Also destroyed are all map objects:
+ * markers, polyline, rectangle, etc. NOTE: marker layer is gone, but the
+ * marker var is already defined when switching from online or previous offline.
+ * If the app is initially loaded with offline choice, marker will be defined
+ * by offlineMap().
  */
 async function loadSelectedMap(mapname) {
     // To provide clean map changeover, stop location tracking
@@ -47293,22 +47362,33 @@ async function loadSelectedMap(mapname) {
     if (capgoGeo) {
         _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_13__.BackgroundGeolocation.stop();
     }
-    map.remove();
-    // typescript non-null assertion: elminates redeclaring (map as L.Map)
-    map = null;
-    _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeSessionText(mapname); // indicates offline map
-    displayMap(mapname); // will set offline_loaded
+    // Only when app comes up w/internet:
+    if (typeof map !== "undefined") {
+        map.remove();
+        map = null;
+    }
+    _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeSessionText(mapname); // indicates current offline map
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#next_map').text(mapname);
+    if (await hybridCheck()) {
+        hybridDisposition.show();
+    }
+    else {
+        displayMap(mapname); // will set offline_loaded
+    }
+    return;
 }
 /**
  * Module-level globals including functions
  */
 var map;
+var onlineRectangle;
+var onlineTrack;
 var container;
 var permissions_granted = false;
 var leafletGeo = false;
 var capgoGeo = false;
 var sizes = [];
-var hybrid_size;
+var hybrid_info = { map: '', qty: 0, size: 0 };
 var sessionChecked = false;
 var following = false;
 const tile_server = "usgs"; // current tile server for ktesa_app
@@ -47382,8 +47462,28 @@ function markerUpdate(e) {
     marker.setLatLng(new_latlng);
     return;
 }
-async function initMap() {
-    // DISPLAY THE MAP:
+//      ----------ONLINE MAP ----------
+async function initMap(showTypes) {
+    /**
+     * Similar to the offline condition, if a user is leaving an offline
+     * map to go back to the online map state, hybridCheck will look for any
+     * stored tmpFiles, and offer the user the chance to keep them or not.
+     *  */
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#next_map').text('online');
+    if (showTypes) {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#show_create_types').text('yes');
+    }
+    else {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#show_create_types').text('no');
+    }
+    if (await hybridCheck()) {
+        hybridDisposition.show();
+    }
+    else {
+        continueOnline(showTypes);
+    }
+}
+function continueOnline(showTypes) {
     var latlng = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(35.2, -106.345);
     map = leaflet__WEBPACK_IMPORTED_MODULE_3___default().map('map', {
         center: latlng,
@@ -47403,37 +47503,19 @@ async function initMap() {
         marker.setLatLng(latlng);
     });
     leafletGeo = true;
-    // track the zoom level on map
     zoomctl_setup(zoom_level);
-    /**
-     * This layer provides a map grid of tiles with the tile id's
-     * supplied in each tile. This is primarily used for debug in order
-     * to identify tiles within the area selected for saving offline.
-     * ---- NOTE: 'z,x,y' is utilized to display USGS tiles ----
-     * This allows prior 'osm' method of defining rectangle, where the
-     * coords reflect a 'zoom/column/row' system.
-     */
-    class GridDebug extends (leaflet__WEBPACK_IMPORTED_MODULE_3___default().GridLayer) {
-        createTile(coords) {
-            var tile = document.createElement("DIV");
-            tile.style.outline = '1px solid azure'; //#e6e6e6
-            tile.style.fontSize = '14pt';
-            tile.style.color = "azure";
-            tile.innerHTML = [coords.z, coords.x, coords.y].join('/');
-            return tile;
-        }
-    }
-    map.addLayer(new GridDebug());
-    // End grid layer
+    // some async's don't require 'wait'...
     _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeSessionText(''); // indicates online, no map name
     map.invalidateSize(); // needed when switching from offline
     if (!sessionChecked) {
         checkLastSession();
         sessionChecked = true;
-        return;
     }
     // Only for online: needed for drawing rectangle
     container = map.getContainer();
+    if (showTypes) {
+        save_type_modal.show();
+    }
     return;
 }
 // Create modal offline map selections for user
@@ -47554,6 +47636,18 @@ geoIcon.addEventListener('change', (e) => {
 });
 // end toggles
 // Tracking activities
+function cleanTrack() {
+    if (typeof hike !== 'undefined') {
+        map.removeLayer(hike);
+    }
+    for (let i = 0; i < wayMrkrs.length; i++) {
+        const deletion = wayMrkrs[i];
+        map.removeLayer(deletion);
+    }
+    gpx_pts = [];
+    waypts = [];
+    wayMrkrs = [];
+}
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#play', () => {
     /**
      * When tracking is active, the 'Pause' and 'Waypoint' buttons
@@ -47567,16 +47661,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#play', () =>
      * tracking is turned off, geolocation control switches back.
      * Tracking occurs independently of online or offline.
      */
-    if (typeof hike !== 'undefined') {
-        map.removeLayer(hike);
-    }
-    for (let i = 0; i < wayMrkrs.length; i++) {
-        const deletion = wayMrkrs[i];
-        map.removeLayer(deletion);
-    }
-    gpx_pts = [];
-    waypts = [];
-    wayMrkrs = [];
+    cleanTrack();
     // #pause and #green_marker [waypoint] icons:
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row2').css('display', 'inline');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row3').css('display', 'inline');
@@ -47653,6 +47738,39 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#findme_icon'
     });
     return;
 });
+// Buttons for: track exceeds current memory limits
+var exceedsFlag = true; // action when exceedsModal closes
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#big_online', () => {
+    if (onlineRectangle) {
+        map.removeLayer(onlineRectangle);
+    }
+    exceedsFlag = false;
+    exceedsModal.hide();
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#big_kill', () => {
+    if (onlineRectangle) {
+        map.removeLayer(onlineRectangle);
+    }
+    if (onlineTrack) {
+        map.removeLayer(onlineTrack);
+    }
+    exceedsFlag = false;
+    exceedsModal.hide();
+});
+// Close button tapped:
+too_big.addEventListener('hidden.bs.modal', () => {
+    if (exceedsFlag) {
+        if (onlineRectangle) {
+            map.removeLayer(onlineRectangle);
+        }
+        if (onlineTrack) {
+            map.removeLayer(onlineTrack);
+        }
+    }
+    else {
+        exceedsFlag = true;
+    }
+});
 // ----- Menu Related Items ----
 function clearPrevious() {
     if (onlineRectangle) {
@@ -47688,23 +47806,33 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu_trigger').on('click', () =>
  * 'Create' map can be called when either online or offline.
  * If offline, the user must be placed back on the online map.
  * 'Create' will trigger a modal allowing the user to pick a
- * map-capturing type from 'save_type_modal'.
+ * map-capturing type from 'save_type_modal'. Also, if 'create
+ * map' is called from the menu, menu needs to be closed, if
+ * called from maps_available, that needs to be hidden.
  */
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '.save_display', () => {
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '.save_display', async () => {
     if (internetConnected) {
         if (tracking) {
             notice("Tracking must be stopped before creating new map");
             return false;
         }
-        menu_close();
-        maps_available.hide();
+        // make sure modal div has default css
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#available').css('display', 'block');
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#no_maps').css('display', 'none');
+        if (start_modal.classList.contains('show')) {
+            maps_available.hide();
+            // not needing 'showTypes' true, as returning to online from offline
+        }
+        else {
+            menu_close();
+        }
         if (offline_loaded) {
             // since tracking is off, leafletGeo is true
             map.stopLocate();
             map.remove();
             map = null;
             offline_loaded = false;
-            initMap();
+            await initMap(true); // true => save_type_modal will appear
         }
         save_type_modal.show();
     }
@@ -47753,15 +47881,23 @@ function saveUserMap() {
     return;
 }
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_om', () => {
-    mapName = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_name').val();
-    if (mapName == '') {
+    g_mapName = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_name').val();
+    if (g_mapName == '') {
         notice("You must supply a name for the map");
         return false;
     }
-    isSaved = true;
+    isSaved = true; // to prevent 'resave' modal
     save_om_map_modal.hide();
     saveUserMap();
     return;
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#use_asis', () => {
+    if (onlineRectangle) {
+        map.removeLayer(onlineRectangle);
+    }
+    isSaved = true; // to prevent 'resave' modal
+    save_om_map_modal.hide();
+    isSaved = false; // reset
 });
 mapSave.addEventListener('hidden.bs.modal', () => {
     if (!isSaved) {
@@ -47772,8 +47908,8 @@ mapSave.addEventListener('hidden.bs.modal', () => {
     }
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#resave', () => {
-    mapName = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#resave_as').val();
-    if (mapName == '') {
+    g_mapName = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#resave_as').val();
+    if (g_mapName == '') {
         notice("You must supply a name for the map");
         return false;
     }
@@ -47823,15 +47959,25 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#save_dwnld',
         notice("Please supply a name for the download file");
         return false;
     }
-    createAndDownloadGPX(gpx_name);
+    const action = 'keep';
+    createAndDownloadGPX(gpx_name, action);
     return;
 });
-// ----------------- Defining Offline Map -----------------
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#clear_track', () => {
+    const gpx_name = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#dwnld_name').val();
+    if (gpx_name == '') {
+        notice("Please supply a name for the download file");
+        return false;
+    }
+    const action = 'kill';
+    createAndDownloadGPX(gpx_name, action);
+    return;
+});
+// ----------------- Importing / Saving Offline Map -----------------
 var save_type;
 var map_center;
 var track_string;
-var onlineTrack;
-var onlineRectangle;
+var trackTooBig = false;
 /**
  * 1. Import a site hike (imports map center, bounds, and gpx file)
  */
@@ -48034,34 +48180,40 @@ function displayImportedTrack(nw, se, mapctr, polyline, multi = 0) {
     onlineRectangle = leaflet__WEBPACK_IMPORTED_MODULE_3___default().rectangle(track_bounds, { color: 'darkgreen', fill: false, weight: 2 }).addTo(map);
     //let n = 0;  // color pointer NO LONGER ACCEPTING MULTIPLE TRACKS PER IMPORT...
     onlineTrack = leaflet__WEBPACK_IMPORTED_MODULE_3___default().polyline(polyline, { color: 'blue' }).addTo(map);
-    // tracks & bounds rectangle are added, now pan to center of map
-    map.flyTo(mapctr, 13, { duration: 1.5 });
-    setTimeout(() => {
-        map.invalidateSize();
-        zoomOptimizer();
-    }, 2000);
     track_string = JSON.stringify(polyline);
     startX = nw.lat;
     startY = nw.lng;
     endX = se.lat;
     endY = se.lng;
     save_type = "import";
-    if (multi > 0) {
-        multiModal.show();
-        multiTrack.addEventListener('hidden.bs.modal', () => {
-            save_om_map_modal.show();
-        });
-    }
-    else {
-        save_om_map_modal.show();
-    }
+    // tracks & bounds rectangle w/margins are added, now pan to center of map
+    map.flyTo(mapctr, 13, { duration: 1.2 });
+    setTimeout(() => {
+        map.invalidateSize();
+        zoomOptimizer();
+        if (trackTooBig) {
+            exceedsModal.show();
+            trackTooBig = false;
+        }
+        else {
+            if (multi > 0) {
+                multiModal.show();
+                multiTrack.addEventListener('hidden.bs.modal', () => {
+                    save_om_map_modal.show();
+                });
+            }
+            else {
+                save_om_map_modal.show();
+            }
+        }
+    }, 1500);
     return;
 }
 /**
  * After a map area is specified, there may actually be sufficient
  * space to zoom in, which reduces memory load.
  */
-function zoomOptimizer() {
+async function zoomOptimizer() {
     const nw = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(startX, startY);
     const se = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(endX, endY);
     const rectBounds = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLngBounds(nw, se);
@@ -48073,6 +48225,9 @@ function zoomOptimizer() {
     const new_zoom = map.getZoom();
     if (new_zoom > 16) {
         map.setZoom(16);
+    }
+    if (new_zoom < 13) {
+        trackTooBig = true;
     }
     return;
 }
@@ -48086,14 +48241,23 @@ var startX; // lat of upper-left tile; ul[0]
 var startY; // lng of upper-left tile; ul[1]
 var endX; // lat of lower-right tile; lr[0]
 var endY; // lng of lower-right tile; lr[1]
-// tile positions as object {x:tilex, y:tiley}:
+/**
+ * 'tile_coords' are used to collect 'zoomout' tiles for saving; The highest
+ * (biggest) zoom available from which a map can be saved is 16, the highest
+ * (biggest) zoomout level will then be current zoom -1, or max of 15. Tile
+ * positions are collected as objects {x:tilex, y:tiley}, and correspond to
+ * the leaflet grid id's.
+ */
 var tile_coords = [];
-tile_coords[10] = [];
-tile_coords[11] = [];
-tile_coords[12] = [];
-tile_coords[13] = [];
-tile_coords[14] = [];
-tile_coords[15] = [];
+function initCoords() {
+    tile_coords[10] = [];
+    tile_coords[11] = [];
+    tile_coords[12] = [];
+    tile_coords[13] = [];
+    tile_coords[14] = [];
+    tile_coords[15] = [];
+}
+initCoords();
 var rect_complete = false;
 /**
  * Establish touch handlers such that the touch events can be
@@ -48165,14 +48329,13 @@ function end_rect(ev) {
     }
 }
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#rect', function () {
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#rect').prop('disabled', true);
-    rect_complete = false;
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()(this).prop("disabled", true);
     jquery__WEBPACK_IMPORTED_MODULE_0___default()(this).removeClass('btn-primary');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()(this).addClass('btn-secondary');
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()(this).prop("disabled", true);
     if (typeof rect !== 'undefined') {
         map.removeLayer(rect);
     }
+    rect_complete = false;
     map.dragging.disable(); // restored after save
     leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.on(container, 'touchstart', drawingHandlers.touchstart);
     leaflet__WEBPACK_IMPORTED_MODULE_3___default().DomEvent.on(container, 'touchmove', drawingHandlers.touchmove);
@@ -48213,7 +48376,7 @@ function getRectBounds() {
  */
 var ul_tile = [];
 var lr_tile = [];
-var mapName;
+var g_mapName; // the only [module] global mapname
 /**
  * User may draw from any corner, so establish matrix as if it were
  * drawn from upper left to lower right to simplify processing;
@@ -48236,12 +48399,12 @@ function idTileCorners() {
     ul_tile = []; // UPPER_LEFT  => [ul_row, ul_col];
     lr_tile = []; // LOWER RIGHT => [lr_row, lr_col];
     if (corner1XY[0] < corner2XY[0]) { // row check
-        ul_tile[0] = corner2XY[0];
-        lr_tile[0] = corner1XY[0];
-    }
-    else {
         ul_tile[0] = corner1XY[0];
         lr_tile[0] = corner2XY[0];
+    }
+    else {
+        ul_tile[0] = corner2XY[0];
+        lr_tile[0] = corner1XY[0];
     }
     if (corner1XY[1] < corner2XY[1]) { // col check
         ul_tile[1] = corner1XY[1];
@@ -48260,7 +48423,7 @@ function loadZoomOutTiles(ul_corner, maxz, minz) {
      * [Refer to the diagram 'ZoomOutTiles.html'. A base set of four tiles [appearing
      * in both landscape and portrait] forms the core of the next lower level.
      * Horizontal & portrait displays can be completely covered by a matrix of
-     * 16 tiles at the next lower level ['Gang of 16']. All tiles can be derived from
+     * 16 tiles at the next smaller zoom ['Gang of 16']. All tiles can be derived from
      * one: the upper-left corner of the saved map. The upper left corner will always
      * be in the same position at each zoom level. For each zoomout level, 16 tiles
      * are store in tile_coords.
@@ -48306,36 +48469,37 @@ const tile_save = async () => {
         const saved_names = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readMapnames();
         names_list = saved_names.split(",");
     }
-    if (names_list.includes(mapName)) {
+    if (names_list.includes(g_mapName)) {
         notice("This name is already used; please supply a new name");
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_name').val("");
         return false;
     }
     else {
-        names_list.push(mapName);
+        names_list.push(g_mapName);
         var new_list = names_list.join(",");
         await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeMapnames(new_list);
     }
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#map_name').val("");
     if (save_type === "import") {
-        bounds = getRectBounds();
-        const trackWrite = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeTrack(mapName, track_string);
+        bounds = getRectBounds(); // global already defined in 'draw rectangle'
+        const trackWrite = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeTrack(g_mapName, track_string);
         if (!trackWrite) {
             notice("Could not save the track for this hike");
             return false;
         }
     }
-    var mapZoom = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeSavedZoom(mapName, stored_zoom);
+    var mapZoom = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeSavedZoom(g_mapName, stored_zoom);
     if (!mapZoom) {
-        notice(`Failed to save ${mapName} zoom level`);
+        notice(`Failed to save ${g_mapName} zoom level`);
+        // can still display with default zoom, so no 'return false'
     }
     var ctr = JSON.stringify(map_center);
-    var ctr_write = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeCenter(mapName, ctr);
+    var ctr_write = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeCenter(g_mapName, ctr);
     if (!ctr_write) {
-        notice(`Failure to write map_center: ${mapName}`);
+        notice(`Failure to write map_center: ${g_mapName}`);
         return false;
     }
-    // ensure ul and lr are defined and arranged nw to se:
+    // ensure ul_tile and lr_tile are defined and arranged nw to se:
     idTileCorners();
     save_status.show();
     /**
@@ -48356,24 +48520,29 @@ const tile_save = async () => {
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#complete').css('dsiplay', 'none');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#out_bar').css('width', '2px');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#bar').css('width', '2px');
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#base').text("Saving Base Map...");
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#base').text("----- * Saving base map * -----");
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#base').css('display', 'inline');
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#loader').css('display', 'inline');
+    /**
+     * The 'basemap' is the margin around the rectangle tiles, which is 1 tile bigger
+     * than each side. The actual rectangle tiles are saved in 'downloadRegion'.
+     */
     // top row
     for (let row = ur - 1, i = uc - 1; i <= lc + 1; i++) {
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, row, i, tile_server, mapName);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, row, i, tile_server, g_mapName);
     }
     tile_coords[zoom_level];
     // bottom row
     for (let row = lr + 1, j = uc - 1; j <= lc + 1; j++) {
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, row, j, tile_server, mapName);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, row, j, tile_server, g_mapName);
     }
     // left side
     for (let col = uc - 1, k = ur; k <= lr; k++) {
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, k, col, tile_server, mapName);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, k, col, tile_server, g_mapName);
     }
     // right side
     for (let col = lc + 1, n = ur; n <= lr; n++) {
-        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, n, col, tile_server, mapName);
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(zoom_level, n, col, tile_server, g_mapName);
     }
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#base').text("Base map saved...");
     // Prepare to save 'zoom out' tiles:
@@ -48381,12 +48550,12 @@ const tile_save = async () => {
     var minZoomout = 10;
     var ul_start = ul_tile.slice();
     var ZoomoutCnt = (maxZoomout - 9) * 16;
-    loadZoomOutTiles(ul_start, maxZoomout, minZoomout);
+    loadZoomOutTiles(ul_start, maxZoomout, minZoomout); // stored in tile_coords
     // download the loadZoomOutTiles
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#zot_cnt').text(ZoomoutCnt);
     let pxperTile = 200 / ZoomoutCnt;
     var loaded = 0;
-    for (let k = minZoomout; k < zoom_level; k++) {
+    for (let k = minZoomout; k < zoom_level; k++) { // ends at zoom just below current
         var level_coords = tile_coords[k].slice(); // [] = {x.row, y.col}
         /**
          * The for loop is critical to performance! I previously used a
@@ -48396,9 +48565,9 @@ const tile_save = async () => {
         for (const tile_obj of level_coords) {
             var x = tile_obj.x;
             var y = tile_obj.y;
-            var tileStat = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(k, x, y, tile_server, mapName);
+            var tileStat = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadTile(k, x, y, tile_server, g_mapName);
             if (!tileStat) {
-                notice(`Could not download tile with coords ${k}, ${x}, ${y} for ${mapName}`);
+                notice(`Could not download tile with coords ${k}, ${x}, ${y} for ${g_mapName}`);
                 break;
             }
             loaded++;
@@ -48407,7 +48576,8 @@ const tile_save = async () => {
         }
     }
     // dowload the zoom-ins for the 'bounds' region
-    await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
+    await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadRegion(g_mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
+    initCoords();
     return;
 };
 /**
@@ -48419,6 +48589,7 @@ function saveProgress(complete, total) {
     let progress = complete * pixelsPerTile;
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#bar').css('width', progress);
     if (complete === total) {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#loader').css('displya', 'none');
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#complete').css('display', 'block');
     }
     return;
@@ -48428,7 +48599,7 @@ function saveProgress(complete, total) {
  */
 var track_poly;
 var tracking = false; // initial load
-var hike; // the polyline which captures user movements during tracking
+var hike; // the polyline which captures user movements during tracking: on or offline
 /**
  * Declare L.TileLayer.Offline and L.tileLayer.offline only once, then simply
  * switch the layers as needed.
@@ -48487,19 +48658,21 @@ var hike; // the polyline which captures user movements during tracking
         const nativeZoom = maxNativeZoom !== undefined
             ? Math.min(coords.z, maxNativeZoom) // clips at max is z is too big
             : coords.z;
+        // url is path to save the retrieved tile in the Filesystem
         const url = _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getTilePath(mapname, nativeZoom, coords.x, coords.y, 'usgs');
-        // ----- end repeat
+        // ----- end repeated code
         _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.docFileExists(url)
             .then((found) => found ? _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getTile(url) : false)
             .then((mapTile) => {
             if (mapTile) {
                 // ✅ Offline hit — same as before
+                console.log("Hit for url: ", url);
                 tile.src = `${srcdata},${mapTile.data ?? mapTile}`;
                 //tile.src = `data:image/png;base64,${mapTile.data ?? mapTile}`;
             }
             else {
                 // 🌐 Offline miss — try network if online
-                return this._fetchAndCacheOnlineTile(coords, nativeZoom, srcdata, tile);
+                return this._fetchAndCacheOnlineTile(mapname, coords, nativeZoom, srcdata, tile);
             }
         })
             .catch((err) => {
@@ -48507,28 +48680,26 @@ var hike; // the polyline which captures user movements during tracking
         });
         return tile;
     },
-    _fetchAndCacheOnlineTile: async function (coords, nativeZoom, srcdata, tile) {
+    _fetchAndCacheOnlineTile: async function (mapname, coords, nativeZoom, srcdata, tile) {
         if (!internetConnected)
             return;
         try {
-            const options = this.options;
-            const mapname = options.mapname;
             const success = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.fetchAndCacheHybridTile(nativeZoom, coords.x, coords.y, 'usgs', mapname);
             if (!success)
-                return;
-            const tilePath = _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getTilePath(mapname, nativeZoom, coords.x, coords.y, 'usgs');
-            const tile_size = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getHybridTileSize(tilePath);
-            if (typeof hybrid_size === 'undefined') {
-                hybrid_size = { map: mapname, size: tile_size };
-            }
-            else {
-                let nextSize = hybrid_size.size + tile_size;
-                hybrid_size.size = nextSize;
-            }
+                return; // no harm done...
+            let hybridPath = _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getHybridPath(nativeZoom, coords.x, coords.y, tile_server);
+            hybridPath = `tmpFiles/${mapname}/${hybridPath}`;
+            const tile_size = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.
+                getHybridTileSize(hybridPath);
+            let nextSize = hybrid_info.size + tile_size;
+            hybrid_info.size = nextSize;
             // Read it back the same way the offline path does              
-            const mapTile = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getHybridTile(tilePath);
+            const mapTile = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.getHybridTile(hybridPath);
             if (mapTile) {
                 tile.src = `${srcdata},${mapTile.data ?? mapTile}`;
+            }
+            else {
+                console.log("Couldn't retrieve cached tile");
             }
         }
         catch (err) {
@@ -48567,7 +48738,7 @@ async function displayMap(map_name) {
         const mapZoom = savedZoom.data;
         zoomSet = JSON.parse(mapZoom);
     }
-    hybrid_size = { map: map_name, size: 0 };
+    hybrid_info = { map: map_name, qty: 0, size: 0 };
     offlineMap(map_name, center, zoomSet, track_poly);
     return;
 }
@@ -48580,11 +48751,9 @@ function offlineMap(mapname, map_ctr, map_zoom, track) {
         zoom: map_zoom,
     });
     leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer.hybrid('', {
-        mapname,
+        mapname: mapname,
         maxNativeZoom: 16,
         maxZoom: 18,
-    }).addTo(map);
-    leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer.hybrid('', {
         attribution: 'USGS The National Map'
     }).addTo(map);
     // point to the starting zoom level
@@ -48599,24 +48768,23 @@ function offlineMap(mapname, map_ctr, map_zoom, track) {
      * When offline maps are loaded, tracking is off and there are no visible
      * markers [if an offline initial load, marker is undefined; otherwise the
      * marker has been defined in initMap()]. The user's standard geolocation
-     * (not background geolocation) is enabled and a marker is visible when within
-     * the map's bounds. At any time after, geolocation and background geolocation
-     * are toggled by the tracking icon ['#play'].
+     * (not background geolocation) is enabled and the marker is visible at
+     * the the user's current location. At any time after, geolocation and
+     * background geolocation are toggled by the tracking icon ['#play'].
      */
-    var orgBounds = map.getBounds();
-    // setup a marker - may be undefined...
-    if (typeof marker === 'undefined') {
-        marker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(map_ctr, { icon: pulseIcon });
-    }
-    marker.addTo(map); // may have been removed with 'loadSelectedMap()'
+    map.locate({ enableHighAccuracy: true, watch: false });
+    map.once('locationfound', (e) => {
+        if (typeof marker === 'undefined') { // may have been removed with 'loadSelectedMap()'
+            marker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(e.latlng, { icon: pulseIcon });
+        }
+        marker.addTo(map);
+    });
     map.locate({ enableHighAccuracy: true, watch: true });
     map.on('locationfound', (e) => {
-        if (orgBounds.contains(e.latlng)) {
-            marker.setLatLng(e.latlng);
-        }
+        marker.setLatLng(e.latlng);
         return;
     });
-    leafletGeo = true;
+    leafletGeo = true; // flag to id which geolocation method is in play 
     if (!sessionChecked) { // timing doesn't matter here for async fct
         checkLastSession();
         sessionChecked = true;
@@ -48788,7 +48956,7 @@ async function saveOrShareGpxFile(result) {
     }
     return;
 }
-async function createAndDownloadGPX(dwnld_name) {
+async function createAndDownloadGPX(dwnld_name, action) {
     let wptcnt = waypts.length;
     if (wptcnt > 0) {
         for (let j = 0; j < wptcnt; j++) {
@@ -48818,6 +48986,9 @@ async function createAndDownloadGPX(dwnld_name) {
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#dwnld_name').val("");
     trackSaveModal.hide();
     markSessionClean();
+    if (action === 'kill') {
+        cleanTrack();
+    }
     return;
 }
 /**
@@ -48846,8 +49017,14 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#delmap', asy
     }
     await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.removeData(choice);
     prepareMapNames();
+    appendFilesize();
     return;
 });
+// Remove any previously cached hybrid tiles not saved to map
+const tmpfiles = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readDirFiles('tmpFiles');
+if (tmpfiles) {
+    _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.removeData('tmpFiles');
+}
 /**
  * If the app is closed with unsaved track/marker data present,
  * ensure that it can be restored when the app is opened again.
@@ -48906,7 +49083,31 @@ restore_data.addEventListener('hidden.bs.modal', () => {
         restoreModal.hide();
     }
 });
+/**
+     * This layer provides a map grid of tiles with the tile id's
+     * supplied in each tile. This is primarily used for debug in order
+     * to identify tiles within the area selected for saving offline.
+     * ---- NOTE: 'z,x,y' is utilized to display USGS tiles ----
+     * This allows prior 'osm' method of defining rectangle, where the
+     * coords reflect a 'zoom/column/row' system.
+     */
+/*
+class GridDebug extends L.GridLayer {
+    createTile(coords: DebugCoords) {
+        var tile = document.createElement("DIV");
+        tile.style.outline = '1px solid azure'; //#e6e6e6
+        tile.style.fontSize = '14pt';
+        tile.style.color = "azure";
+        tile.innerHTML = [coords.z, coords.x, coords.y].join('/');
+        return tile;
+    }
+}
+map.addLayer(new GridDebug());
+// End grid layer
+*/
 
+__webpack_async_result__();
+} catch(e) { __webpack_async_result__(e); } }, 1);
 
 /***/ },
 
@@ -48926,11 +49127,6 @@ __webpack_require__.r(__webpack_exports__);
 //type UrlsType = {usgs: string, osm: string, usgs: string, mapbox: string}
 
 
-/**
- * NOTE: Samsung phones may have the Gallery AI feature that scans the Directory.Data
- * files and places discovered images in the Gallery - including map tiles being saved!!
- * Hence, the write routines use a '.nomedia' parameter to cause AI to skip those images.
- */
 class TileDownloader {
     #osm_head = "https://openstreetmap.org";
     #usgs_head = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile";
@@ -48944,7 +49140,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            console.error("Error: ", error);
             return false;
         }
     }
@@ -48960,7 +49155,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error('Could not create mapnames:', error);
             return false;
         }
     }
@@ -48974,7 +49168,6 @@ class TileDownloader {
             return mapnames.data;
         }
         catch (error) {
-            console.error('Could not read mapnames:', error);
             return false;
         }
     }
@@ -48991,7 +49184,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error(`Could not write ${map}/center:`, error);
             return false;
         }
     }
@@ -49005,7 +49197,6 @@ class TileDownloader {
             return center;
         }
         catch (error) {
-            //console.error(`Could not read ${map}/center: `, error);
             return false;
         }
     }
@@ -49022,7 +49213,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error(`Could not write ${map} @ zoom zoomLevel:`, error);
             return false;
         }
     }
@@ -49036,7 +49226,6 @@ class TileDownloader {
             return zoom_level;
         }
         catch (error) {
-            //console.error(`Could not read ${map} zoom levle `, error);
             return false;
         }
     }
@@ -49053,7 +49242,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error(`Could not write ${map}/track:`, error);
             return false;
         }
     }
@@ -49067,7 +49255,6 @@ class TileDownloader {
             return poly;
         }
         catch (error) {
-            //console.error(`Could not read ${map}/track: `, error);
             return false;
         }
     }
@@ -49082,7 +49269,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error('Could not create mapnames:', error);
             return false;
         }
     }
@@ -49096,7 +49282,6 @@ class TileDownloader {
             return sessionText.data;
         }
         catch (error) {
-            //console.error('Could not read mapnames:', error);
             return false;
         }
     }
@@ -49112,7 +49297,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            console.error(`Could not write data: ${path}`);
             return false;
         }
     }
@@ -49126,10 +49310,15 @@ class TileDownloader {
             return data.data;
         }
         catch (error) {
-            console.error(`Could not read unsaved data: ${path}`);
             return false;
         }
     }
+    /**
+     * In order to simplify collecting tiles for transfer to a saved offline map, the
+     * tilePath is a 'flat' storage path under the 'source' [usgs/osm]. E.g. under
+     * tmpFiles/mapname/usgs will be a set of tiles with unique paths, not a set of
+     * tileUrls with subdirectories under zoom levels.
+     */
     async fetchAndCacheHybridTile(z, x, y, source = 'usgs', map) {
         try {
             const tileUrl = this.getTileUrl(z, x, y, source);
@@ -49146,47 +49335,103 @@ class TileDownloader {
             if (!response.data) {
                 throw new Error('No data in response');
             }
-            const tilePath = this.getTilePath(map, z, x, y, source);
-            // Filesystem writes must have an extension!!
+            const hybridPath = this.getHybridPath(z, x, y, source);
             await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.writeFile({
-                path: `tmpFiles/${tilePath}`,
+                path: `tmpFiles/${map}/${hybridPath}`,
                 data: response.data,
                 directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data,
                 recursive: true
             });
-            //console.log('File written successfully');
             return true;
         }
         catch (error) {
-            //console.error('Download tile failed:', error);
             return false;
         }
     }
-    async getHybridTile(tile_url) {
+    async getHybridTile(hybridPath) {
         try {
             const map_tile = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.readFile({
-                path: `tmpFiles/${tile_url}`,
+                path: hybridPath,
                 directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data,
             });
             return map_tile;
         }
         catch (error) {
-            console.log(`Can't retrieve ${tile_url}: `, error);
+            console.log(`Can't retrieve ${hybridPath}: `, error);
             return false;
         }
     }
-    async transferHybridTiles() {
+    async transferHybridTiles(mapname, source) {
+        const hybrid_dir = `tmpFiles/${mapname}/${source}`;
+        const saved_files = await this.readDirFiles(hybrid_dir);
+        if (!saved_files)
+            return false;
+        const list = saved_files;
+        for (const item of list) {
+            if (item.type === 'file') {
+                const path_pieces = item.name.split(".");
+                const extension = path_pieces.pop();
+                const [z, y, x] = path_pieces;
+                // *** NOTE: Addresses only usgs tiles!!!
+                const tile_dir = `${mapname}/tiles/${source}/${z}/${y}`;
+                await this.ensureDir(tile_dir);
+                const map_file = `${tile_dir}/${x}.${extension}`;
+                const tilecopy = await this.copyHybridTile(mapname, source, item.name, map_file);
+                if (!tilecopy) {
+                    console.log(item.name, " not copied");
+                }
+                else {
+                    const remove = await this.deleteFile(`tmpFiles/${mapname}/${source}/${item.name}`);
+                    if (!remove) {
+                        console.log("Could not remove ", item.name);
+                    }
+                }
+            }
+            else {
+                console.log(`FileInfo type is not 'file' for ${item.name}`);
+                return false;
+            }
+        }
+        await this.removeData('tmpFiles');
+        return true;
     }
-    async getHybridTileSize(tile_url) {
+    async copyHybridTile(mapname, source, filepath, maptile) {
+        const hybridPath = `tmpFiles/${mapname}/${source}/${filepath}`;
+        try {
+            await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.copy({
+                from: hybridPath,
+                to: maptile,
+                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data,
+                toDirectory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data
+            });
+            return true;
+        }
+        catch (error) {
+            console.error("copyHybridTile failed:", error);
+            return false;
+        }
+    }
+    async ensureDir(path) {
+        try {
+            await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.mkdir({
+                path,
+                directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data,
+                recursive: true
+            });
+        }
+        catch {
+            // Directory already exists — ignore
+        }
+    }
+    async getHybridTileSize(hybridPath) {
         try {
             const file_stat = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.stat({
-                path: tile_url,
+                path: hybridPath,
                 directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data
             });
             return file_stat.size;
         }
         catch (error) {
-            console.log(`Can't retrieve ${tile_url}: `, error);
             return false;
         }
     }
@@ -49199,7 +49444,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error(`Could not delete ${path}`, error);
             return false;
         }
     }
@@ -49232,11 +49476,11 @@ class TileDownloader {
             }
         }
         catch (e) {
-            console.warn(`Could not read directory: ${dirPath}`, e);
+            return 0;
+            //console.warn(`Could not read directory: ${dirPath}`, e);
         }
         return totalSize;
     }
-    // The following routines were made available for debug
     async readDirFiles(path) {
         try {
             const dirFiles = await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.readdir({
@@ -49246,7 +49490,6 @@ class TileDownloader {
             return dirFiles.files;
         }
         catch (error) {
-            //console.error(`Could not read directory ${path}`, error);
             return false;
         }
     }
@@ -49260,7 +49503,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error(`Could not remove data for ${path}`, error);
             return false;
         }
     }
@@ -49272,7 +49514,16 @@ class TileDownloader {
         else if (source === 'usgs') {
             return `${map}/tiles/usgs/${z}/${y}/${x}.jpg`; // extension required
         }
-        return; // no other sources defined at this point
+        return; // no other 'sources' defined at this point
+    }
+    getHybridPath(z, x, y, source) {
+        if (source === 'osm') {
+            return `osm/${z}.${x}.${y}.png`;
+        }
+        else if (source === 'usgs') {
+            return `usgs/${z}.${y}.${x}.jpg`;
+        }
+        return;
     }
     // FETCH URL:
     getTileUrl(z, x, y, source) {
@@ -49297,7 +49548,6 @@ class TileDownloader {
             return map_tile;
         }
         catch (error) {
-            console.log(`Can't retrieve ${tile_url}: `, error);
             return false;
         }
     }
@@ -49333,11 +49583,9 @@ class TileDownloader {
                 directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data,
                 recursive: true
             });
-            //console.log('File written successfully');
             return true;
         }
         catch (error) {
-            //console.error('Download tile failed:', error);
             return false;
         }
     }
@@ -49640,6 +49888,82 @@ module.exports = "data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%
 /******/ 	__webpack_require__.m = __webpack_modules__;
 /******/ 	
 /************************************************************************/
+/******/ 	/* webpack/runtime/async module */
+/******/ 	(() => {
+/******/ 		var hasSymbol = typeof Symbol === "function";
+/******/ 		var webpackQueues = hasSymbol ? Symbol("webpack queues") : "__webpack_queues__";
+/******/ 		var webpackExports = hasSymbol ? Symbol("webpack exports") : "__webpack_exports__";
+/******/ 		var webpackError = hasSymbol ? Symbol("webpack error") : "__webpack_error__";
+/******/ 		
+/******/ 		var resolveQueue = (queue) => {
+/******/ 			if(queue && queue.d < 1) {
+/******/ 				queue.d = 1;
+/******/ 				queue.forEach((fn) => (fn.r--));
+/******/ 				queue.forEach((fn) => (fn.r-- ? fn.r++ : fn()));
+/******/ 			}
+/******/ 		}
+/******/ 		var wrapDeps = (deps) => (deps.map((dep) => {
+/******/ 			if(dep !== null && typeof dep === "object") {
+/******/ 		
+/******/ 				if(dep[webpackQueues]) return dep;
+/******/ 				if(dep.then) {
+/******/ 					var queue = [];
+/******/ 					queue.d = 0;
+/******/ 					dep.then((r) => {
+/******/ 						obj[webpackExports] = r;
+/******/ 						resolveQueue(queue);
+/******/ 					}, (e) => {
+/******/ 						obj[webpackError] = e;
+/******/ 						resolveQueue(queue);
+/******/ 					});
+/******/ 					var obj = {};
+/******/ 		
+/******/ 					obj[webpackQueues] = (fn) => (fn(queue));
+/******/ 					return obj;
+/******/ 				}
+/******/ 			}
+/******/ 			var ret = {};
+/******/ 			ret[webpackQueues] = x => {};
+/******/ 			ret[webpackExports] = dep;
+/******/ 			return ret;
+/******/ 		}));
+/******/ 		__webpack_require__.a = (module, body, hasAwait) => {
+/******/ 			var queue;
+/******/ 			hasAwait && ((queue = []).d = -1);
+/******/ 			var depQueues = new Set();
+/******/ 			var exports = module.exports;
+/******/ 			var currentDeps;
+/******/ 			var outerResolve;
+/******/ 			var reject;
+/******/ 			var promise = new Promise((resolve, rej) => {
+/******/ 				reject = rej;
+/******/ 				outerResolve = resolve;
+/******/ 			});
+/******/ 			promise[webpackExports] = exports;
+/******/ 			promise[webpackQueues] = (fn) => (queue && fn(queue), depQueues.forEach(fn), promise["catch"](x => {}));
+/******/ 			module.exports = promise;
+/******/ 			var handle = (deps) => {
+/******/ 				currentDeps = wrapDeps(deps);
+/******/ 				var fn;
+/******/ 				var getResult = () => (currentDeps.map((d) => {
+/******/ 		
+/******/ 					if(d[webpackError]) throw d[webpackError];
+/******/ 					return d[webpackExports];
+/******/ 				}))
+/******/ 				var promise = new Promise((resolve) => {
+/******/ 					fn = () => (resolve(getResult));
+/******/ 					fn.r = 0;
+/******/ 					var fnQueue = (q) => (q !== queue && !depQueues.has(q) && (depQueues.add(q), q && !q.d && (fn.r++, q.push(fn))));
+/******/ 					currentDeps.map((dep) => (dep[webpackQueues](fnQueue)));
+/******/ 				});
+/******/ 				return fn.r ? promise : getResult();
+/******/ 			}
+/******/ 			var done = (err) => ((err ? reject(promise[webpackError] = err) : outerResolve(exports)), resolveQueue(queue))
+/******/ 			body(handle, done);
+/******/ 			queue && queue.d < 0 && (queue.d = 0);
+/******/ 		};
+/******/ 	})();
+/******/ 	
 /******/ 	/* webpack/runtime/compat get default export */
 /******/ 	(() => {
 /******/ 		// getDefaultExport function for compatibility with non-harmony modules
@@ -49881,8 +50205,8 @@ module.exports = "data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%
 /******/ 	
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
+/******/ 	// This entry module used 'module' so it can't be inlined
 /******/ 	__webpack_require__("./www/scripts/home.ts");
-/******/ 	// This entry module is referenced by other modules so it can't be inlined
 /******/ 	var __webpack_exports__ = __webpack_require__("./www/scripts/tileDownloader.ts");
 /******/ 	
 /******/ })()

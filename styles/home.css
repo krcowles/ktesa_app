@@ -86,6 +86,7 @@
     position: absolute;
     bottom: calc(16px + env(safe-area-inset-bottom));
     left: 100px;
+    background-color: papayawhip;
 }
 
 /* ----- Menu display ----- */
@@ -110,7 +111,9 @@
 }
 .toggle input:checked + .toggle-track .thumb { transform: translateX(23px); }
 /* End toggle */
-#menu-backdrop { /* Used to provide touchevents outside of menu */
+
+/* Used to provide touchevents outside of menu */
+#menu-backdrop {
     display: none;
     position: fixed;
     top: 0; left: 0;
@@ -118,6 +121,8 @@
     z-index: 200;   /* above overlay, below menu */
     background: transparent;
 }
+
+/* The menu system */
 #menu {
     width: 228px;
     background-color:papayawhip;
@@ -192,6 +197,9 @@
 #batt {
     font-weight: bold;
     color: brown;
+}
+#next_map, #show_create_types {
+    display: none;
 }
 /* Imports */
 #srch_box {

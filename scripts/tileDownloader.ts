@@ -1,12 +1,13 @@
 /**
- * This code is constructed so as to permit leaflet, usgs, and mapBox
- * tile storage. At this time, however, the various tile function arguments
- * supply "source = 'usgs'" as a default. Note that, in the filesystem,
- * 'source' (e.g. 'usgs') is a subdirectory under the 'tiles' directory,
- * which itself is under the mapname directory. When osm (or another) source
- * is specified, it will be a separate directory alongside the 'usgs' directory.
- * Functions that don't return data will return a boolean indicating
- * success or failure. 
+ * This code is constructed so as to permit leaflet, usgs, and mapBox tile
+ * storage. At this time, however, the various tile function arguments supply
+ * "source = 'usgs'" as a default. Note that, in the filesystem, 'source' 
+ * (e.g. 'usgs') is a subdirectory under the 'tiles' directory, which itself is
+ * under the mapname directory. When osm (or another) source is specified, it
+ * will be a separate directory alongside the 'usgs' directory. Functions that
+ * don't return data will return a boolean indicating success or failure. Note
+ * that Directory.Data is used instead of  Directory.Documents to avoid the
+ * AI gallery copying. All Directory.Data files are private.
  */
 interface Bounds {
     n: number;
@@ -20,14 +21,10 @@ interface TileCoords {
     y: number;
 }
 //type UrlsType = {usgs: string, osm: string, usgs: string, mapbox: string}
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Filesystem, Directory, Encoding, FileInfo } from '@capacitor/filesystem';
 import { CapacitorHttp } from '@capacitor/core';
 
-/**
- * NOTE: Samsung phones may have the Gallery AI feature that scans the Directory.Data
- * files and places discovered images in the Gallery - including map tiles being saved!!
- * Hence, the write routines use a '.nomedia' parameter to cause AI to skip those images.
- */
+
 class TileDownloader {
 
     #osm_head    = "https://openstreetmap.org";
@@ -42,7 +39,6 @@ class TileDownloader {
             });
             return true;
         } catch (error) {
-            console.error("Error: ", error);
             return false;
         }
     }
@@ -59,7 +55,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error('Could not create mapnames:', error);
             return false;
         }
     }
@@ -72,7 +67,6 @@ class TileDownloader {
             });
             return mapnames.data;
         } catch (error) {
-            console.error('Could not read mapnames:', error);
             return false;
         }
     }
@@ -90,7 +84,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error(`Could not write ${map}/center:`, error);
             return false;
         }
     }
@@ -105,7 +98,6 @@ class TileDownloader {
             return center;
         }
         catch (error) {
-            //console.error(`Could not read ${map}/center: `, error);
             return false;
         }
     }
@@ -123,7 +115,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error(`Could not write ${map} @ zoom zoomLevel:`, error);
             return false;
         }
     }
@@ -137,7 +128,6 @@ class TileDownloader {
             return zoom_level;
         }
         catch (error) {
-            //console.error(`Could not read ${map} zoom levle `, error);
             return false;
         }
     }
@@ -155,7 +145,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error(`Could not write ${map}/track:`, error);
             return false;
         }
     }
@@ -169,7 +158,6 @@ class TileDownloader {
             return poly;
         }
         catch (error) {
-            //console.error(`Could not read ${map}/track: `, error);
             return false;
         }
     }
@@ -184,7 +172,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error('Could not create mapnames:', error);
             return false;
         }
     }
@@ -197,7 +184,6 @@ class TileDownloader {
             });
             return sessionText.data;
         } catch (error) {
-            //console.error('Could not read mapnames:', error);
             return false;
         }
     }
@@ -213,7 +199,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            console.error(`Could not write data: ${path}`);
             return false;
         }
     }
@@ -226,10 +211,15 @@ class TileDownloader {
             });
             return data.data;
         } catch (error) {
-            console.error(`Could not read unsaved data: ${path}`);
             return false;
         }
     }
+    /**
+     * In order to simplify collecting tiles for transfer to a saved offline map, the
+     * tilePath is a 'flat' storage path under the 'source' [usgs/osm]. E.g. under
+     * tmpFiles/mapname/usgs will be a set of tiles with unique paths, not a set of
+     * tileUrls with subdirectories under zoom levels.
+     */
     async fetchAndCacheHybridTile(z: number, x: number, y: number, source='usgs', map: string) {
         try {
             const tileUrl = this.getTileUrl(z, x, y, source) as string;
@@ -246,48 +236,100 @@ class TileDownloader {
             if (!response.data) {
                 throw new Error('No data in response');
             }
-            const tilePath = this.getTilePath(map, z, x, y, source) as string;
-            // Filesystem writes must have an extension!!
+            const hybridPath = this.getHybridPath(z, x, y, source) as string;
             await Filesystem.writeFile({
-                path: `tmpFiles/${tilePath}`,
+                path: `tmpFiles/${map}/${hybridPath}`,
                 data: response.data,
                 directory: Directory.Data,
                 recursive: true
             });
-            //console.log('File written successfully');
             return true;
         } catch (error) {
-            //console.error('Download tile failed:', error);
             return false;
         }
     }
-    async getHybridTile(tile_url: string) {
+    async getHybridTile(hybridPath: string) {
         try {
             const map_tile = await Filesystem.readFile({
-                path: `tmpFiles/${tile_url}`,
+                path: hybridPath,
                 directory: Directory.Data,
             });
             return map_tile;
         }
         catch (error) {
-            console.log(`Can't retrieve ${tile_url}: `, error);
+            console.log(`Can't retrieve ${hybridPath}: `, error);
             return false;
         }
     }
-    async transferHybridTiles() {
-        
-
+    async transferHybridTiles(mapname: string, source: string) {
+        const hybrid_dir = `tmpFiles/${mapname}/${source}`
+        const saved_files = await this.readDirFiles(hybrid_dir);
+        if (!saved_files) return false;
+        const list = saved_files as FileInfo[];
+        for (const item of list) {
+            if (item.type === 'file') {
+                const path_pieces = item.name.split(".");
+                const extension = path_pieces.pop();
+                const [z, y, x] = path_pieces;
+                // *** NOTE: Addresses only usgs tiles!!!
+                const tile_dir = `${mapname}/tiles/${source}/${z}/${y}`;
+                await this.ensureDir(tile_dir);
+                const map_file = `${tile_dir}/${x}.${extension}`;
+                const tilecopy = await this.copyHybridTile(
+                    mapname, source, item.name, map_file
+                ); 
+                if (!tilecopy) {
+                    console.log(item.name, " not copied");
+                } else {
+                    const remove = await this.deleteFile(`tmpFiles/${mapname}/${source}/${item.name}`);
+                    if (!remove) {
+                        console.log("Could not remove ", item.name)
+                    }
+                } 
+            } else {
+                console.log(`FileInfo type is not 'file' for ${item.name}`)
+                return false
+            }
+        }
+        await this.removeData('tmpFiles');
+        return true;
     }
-    async getHybridTileSize(tile_url: string) {
+    async copyHybridTile(mapname: string, source: string, filepath: string, maptile: string) {
+        const hybridPath = `tmpFiles/${mapname}/${source}/${filepath}`;
+        try {
+            await Filesystem.copy({
+                from: hybridPath,
+                to: maptile,
+                directory: Directory.Data,
+                toDirectory: Directory.Data
+            });
+            return true;
+        }
+        catch (error) {
+            console.error("copyHybridTile failed:", error);
+            return false;
+        }
+    }
+    async ensureDir(path: string) {
+        try {
+            await Filesystem.mkdir({
+                path,
+                directory: Directory.Data,
+                recursive: true
+            });
+        } catch {
+            // Directory already exists — ignore
+        }
+    }
+    async getHybridTileSize(hybridPath: string) {
         try {
             const file_stat = await Filesystem.stat({
-                path: tile_url,
+                path: hybridPath,
                 directory: Directory.Data
             });
             return file_stat.size as number;
         }
         catch (error) {
-            console.log(`Can't retrieve ${tile_url}: `, error);
             return false;
         }
     }
@@ -300,7 +342,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error(`Could not delete ${path}`, error);
             return false;
         }
 
@@ -333,11 +374,11 @@ class TileDownloader {
                 }
             }
         } catch (e) {
-          console.warn(`Could not read directory: ${dirPath}`, e);
+            return 0;
+            //console.warn(`Could not read directory: ${dirPath}`, e);
         }
         return totalSize;
     }   
-    // The following routines were made available for debug
     async readDirFiles(path: string) {
         try {
             const dirFiles =  await Filesystem.readdir({
@@ -347,7 +388,6 @@ class TileDownloader {
             return dirFiles.files;
         }
         catch (error) {
-            //console.error(`Could not read directory ${path}`, error);
             return false;
         }
     }
@@ -361,7 +401,6 @@ class TileDownloader {
             return true;
         }
         catch (error) {
-            //console.error(`Could not remove data for ${path}`, error);
             return false;
         } 
     }
@@ -373,7 +412,15 @@ class TileDownloader {
         } else if (source === 'usgs') {
             return `${map}/tiles/usgs/${z}/${y}/${x}.jpg`; // extension required
         }
-        return;  // no other sources defined at this point
+        return;  // no other 'sources' defined at this point
+    }
+    getHybridPath(z: number, x: number, y: number, source: string) {
+        if (source === 'osm') {
+            return `osm/${z}.${x}.${y}.png`;
+        } else if (source === 'usgs') {
+            return `usgs/${z}.${y}.${x}.jpg`;
+        }
+        return;
     }
     // FETCH URL:
     getTileUrl(z: number, x: number, y: number, source: string) {
@@ -398,7 +445,6 @@ class TileDownloader {
             return map_tile;
         }
         catch (error) {
-            console.log(`Can't retrieve ${tile_url}: `, error);
             return false;
         }
     }
@@ -436,10 +482,8 @@ class TileDownloader {
                 directory: Directory.Data,
                 recursive: true
             });
-            //console.log('File written successfully');
             return true;
         } catch (error) {
-            //console.error('Download tile failed:', error);
             return false;
         }
     }

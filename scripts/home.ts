@@ -3,11 +3,13 @@
 interface OfflineTileLayerOptions extends L.TileLayerOptions {
     mapname?: string;
 }
+/*
 interface DebugCoords {
     z: number;
     x: number;
     y: number;
 }
+*/
 interface autoObject {
     value: string;
     label: string;
@@ -32,6 +34,7 @@ interface Toggler extends EventTarget {
 }
 interface HybridSize {
     map: string;
+    qty: number;
     size: number;
 }
 
@@ -54,13 +57,13 @@ import { Share } from '@capacitor/share';
 import { Preferences } from '@capacitor/preferences';
 
 /**
- * @fileoverview V2.1 relies on the USGS ArcGIS topo/contour tiles for a 
+ * @fileoverview V2.2 relies on the USGS ArcGIS topo/contour tiles for a 
  * better hike experience. Note that the USGS schema swaps the x and y 
  * (row/col) coordinates when fetching tiles compared to the 'osm' schema.
  * Owing to file size of this app, some exports are utilized and use of arrow
  * functions is reduced to force typescript to handle them properly.
  * 
- * @version 2.1 Revise UI
+ * @version 2.2 Stable minus tmpFile storage
  */
 
 /**
@@ -85,7 +88,7 @@ export async function checkConnectivity() {
         return;
     }
 }
-setInterval(checkConnectivity, 20000);
+setInterval(checkConnectivity, 30000);
 
 /**
  * The notification dialog box is a substitute for the window.alert()
@@ -120,7 +123,7 @@ initAllPermissions()
 .then( () => {
     // Map loading on initial page load:
     if (internetConnected) {
-        initMap(); // normal situation
+        initMap(false); // normal situation
     } else {
         offlineSelect();
     } 
@@ -199,22 +202,84 @@ const multiTrack = document.getElementById('multi') as HTMLDivElement;
 const multiModal = new bootstrap.Modal(multiTrack);
 //const unsavedGPX = document.getElementById('no_download') as HTMLDivElement;
 //const unsavedGpxModal = new bootstrap.Modal(unsavedGPX);
-//const hybrid_tiles = document.getElementById('hybrid_save') as HTMLDivElement;
-//const hybridDisposition = new bootstrap.Modal(hybrid_tiles);
+const hybrid_tiles = document.getElementById('hybrid_save') as HTMLDivElement;
+const hybridDisposition = new bootstrap.Modal(hybrid_tiles);
 const save_progress = document.getElementById('stat') as HTMLDivElement;
 const save_status = new bootstrap.Modal(save_progress);
+const too_big = document.getElementById('too_big') as HTMLDivElement;
+const exceedsModal = new bootstrap.Modal(too_big);
 
 /**
  * ----------------- Main display page -----------------
  */
 
+// ---- Hybrid Tile MAnagement ----
+async function hybridCheck() {
+    if (hybrid_info.map !== '') { 
+        const exiting_map = hybrid_info.map;
+        $('#offmap').text(exiting_map);
+        const offline_size = await tileDownloader.getDirectorySize(exiting_map);
+        const megabytes = offline_size/1000000;
+        const mb = Math.round(megabytes*100)/100;
+        $('#offsize').text(mb);
+        const hybrid_size = hybrid_info.size/1000000;
+        const hybridMB = hybrid_size.toFixed(1);
+        if (hybrid_info.size < 10000) {
+            $('#add_size').text("< 0.01");
+        } else if (hybrid_info.size < 100000) {
+            $('#add_size').text("< 0.1");
+        } else {
+            $('#add_size').text(hybridMB);
+        }
+        return true;
+    } else return false;
+}
+async function hybridModalWrapup(btn: string, last: string, next: string) {
+    if (btn === 'keep') {
+        const xfr = await tileDownloader.transferHybridTiles(last, tile_server);
+        if (xfr) {
+            console.log(`Failed to transfer [any/all] hybrid tiles to ${last}`)
+        }
+    } else {
+        await tileDownloader.removeData('tmpFiles');
+    }
+    var modal_status = ($('#show_create_types').text() === 'yes') ? true : false;
+    hybridDisposition.hide();
+    hybrid_info = {map: '', qty: 0, size: 0};
+    if (next === 'online') {
+        continueOnline(modal_status);
+    } else {
+        displayMap(next);
+    }
+    return;
+}
+$('body').on('click', '#keep_tmp', () => {
+    const last_map = hybrid_info.map;
+    const newmap = $('#next_map').text();
+    hybridModalWrapup('keep', last_map, newmap);
+    return;
+});
+$('body').on('click', '#kill_tmp', () => {
+    const last_map = hybrid_info.map;
+    const newmap = $('#next_map').text();
+    hybridModalWrapup('kill', last_map, newmap);
+    return;
+});
+// ---- End Hybrid Tile Management ----
+
 /**
- * This function will destroy any currently implemented map and
- * then display the offline map selected by the user. Also
- * destroyed are all map objects: markers, polyline, rectangle, etc.
- * NOTE: marker layer is gone, but the marker var is already defined
- * when switching from online or previous offline. If app is initially
- * loaded with offline choice, marker will be defined by offlineMap().
+ * Prior to loading an offline map, 'hybridCheck' is performed to see if,
+ * when leaving a displayed offline map, any 'hybrid' tiles were saved in
+ * tmpFiles. If so, the hybridDisplostionModal is preseented, and the user
+ * can choose whether or not to add them to the current offline map before
+ * proceeding to the new offline map.
+ * 
+ * This function will destroy any currently implemented map and then display
+ * the offline map selected by the user. Also destroyed are all map objects:
+ * markers, polyline, rectangle, etc. NOTE: marker layer is gone, but the 
+ * marker var is already defined when switching from online or previous offline.
+ * If the app is initially loaded with offline choice, marker will be defined
+ * by offlineMap().
  */
 async function loadSelectedMap(mapname: string):Promise<void>  {
     // To provide clean map changeover, stop location tracking
@@ -224,23 +289,33 @@ async function loadSelectedMap(mapname: string):Promise<void>  {
     if (capgoGeo) {
         BackgroundGeolocation.stop();
     }
-    map.remove();
-    // typescript non-null assertion: elminates redeclaring (map as L.Map)
-    map = null!;
-    tileDownloader.writeSessionText(mapname); // indicates offline map
-    displayMap(mapname); // will set offline_loaded
+    // Only when app comes up w/internet:
+    if (typeof map !== "undefined") {
+        map.remove();
+        map = null!;
+    }
+    tileDownloader.writeSessionText(mapname); // indicates current offline map
+    $('#next_map').text(mapname);
+    if (await hybridCheck()) {
+        hybridDisposition.show();
+    } else {
+        displayMap(mapname); // will set offline_loaded
+    }
+    return;
 }
 
 /**
  * Module-level globals including functions
  */
 var map: L.Map;
+var onlineRectangle: L.Layer;
+var onlineTrack: L.Layer;
 var container: HTMLElement;
 var permissions_granted = false;
 var leafletGeo = false;
 var capgoGeo = false;
 var sizes: number[] = [];
-var hybrid_size: HybridSize;
+var hybrid_info = { map: '', qty: 0, size: 0 } as HybridSize;
 var sessionChecked = false;
 var following = false;
 const tile_server = "usgs"; // current tile server for ktesa_app
@@ -314,8 +389,26 @@ function markerUpdate(e: L.LocationEvent) {
     marker.setLatLng(new_latlng);
     return; 
 }
-export async function initMap() { 
-    // DISPLAY THE MAP:
+//      ----------ONLINE MAP ----------
+export async function initMap(showTypes: boolean) {
+    /**
+     * Similar to the offline condition, if a user is leaving an offline
+     * map to go back to the online map state, hybridCheck will look for any
+     * stored tmpFiles, and offer the user the chance to keep them or not.
+     *  */ 
+    $('#next_map').text('online');
+    if (showTypes) {
+        $('#show_create_types').text('yes');
+    } else {
+        $('#show_create_types').text('no');
+    }
+    if (await hybridCheck()) {
+        hybridDisposition.show();
+    } else {
+        continueOnline(showTypes);
+    }
+}
+export function continueOnline(showTypes: boolean) {
     var latlng = L.latLng(35.2, -106.345);
     map = L.map('map', {
         center: latlng,
@@ -335,41 +428,21 @@ export async function initMap() {
         marker.setLatLng(latlng);
     });
     leafletGeo = true;
- 
-    // track the zoom level on map
     zoomctl_setup(zoom_level);
-    /**
-     * This layer provides a map grid of tiles with the tile id's
-     * supplied in each tile. This is primarily used for debug in order
-     * to identify tiles within the area selected for saving offline.
-     * ---- NOTE: 'z,x,y' is utilized to display USGS tiles ----
-     * This allows prior 'osm' method of defining rectangle, where the 
-     * coords reflect a 'zoom/column/row' system.
-     */
-    class GridDebug extends L.GridLayer {
-        createTile(coords: DebugCoords) {
-            var tile = document.createElement("DIV");
-            tile.style.outline = '1px solid azure'; //#e6e6e6
-            tile.style.fontSize = '14pt';
-            tile.style.color = "azure";
-            tile.innerHTML = [coords.z, coords.x, coords.y].join('/');
-            return tile;
-        }
-    }
-    map.addLayer(new GridDebug());
-    // End grid layer
+    // some async's don't require 'wait'...
     tileDownloader.writeSessionText(''); // indicates online, no map name
     map.invalidateSize(); // needed when switching from offline
     if (!sessionChecked) {
         checkLastSession();
         sessionChecked = true;
-        return;
     }
     // Only for online: needed for drawing rectangle
     container = map.getContainer();
+    if (showTypes) {
+        save_type_modal.show();
+    }
     return;
 }
-
 // Create modal offline map selections for user
 async function prepareMapNames() {
     $('#select_map').empty();
@@ -485,8 +558,19 @@ geoIcon.addEventListener('change', (e) => {
 });
 // end toggles
 
-
 // Tracking activities
+function cleanTrack() {
+    if (typeof hike !== 'undefined') {
+        map.removeLayer(hike);
+    }
+    for (let i=0; i<wayMrkrs.length; i++) {
+        const deletion = wayMrkrs[i];
+        map.removeLayer(deletion);
+    }
+    gpx_pts = [];
+    waypts = [];
+    wayMrkrs = [];
+}
 $('body').on('click', '#play', () => {
     /**
      * When tracking is active, the 'Pause' and 'Waypoint' buttons
@@ -500,17 +584,7 @@ $('body').on('click', '#play', () => {
      * tracking is turned off, geolocation control switches back.
      * Tracking occurs independently of online or offline.
      */
-    if (typeof hike !== 'undefined') {
-        map.removeLayer(hike);
-
-    }
-    for (let i=0; i<wayMrkrs.length; i++) {
-        const deletion = wayMrkrs[i];
-        map.removeLayer(deletion);
-    }
-    gpx_pts = [];
-    waypts = [];
-    wayMrkrs = [];
+    cleanTrack();
     // #pause and #green_marker [waypoint] icons:
     $('#row2').css('display', 'inline');
     $('#row3').css('display', 'inline');
@@ -586,6 +660,38 @@ $('body').on('click', '#findme_icon', () => {
     });
     return;
 });
+// Buttons for: track exceeds current memory limits
+var exceedsFlag = true; // action when exceedsModal closes
+$('body').on('click', '#big_online', () => {
+    if (onlineRectangle) {
+        map.removeLayer(onlineRectangle);
+    }
+    exceedsFlag = false;
+    exceedsModal.hide();
+});
+$('body').on('click', '#big_kill', () => {
+    if (onlineRectangle) {
+        map.removeLayer(onlineRectangle);
+    }
+    if (onlineTrack) {
+        map.removeLayer(onlineTrack);
+    }
+    exceedsFlag = false;
+    exceedsModal.hide();
+});
+// Close button tapped:
+too_big.addEventListener('hidden.bs.modal', () => {
+    if (exceedsFlag) {
+        if (onlineRectangle) {
+            map.removeLayer(onlineRectangle);
+        }
+        if (onlineTrack) {
+            map.removeLayer(onlineTrack);
+        }
+    } else {
+        exceedsFlag = true;
+    }
+});
 
 // ----- Menu Related Items ----
 function clearPrevious(): void {  // eliminate existing import images
@@ -621,23 +727,32 @@ $('#menu_trigger').on('click', () => {
  * 'Create' map can be called when either online or offline. 
  * If offline, the user must be placed back on the online map.
  * 'Create' will trigger a modal allowing the user to pick a
- * map-capturing type from 'save_type_modal'.
+ * map-capturing type from 'save_type_modal'. Also, if 'create 
+ * map' is called from the menu, menu needs to be closed, if
+ * called from maps_available, that needs to be hidden.
  */
-$('body').on('click', '.save_display', () => {
+$('body').on('click', '.save_display', async () => {
     if (internetConnected) {
         if (tracking) {
             notice("Tracking must be stopped before creating new map");
             return false;
         }
-        menu_close();
-        maps_available.hide();
+        // make sure modal div has default css
+        $('#available').css('display', 'block');
+        $('#no_maps').css('display', 'none');
+        if (start_modal.classList.contains('show')) {
+            maps_available.hide();
+            // not needing 'showTypes' true, as returning to online from offline
+        } else {
+            menu_close();
+        }
         if (offline_loaded) {
             // since tracking is off, leafletGeo is true
             map.stopLocate();
             map.remove();
             map = null!;
             offline_loaded = false;
-            initMap();
+            await initMap(true); // true => save_type_modal will appear
         }
         save_type_modal.show();
     } else {
@@ -687,15 +802,23 @@ function saveUserMap() {
     return;
 }
 $('body').on('click', '#save_om', () => { // 'Save Map' btn on modal
-    mapName = $('#map_name').val() as string;
-    if (mapName == '') {
+    g_mapName = $('#map_name').val() as string;
+    if (g_mapName == '') {
         notice("You must supply a name for the map");
         return false;
     }
-    isSaved = true;
+    isSaved = true; // to prevent 'resave' modal
     save_om_map_modal.hide();
     saveUserMap();
     return;
+});
+$('body').on('click', '#use_asis', () => {
+    if (onlineRectangle) {
+        map.removeLayer(onlineRectangle);
+    }
+    isSaved = true; // to prevent 'resave' modal
+    save_om_map_modal.hide();
+    isSaved = false; // reset
 });
 mapSave.addEventListener('hidden.bs.modal', () => {
     if (!isSaved) {
@@ -705,8 +828,8 @@ mapSave.addEventListener('hidden.bs.modal', () => {
     }  
 });
 $('body').on('click', '#resave', () => {
-    mapName = $('#resave_as').val() as string;
-    if (mapName == '') {
+    g_mapName = $('#resave_as').val() as string;
+    if (g_mapName == '') {
         notice("You must supply a name for the map");
         return false;
     }
@@ -757,16 +880,26 @@ $('body').on('click', '#save_dwnld', () => {
         notice("Please supply a name for the download file");
         return false;
     }
-    createAndDownloadGPX(gpx_name);
+    const action = 'keep';
+    createAndDownloadGPX(gpx_name, action);
     return;    
 });
+$('body').on('click', '#clear_track', () => {
+    const gpx_name = $('#dwnld_name').val() as string;
+    if (gpx_name == '') {
+        notice("Please supply a name for the download file");
+        return false;
+    }
+    const action = 'kill';
+    createAndDownloadGPX(gpx_name, action);
+    return;    
+})
 
-// ----------------- Defining Offline Map -----------------
+// ----------------- Importing / Saving Offline Map -----------------
 var save_type: string;
 var map_center: L.LatLng;
 var track_string: string;
-var onlineTrack: L.Layer;
-var onlineRectangle: L.Layer;
+var trackTooBig = false;
 
 /**
  * 1. Import a site hike (imports map center, bounds, and gpx file)
@@ -972,34 +1105,38 @@ function displayImportedTrack(
     onlineRectangle = L.rectangle(track_bounds, {color:'darkgreen', fill: false, weight: 2}).addTo(map);
     //let n = 0;  // color pointer NO LONGER ACCEPTING MULTIPLE TRACKS PER IMPORT...
     onlineTrack = L.polyline(polyline, {color: 'blue'}).addTo(map);
-
-    // tracks & bounds rectangle are added, now pan to center of map
-    map.flyTo(mapctr, 13, {duration: 1.5});
-    setTimeout( () => {
-        map.invalidateSize();
-        zoomOptimizer();
-    }, 2000);
     track_string = JSON.stringify(polyline);
     startX = nw.lat;
     startY = nw.lng;
     endX   = se.lat;
     endY   = se.lng;
     save_type = "import";
-    if (multi > 0) {
-        multiModal.show();
-        multiTrack.addEventListener('hidden.bs.modal', () => {
-            save_om_map_modal.show();
-        });
-    } else {
-        save_om_map_modal.show();
-    }
+    // tracks & bounds rectangle w/margins are added, now pan to center of map
+    map.flyTo(mapctr, 13, {duration: 1.2});
+    setTimeout( () => {
+        map.invalidateSize();
+        zoomOptimizer();
+        if (trackTooBig) {
+            exceedsModal.show();
+            trackTooBig = false;
+        } else {
+            if (multi> 0) {
+                multiModal.show();
+                multiTrack.addEventListener('hidden.bs.modal', () => {
+                    save_om_map_modal.show();
+                });
+            } else {
+                save_om_map_modal.show();
+            } 
+        }
+    }, 1500);
     return;
 }
 /**
  * After a map area is specified, there may actually be sufficient
  * space to zoom in, which reduces memory load.
  */
-function zoomOptimizer() {
+async function zoomOptimizer() {
     const nw = L.latLng(startX, startY);
     const se = L.latLng(endX, endY);
     const rectBounds = L.latLngBounds(nw, se);
@@ -1011,6 +1148,8 @@ function zoomOptimizer() {
     const new_zoom = map.getZoom();
     if (new_zoom > 16) {
         map.setZoom(16);
+    } if (new_zoom < 13) {
+        trackTooBig = true;
     }
     return;
 }
@@ -1024,14 +1163,23 @@ var startX: number;  // lat of upper-left tile; ul[0]
 var startY: number;  // lng of upper-left tile; ul[1]
 var endX: number;    // lat of lower-right tile; lr[0]
 var endY: number;    // lng of lower-right tile; lr[1]
-// tile positions as object {x:tilex, y:tiley}:
+/**
+ * 'tile_coords' are used to collect 'zoomout' tiles for saving; The highest 
+ * (biggest) zoom available from which a map can be saved is 16, the highest
+ * (biggest) zoomout level will then be current zoom -1, or max of 15. Tile
+ * positions are collected as objects {x:tilex, y:tiley}, and correspond to
+ * the leaflet grid id's.
+ */
 var tile_coords = [] as LeafletGridPosition[][];
-tile_coords[10] = [];
-tile_coords[11] = [];
-tile_coords[12] = [];
-tile_coords[13] = []; 
-tile_coords[14] = [];
-tile_coords[15] = [];
+function initCoords() {
+    tile_coords[10] = [];
+    tile_coords[11] = [];
+    tile_coords[12] = [];
+    tile_coords[13] = [];
+    tile_coords[14] = [];
+    tile_coords[15] = [];
+}
+initCoords();
 var rect_complete = false;
 /**
  * Establish touch handlers such that the touch events can be
@@ -1103,14 +1251,13 @@ function end_rect(ev: any) {
     }
 }
 $('body').on('click', '#rect', function () {
-    $('#rect').prop('disabled', true);
-    rect_complete = false;
+    $(this).prop("disabled", true);
     $(this).removeClass('btn-primary');
     $(this).addClass('btn-secondary');
-    $(this).prop("disabled", true);
     if (typeof rect !== 'undefined') {
         map.removeLayer(rect);
     }
+    rect_complete = false;
     map.dragging.disable();  // restored after save
     L.DomEvent.on(container, 'touchstart', drawingHandlers.touchstart);
     L.DomEvent.on(container, 'touchmove', drawingHandlers.touchmove);
@@ -1150,7 +1297,7 @@ function getRectBounds(): MapBounds {
  */
 var ul_tile = [] as number[];
 var lr_tile = [] as number[];
-var mapName: string;
+var g_mapName: string; // the only [module] global mapname
 /**
  * User may draw from any corner, so establish matrix as if it were
  * drawn from upper left to lower right to simplify processing;
@@ -1173,12 +1320,12 @@ function idTileCorners() {
     ul_tile = []; // UPPER_LEFT  => [ul_row, ul_col];
     lr_tile = []; // LOWER RIGHT => [lr_row, lr_col];
     if (corner1XY[0] < corner2XY[0]) { // row check
-        ul_tile[0] = corner2XY[0];
-        lr_tile[0] = corner1XY[0];
-    }
-    else { 
         ul_tile[0] = corner1XY[0];
         lr_tile[0] = corner2XY[0];
+    }
+    else { 
+        ul_tile[0] = corner2XY[0];
+        lr_tile[0] = corner1XY[0];
     }
     if (corner1XY[1] < corner2XY[1]) { // col check
         ul_tile[1] = corner1XY[1];
@@ -1197,7 +1344,7 @@ function loadZoomOutTiles(ul_corner: number[], maxz: number, minz: number) {
      * [Refer to the diagram 'ZoomOutTiles.html'. A base set of four tiles [appearing 
      * in both landscape and portrait] forms the core of the next lower level.
      * Horizontal & portrait displays can be completely covered by a matrix of
-     * 16 tiles at the next lower level ['Gang of 16']. All tiles can be derived from
+     * 16 tiles at the next smaller zoom ['Gang of 16']. All tiles can be derived from
      * one: the upper-left corner of the saved map. The upper left corner will always
      * be in the same position at each zoom level. For each zoomout level, 16 tiles
      * are store in tile_coords.
@@ -1243,35 +1390,36 @@ const tile_save = async () => {
         const saved_names = await tileDownloader.readMapnames() as string;
         names_list = saved_names.split(",");
     }
-    if (names_list.includes(mapName)) {
+    if (names_list.includes(g_mapName)) {
         notice("This name is already used; please supply a new name");
         $('#map_name').val("");
         return false;
     } else {
-        names_list.push(mapName);
+        names_list.push(g_mapName);
         var new_list = names_list.join(",");
         await tileDownloader.writeMapnames(new_list);
     }
     $('#map_name').val("");
     if (save_type === "import") {
-        bounds = getRectBounds();
-        const trackWrite = await tileDownloader.writeTrack(mapName, track_string);
+        bounds = getRectBounds(); // global already defined in 'draw rectangle'
+        const trackWrite = await tileDownloader.writeTrack(g_mapName, track_string);
         if (!trackWrite) {
             notice("Could not save the track for this hike");
             return false;
         }
     }
-    var mapZoom = await tileDownloader.writeSavedZoom(mapName, stored_zoom);
+    var mapZoom = await tileDownloader.writeSavedZoom(g_mapName, stored_zoom);
     if (!mapZoom) {
-        notice(`Failed to save ${mapName} zoom level`);
+        notice(`Failed to save ${g_mapName} zoom level`);
+        // can still display with default zoom, so no 'return false'
     }
     var ctr = JSON.stringify(map_center);
-    var ctr_write = await tileDownloader.writeCenter(mapName, ctr);
+    var ctr_write = await tileDownloader.writeCenter(g_mapName, ctr);
     if (!ctr_write) {
-        notice(`Failure to write map_center: ${mapName}`);
+        notice(`Failure to write map_center: ${g_mapName}`);
         return false;
     }
-    // ensure ul and lr are defined and arranged nw to se:
+    // ensure ul_tile and lr_tile are defined and arranged nw to se:
     idTileCorners();
     save_status.show();
     /**
@@ -1292,24 +1440,29 @@ const tile_save = async () => {
     $('#complete').css('dsiplay', 'none');
     $('#out_bar').css('width', '2px');
     $('#bar').css('width', '2px');
-    $('#base').text("Saving Base Map...");
+    $('#base').text("----- * Saving base map * -----");
     $('#base').css('display', 'inline');
+    $('#loader').css('display', 'inline');
+    /**
+     * The 'basemap' is the margin around the rectangle tiles, which is 1 tile bigger
+     * than each side. The actual rectangle tiles are saved in 'downloadRegion'.
+     */
     // top row
     for (let row = ur-1, i=uc-1; i<=lc+1; i++) {
-        await tileDownloader.downloadTile(zoom_level, row, i, tile_server, mapName);
+        await tileDownloader.downloadTile(zoom_level, row, i, tile_server, g_mapName);
     }
     tile_coords[zoom_level]
     // bottom row
     for (let row=lr+1, j=uc-1; j<=lc+1;j++) {
-        await tileDownloader.downloadTile(zoom_level, row, j, tile_server, mapName);
+        await tileDownloader.downloadTile(zoom_level, row, j, tile_server, g_mapName);
     }
     // left side
     for (let col=uc-1, k=ur; k<=lr; k++) {
-        await tileDownloader.downloadTile(zoom_level, k, col, tile_server, mapName);
+        await tileDownloader.downloadTile(zoom_level, k, col, tile_server, g_mapName);
     }
     // right side
     for (let col=lc+1, n=ur; n<=lr; n++) {
-        await tileDownloader.downloadTile(zoom_level, n, col, tile_server, mapName);
+        await tileDownloader.downloadTile(zoom_level, n, col, tile_server, g_mapName);
     }
     $('#base').text("Base map saved...")
     // Prepare to save 'zoom out' tiles:
@@ -1317,12 +1470,12 @@ const tile_save = async () => {
     var minZoomout = 10;
     var ul_start = ul_tile.slice();
     var ZoomoutCnt = (maxZoomout - 9) * 16;
-    loadZoomOutTiles(ul_start, maxZoomout, minZoomout);
+    loadZoomOutTiles(ul_start, maxZoomout, minZoomout); // stored in tile_coords
     // download the loadZoomOutTiles
     $('#zot_cnt').text(ZoomoutCnt);
     let pxperTile = 200/ZoomoutCnt;
     var loaded = 0;
-    for (let k=minZoomout; k<zoom_level; k++) {
+    for (let k=minZoomout; k<zoom_level; k++) { // ends at zoom just below current
         var level_coords = tile_coords[k].slice();  // [] = {x.row, y.col}
         /**
          * The for loop is critical to performance! I previously used a 
@@ -1332,9 +1485,9 @@ const tile_save = async () => {
         for (const tile_obj of level_coords) {
             var x = tile_obj.x;
             var y = tile_obj.y;
-            var tileStat = await tileDownloader.downloadTile(k, x, y, tile_server, mapName);
+            var tileStat = await tileDownloader.downloadTile(k, x, y, tile_server, g_mapName);
             if (!tileStat) {
-                notice(`Could not download tile with coords ${k}, ${x}, ${y} for ${mapName}`);
+                notice(`Could not download tile with coords ${k}, ${x}, ${y} for ${g_mapName}`);
                 break;
             }
             loaded++;
@@ -1343,7 +1496,8 @@ const tile_save = async () => {
         }
     }
     // dowload the zoom-ins for the 'bounds' region
-    await tileDownloader.downloadRegion(mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
+    await tileDownloader.downloadRegion(g_mapName, bounds, [zoom_level, 16], tile_server, saveProgress);
+    initCoords();
     return;
 };
 /**
@@ -1355,6 +1509,7 @@ function saveProgress(complete: number, total: number) {
     let progress = complete * pixelsPerTile;
     $('#bar').css('width', progress);
     if (complete === total) {
+        $('#loader').css('displya', 'none');
         $('#complete').css('display', 'block');
     }
     return;
@@ -1365,7 +1520,7 @@ function saveProgress(complete: number, total: number) {
  */
 var track_poly: string;
 var tracking = false; // initial load
-var hike: L.Polyline; // the polyline which captures user movements during tracking
+var hike: L.Polyline; // the polyline which captures user movements during tracking: on or offline
 /**
  * Declare L.TileLayer.Offline and L.tileLayer.offline only once, then simply
  * switch the layers as needed.
@@ -1426,20 +1581,23 @@ L.TileLayer.Hybrid = L.TileLayer.Offline.extend({
         const nativeZoom = maxNativeZoom !== undefined
             ? Math.min(coords.z, maxNativeZoom) // clips at max is z is too big
             : coords.z;
+        // url is path to save the retrieved tile in the Filesystem
         const url = tileDownloader.getTilePath(
             mapname, nativeZoom, coords.x, coords.y, 'usgs'
         ) as string;
-        // ----- end repeat
+        // ----- end repeated code
         tileDownloader.docFileExists(url)
             .then((found) => found ? tileDownloader.getTile(url) : false)
             .then((mapTile) => {
                 if (mapTile) {
                     // ✅ Offline hit — same as before
+                    console.log("Hit for url: ", url);
                     tile.src = `${srcdata},${mapTile.data ?? mapTile}`;
                     //tile.src = `data:image/png;base64,${mapTile.data ?? mapTile}`;
                 } else {
                     // 🌐 Offline miss — try network if online
-                    return this._fetchAndCacheOnlineTile(coords, nativeZoom, srcdata, tile);
+                    return this._fetchAndCacheOnlineTile(
+                        mapname, coords, nativeZoom, srcdata, tile);
                 }
             })
             .catch((err) => {
@@ -1448,6 +1606,7 @@ L.TileLayer.Hybrid = L.TileLayer.Offline.extend({
         return tile;
     },
     _fetchAndCacheOnlineTile: async function (
+        mapname: string,
         coords: L.Coords,
         nativeZoom: number,
         srcdata: string,
@@ -1455,25 +1614,23 @@ L.TileLayer.Hybrid = L.TileLayer.Offline.extend({
       ) {
             if (!internetConnected) return;
             try {
-                const options = this.options as OfflineTileLayerOptions;
-                const mapname = options.mapname!;
                 const success = await tileDownloader.fetchAndCacheHybridTile(
                     nativeZoom, coords.x, coords.y, 'usgs', mapname);
-                if (!success) return;
-                const tilePath = tileDownloader.getTilePath(
-                    mapname, nativeZoom, coords.x, coords.y, 'usgs'
+                if (!success) return; // no harm done...
+                let hybridPath = tileDownloader.getHybridPath(
+                    nativeZoom, coords.x, coords.y, tile_server
                 ) as string;
-                const tile_size = await tileDownloader.getHybridTileSize(tilePath) as number;
-                if (typeof hybrid_size === 'undefined') {
-                    hybrid_size = { map: mapname, size: tile_size }
-                } else {
-                    let nextSize = hybrid_size.size + tile_size;
-                    hybrid_size.size = nextSize;
-                }
+                hybridPath = `tmpFiles/${mapname}/${hybridPath}`;
+                const tile_size = await tileDownloader.
+                    getHybridTileSize(hybridPath) as number;
+                let nextSize = hybrid_info.size + tile_size;
+                hybrid_info.size = nextSize;
                 // Read it back the same way the offline path does              
-                const mapTile = await tileDownloader.getHybridTile(tilePath);
+                const mapTile = await tileDownloader.getHybridTile(hybridPath);
                 if (mapTile) {
                     tile.src = `${srcdata},${mapTile.data ?? mapTile}`;
+                } else {
+                    console.log("Couldn't retrieve cached tile");
                 }
             } catch (err) {
                 console.error('Online tile fetch/cache failed:', err);
@@ -1511,7 +1668,7 @@ async function displayMap(map_name: string) {
         const mapZoom = savedZoom.data as string;
         zoomSet = JSON.parse(mapZoom);
     }
-    hybrid_size = { map: map_name, size: 0 };
+    hybrid_info = { map: map_name, qty: 0, size: 0 };
     offlineMap(map_name, center, zoomSet, track_poly);
     return;
 }
@@ -1524,14 +1681,12 @@ function offlineMap (mapname: string, map_ctr: L.LatLng, map_zoom: number, track
         zoom: map_zoom,
     });
     L.tileLayer.hybrid('', {
-        mapname,
+        mapname: mapname,
         maxNativeZoom: 16,
         maxZoom: 18,
+        attribution: 'USGS The National Map'
         } as OfflineTileLayerOptions
     ).addTo(map);
-    L.tileLayer.hybrid('', {
-        attribution: 'USGS The National Map'
-    }).addTo(map);
     // point to the starting zoom level
     zoomctl_setup(map_zoom);
     if (track !== '') {
@@ -1544,24 +1699,23 @@ function offlineMap (mapname: string, map_ctr: L.LatLng, map_zoom: number, track
      * When offline maps are loaded, tracking is off and there are no visible
      * markers [if an offline initial load, marker is undefined; otherwise the
      * marker has been defined in initMap()]. The user's standard geolocation
-     * (not background geolocation) is enabled and a marker is visible when within
-     * the map's bounds. At any time after, geolocation and background geolocation
-     * are toggled by the tracking icon ['#play'].
+     * (not background geolocation) is enabled and the marker is visible at 
+     * the the user's current location. At any time after, geolocation and
+     * background geolocation are toggled by the tracking icon ['#play'].
      */
-    var orgBounds = map.getBounds();
-    // setup a marker - may be undefined...
-    if (typeof marker === 'undefined') {
-        marker = L.marker(map_ctr, { icon: pulseIcon });
-    }
-    marker.addTo(map); // may have been removed with 'loadSelectedMap()'
+    map.locate({enableHighAccuracy: true, watch: false});
+    map.once('locationfound', (e) => {
+        if (typeof marker === 'undefined') { // may have been removed with 'loadSelectedMap()'
+            marker = L.marker(e.latlng, { icon: pulseIcon });
+        } 
+        marker.addTo(map);
+    });
     map.locate({enableHighAccuracy: true, watch: true});
     map.on('locationfound', (e) => {
-        if (orgBounds.contains(e.latlng)) {
-            marker.setLatLng(e.latlng);
-        }
+        marker.setLatLng(e.latlng);
         return;
     });
-    leafletGeo = true;  
+    leafletGeo = true;  // flag to id which geolocation method is in play 
     if (!sessionChecked) { // timing doesn't matter here for async fct
         checkLastSession();
         sessionChecked = true;
@@ -1735,7 +1889,7 @@ async function saveOrShareGpxFile(result: WriteFileResult) {
     }
     return;
 }
-async function createAndDownloadGPX(dwnld_name: string) {
+async function createAndDownloadGPX(dwnld_name: string, action: string) {
     let wptcnt = waypts.length;
     if (wptcnt > 0) {
         for (let j=0; j<wptcnt; j++) {
@@ -1765,6 +1919,9 @@ async function createAndDownloadGPX(dwnld_name: string) {
     $('#dwnld_name').val("");
     trackSaveModal.hide();
     markSessionClean();
+    if (action === 'kill') {
+        cleanTrack();
+    }
     return;
 }
 /**
@@ -1792,8 +1949,14 @@ $('body').on('click', '#delmap', async function() {
     }
     await tileDownloader.removeData(choice);
     prepareMapNames();
+    appendFilesize();
     return;
 });
+// Remove any previously cached hybrid tiles not saved to map
+const tmpfiles = await tileDownloader.readDirFiles('tmpFiles') 
+if (tmpfiles) {
+    tileDownloader.removeData('tmpFiles');
+}
 /**
  * If the app is closed with unsaved track/marker data present,
  * ensure that it can be restored when the app is opened again.
@@ -1851,3 +2014,25 @@ restore_data.addEventListener('hidden.bs.modal', () => {
         restoreModal.hide();
     }
 });
+/**
+     * This layer provides a map grid of tiles with the tile id's
+     * supplied in each tile. This is primarily used for debug in order
+     * to identify tiles within the area selected for saving offline.
+     * ---- NOTE: 'z,x,y' is utilized to display USGS tiles ----
+     * This allows prior 'osm' method of defining rectangle, where the 
+     * coords reflect a 'zoom/column/row' system.
+     */
+    /*
+    class GridDebug extends L.GridLayer {
+        createTile(coords: DebugCoords) {
+            var tile = document.createElement("DIV");
+            tile.style.outline = '1px solid azure'; //#e6e6e6
+            tile.style.fontSize = '14pt';
+            tile.style.color = "azure";
+            tile.innerHTML = [coords.z, coords.x, coords.y].join('/');
+            return tile;
+        }
+    }
+    map.addLayer(new GridDebug());
+    // End grid layer
+    */
