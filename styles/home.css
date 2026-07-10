@@ -165,19 +165,22 @@
     padding-left: 8px;
 }
 
-#distance {
+#distance, #feet {
     font-size: 20px;
 }
-.leaflet-container .leaflet-tooltip {
-    background-color: transparent;
-    padding: 4px;
-    font-size: 14px;
-    box-shadow: none;
-    border-color: green;
-    border-radius: 4px;
+.custom-svg-marker {
+    width: 24px !important;
+    height: 37px !important;
+    background: transparent;
+    border: none;
+    /* Forces mobile devices to capture the touch gesture on the SVG paths */
+    pointer-events: auto !important; 
 }
-.leaflet-tooltip::before {
-    border-top-color: none;
+.tap_box {
+    width: 46px !important;
+    height: 46px !important;
+    background: transparent;
+    border: none;
 }
 /*  Modals */
 .modal {

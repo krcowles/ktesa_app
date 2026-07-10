@@ -354,18 +354,16 @@ class TileDownloader {
                 path: dirPath,
                 directory: directory,
             });
-        
             for (const file of result.files) {
                 const filePath = `${dirPath}/${file.name}`;
-        
                 if (file.type === 'directory') {
-                // Recurse into subdirectory
-                totalSize += await this.getDirectorySize(filePath);
+                    // Recurse into subdirectory
+                    totalSize += await this.getDirectorySize(filePath);
                 } else {
                     try {
                         const statResult = await Filesystem.stat({
-                        path: filePath,
-                        directory: directory,
+                            path: filePath,
+                            directory: directory,
                         });
                         totalSize += statResult.size;
                     } catch (e) {
@@ -373,11 +371,11 @@ class TileDownloader {
                     }
                 }
             }
+            return totalSize;
         } catch (e) {
+            console.warn(`Could not read directory: ${dirPath}`, e);
             return 0;
-            //console.warn(`Could not read directory: ${dirPath}`, e);
         }
-        return totalSize;
     }   
     async readDirFiles(path: string) {
         try {

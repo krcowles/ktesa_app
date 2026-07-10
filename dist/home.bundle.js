@@ -47281,7 +47281,7 @@ const exceedsModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(too_big);
 /**
  * ----------------- Main display page -----------------
  */
-// ---- Hybrid Tile MAnagement ----
+// ---- Hybrid Tile Management ----
 async function hybridCheck() {
     if (hybrid_info.map !== '') {
         const exiting_map = hybrid_info.map;
@@ -47426,13 +47426,15 @@ const zoom_handler = () => {
     }
     return;
 };
-var svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="37" viewBox="0 0 24 37">
-                    <path fill="#FF0000" d="M12 0C5.4 0 0 5.4 0 12c0 9 12 25 12 25s12-16 12-25c0-6.6-5.4-12-12-12z"/>
-                 </svg>`;
-var wayptMarker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().icon({
-    iconUrl: svgString,
-    iconSize: [32, 32],
-    iconAnchor: [15, 32]
+var marker_svg = `<svg xmlns="http://w3.org" viewBox="0 0 24 24" width="46" height="46">
+                    <path fill="var(--marker-color, #006400)" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    <circle fill="#FFFFFF" cx="12" cy="9" r="2.5"/></svg>`;
+var wayptMarker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().divIcon({
+    html: marker_svg,
+    iconSize: [24, 37], // Matches your SVG viewBox dimensions perfectly
+    iconAnchor: [12, 37], // Sets anchor point to the exact bottom-center tip of the pin
+    popupAnchor: [0, -37], // Shifts the popup 37px up so it rests on the pin tip
+    className: 'custom-svg-marker' // Removes default Leaflet background styling
 });
 function zoomctl_setup(start_zoom) {
     zctrl = document.createElement("DIV");
@@ -47521,6 +47523,7 @@ function continueOnline(showTypes) {
 // Create modal offline map selections for user
 async function prepareMapNames() {
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#select_map').empty();
+    sizes = [];
     const mapnamesFile = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.docFileExists('mapnames.txt');
     if (mapnamesFile) {
         const savedMaps = await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.readMapnames();
@@ -47647,6 +47650,7 @@ function cleanTrack() {
     gpx_pts = [];
     waypts = [];
     wayMrkrs = [];
+    map_line = [];
 }
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#play', () => {
     /**
@@ -47661,8 +47665,8 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#play', () =>
      * tracking is turned off, geolocation control switches back.
      * Tracking occurs independently of online or offline.
      */
-    cleanTrack();
-    // #pause and #green_marker [waypoint] icons:
+    menu_close();
+    // show pause and green_marker [waypoint] icons:
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row2').css('display', 'inline');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row3').css('display', 'inline');
     $play.replaceWith($stop);
@@ -47939,16 +47943,17 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#clear_rect',
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#rect').prop('disabled', false);
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#add_marker_text', () => {
-    let tooltip = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#id_text').val();
-    let indx = parseInt(jquery__WEBPACK_IMPORTED_MODULE_0___default()('#mrkr_indx').text()) - 1;
-    if (tooltip === '') {
-        notice('Please enter tooltip text');
+    let popup = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#id_text').val();
+    let indx = parseInt(jquery__WEBPACK_IMPORTED_MODULE_0___default()('#mrkr_indx').text()) - 1; // marker index
+    if (popup === '') {
+        notice('Please enter popup text');
         return false;
     }
-    wayMrkrs[indx].bindTooltip(tooltip, {
-        permanent: true,
-        direction: 'right',
+    let newMarker = wayMrkrs[indx];
+    newMarker.bindPopup(popup, {
+        autoPan: false
     });
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#id_text').val("");
     textModal.hide();
     return;
 });
@@ -48235,6 +48240,9 @@ async function zoomOptimizer() {
  *  3. User can draw a rectangle on the map and save it (without a gpx track).
  * Later, the map can be used and a track can be captured if desired.
  */
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#map_save', () => {
+    save_om_map_modal.show();
+});
 var bounds; // supplied to the tileDownloader for downloading regions
 var rect; // user-define rectangular area to save
 var startX; // lat of upper-left tile; ul[0]
@@ -48852,7 +48860,9 @@ function useBackgroundGeolocation(capgo) {
                     if (following) {
                         map.setView(latlng);
                     }
-                    tracker(lat, lng, ele);
+                    if (tracking) { // tracking can be turned off during pause
+                        tracker(lat, lng, ele);
+                    }
                     return;
                 };
                 await _capgo_background_geolocation__WEBPACK_IMPORTED_MODULE_13__.BackgroundGeolocation.start(config, onPosition);
@@ -49016,7 +49026,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#delmap', asy
         await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeMapnames(new_map_list);
     }
     await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.removeData(choice);
-    prepareMapNames();
+    await prepareMapNames();
     appendFilesize();
     return;
 });
@@ -49474,12 +49484,12 @@ class TileDownloader {
                     }
                 }
             }
+            return totalSize;
         }
         catch (e) {
+            console.warn(`Could not read directory: ${dirPath}`, e);
             return 0;
-            //console.warn(`Could not read directory: ${dirPath}`, e);
         }
-        return totalSize;
     }
     async readDirFiles(path) {
         try {

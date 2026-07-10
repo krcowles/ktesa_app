@@ -74,22 +74,26 @@
             <rect x="12" y="12" width="3" height="12" stroke="white" fill="white" />
             <rect x="21" y="12" width="3" height="12" stroke="white" fill="white" />
         </svg>
-        <svg id="follow_icon" width="36" height="36" viewbox="0 0 36 36">
-            <polygon
-                points="0,18 36,0 18,38 18,18"
-                stroke="blue"
-                stroke-width="1"
-                fill="blue"
-            />
-        </svg>
-        <svg id="unfollow_icon" width="36" height="36" viewbox="0 0 36 36">
-            <polygon
-                points="0,18 36,0 18,38 18,18"
-                stroke="blue"
-                stroke-width="1"
-                fill="darkgray"
-            />
-        </svg>
+        <div id="follow_icon" class="tap_box">
+            <svg width="36" height="36" viewbox="0 0 36 36">
+                <polygon
+                    points="0,18 36,0 18,38 18,18"
+                    stroke="blue"
+                    stroke-width="1"
+                    fill="blue"
+                />
+            </svg>
+        </div>
+        <div id="unfollow_icon" class="tap_box">
+            <svg width="36" height="36" viewbox="0 0 36 36">
+                <polygon
+                    points="0,18 36,0 18,38 18,18"
+                    stroke="blue"
+                    stroke-width="1"
+                    fill="darkgray"
+                />
+            </svg>
+        </div>
         <img id="findme_icon" src="images/locate.png" />
     </div>
    
@@ -227,7 +231,7 @@
             </div>
             <div class="modal-body">
                 <span id="mrkr_indx"></span>
-                Add a tooltip to this marker (8 char or less):<br /><br />
+                Add popup text to this marker (10 char or less):<br /><br />
                 <textarea id="id_text"></textarea><br /><br />
                 <button id="add_marker_text" class="btn btn-sm btn-success">
                     Add Text
