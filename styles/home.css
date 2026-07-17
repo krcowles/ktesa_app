@@ -201,7 +201,7 @@
     font-weight: bold;
     color: brown;
 }
-#next_map, #show_create_types {
+#next_map, #show_types {
     display: none;
 }
 /* Imports */

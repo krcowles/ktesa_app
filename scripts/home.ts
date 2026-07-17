@@ -63,7 +63,7 @@ import { Preferences } from '@capacitor/preferences';
  * Owing to file size of this app, some exports are utilized and use of arrow
  * functions is reduced to force typescript to handle them properly.
  * 
- * @version 2.2 Stable minus tmpFile storage
+ * @version 2.3 Known bugs fixed - stable version
  */
 
 /**
@@ -243,7 +243,7 @@ async function hybridModalWrapup(btn: string, last: string, next: string) {
     } else {
         await tileDownloader.removeData('tmpFiles');
     }
-    var modal_status = ($('#show_create_types').text() === 'yes') ? true : false;
+    var modal_status = ($('#show_types').text() === 'yes') ? true : false;
     hybridDisposition.hide();
     hybrid_info = {map: '', qty: 0, size: 0};
     if (next === 'online') {
@@ -400,15 +400,16 @@ export async function initMap(showTypes: boolean) {
      *  */ 
     $('#next_map').text('online');
     if (showTypes) {
-        $('#show_create_types').text('yes');
+        $('#show_types').text('yes');
     } else {
-        $('#show_create_types').text('no');
+        $('#show_types').text('no');
     }
     if (await hybridCheck()) {
         hybridDisposition.show();
     } else {
         continueOnline(showTypes);
     }
+    return;
 }
 export function continueOnline(showTypes: boolean) {
     var latlng = L.latLng(35.2, -106.345);
@@ -898,7 +899,7 @@ $('body').on('click', '#clear_track', () => {
     const action = 'kill';
     createAndDownloadGPX(gpx_name, action);
     return;    
-})
+});
 
 // ----------------- Importing / Saving Offline Map -----------------
 var save_type: string;
