@@ -113,11 +113,11 @@
         <span class="line_override">Offline Maps</span>
         <div class="surround">
             <table class="menu-table">
-                <tr>
-                    <td><img class="save_display" src="images/pallette.png" /></td>
+                <tr id="menu_create">
+                    <td><img id="show_save_types" src="images/pallette.png" /></td>
                     <td class="tbl_txt">Create Map</td>
                 </tr>
-                <tr>
+                <tr id="menu_offline">
                     <td><img id="off_goto" src="images/offline.png" /></td>
                     <td class="tbl_txt">Select Map</td>
                 </tr>
@@ -180,11 +180,11 @@
                         ul.ui-widget {
                             width: 300px;
                             clear: both;
-                            z-index: 9999;
+                            z-index: 9000;
                         }
                     </style>
                     <input id="search" class="search" placeholder="Search for a Hike" />
-                    <span id="clear">X</span>
+                    <button id="clear" class="btn btn-sm btn-secondary">X</button>
                 </div>
                 <br /><br />
                 <button id="gpx" class="btn btn-sm btn-primary" disabled>
@@ -366,7 +366,7 @@
                 </div>
                 <div>
                     <br />
-                    <button class="save_display btn btn-sm btn-primary">
+                    <button id="save_display" class="btn btn-sm btn-primary">
                         Save New Map
                     </button> [Internet required]&nbsp;&nbsp;
                     <br /><br />
@@ -386,7 +386,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">File Download</h5>
+                <h5 class="modal-title">Track File Download</h5>
                 <button type="button" class="btn-close"
                     data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -396,12 +396,16 @@
                     <input id="dwnld_name" type="text" /><br /><br />
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer justify-content-start" class="left-justify">
+                <button id="kill_save" class="btn btn-sm btn-warning">
+                    Don't Save</button>&nbsp; or &hellip; SAVE and:
+                <div class="w-100"></div>
                 <button id="save_dwnld" class="btn btn-sm btn-success">
-                    Save - Keep Track</button>
+                    Keep Track</button>
                 <button id="clear_track" class="btn btn-sm btn-primary">
-                    Save - Clear Track
+                    Clear Track
                 </button>
+                
             </div>
         </div>
     </div>

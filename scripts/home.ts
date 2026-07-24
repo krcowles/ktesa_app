@@ -63,13 +63,16 @@ import { Preferences } from '@capacitor/preferences';
  * Owing to file size of this app, some exports are utilized and use of arrow
  * functions is reduced to force typescript to handle them properly.
  * 
- * @version 2.3 Known bugs fixed - stable version
+ * @version 2.4 Revised for efficiency, added save start loc and don't save track 
  */
 
 /**
  * ----------------- Internet connectivity -----------------
  */
-var internetConnected = navigator.onLine ? true : false;
+let internetConnected = navigator.onLine ? true : false;
+// critical timing of declaration for app_start: [later results in undefined]
+let hybrid_info = { map: '', qty: 0, size: 0 } as HybridSize;
+let onlineCount = 1;
 export async function checkConnectivity() {
     try {
         const response = await CapacitorHttp.request({
@@ -114,23 +117,35 @@ ok.addEventListener('click', () => {
  * properly sequenced. For this reason, the initPermissions function is used.
  * BackgroundGeolocation permissions are requested when that mode is enabled.
  */
-async function initAllPermissions() {
+async function initAllPermissions(onlineMap: boolean) {
     const locResult = await Geolocation.requestPermissions();
     console.log('Foreground location:', locResult.location);
-    await requestNotificationPermission();
+    await requestNotificationPermission(onlineMap);
 }
-initAllPermissions()
-.then( () => {
+async function app_start() {
     // Map loading on initial page load:
     if (internetConnected) {
-        initMap(false); // normal situation
+        await initMap(false); // normal situation
     } else {
         offlineSelect();
     } 
-    return
-});
+    /**
+     * Not ready yet...
+     * 
+    const { value } = await Preferences.get({key: 'mapinfo'});
+    if (value !== null) {
+        const showMapModal = value as string;
+        if (showMapModal === 'show') {
+            startupModal.show();
+        }
+    }
+    */
+    await initAllPermissions(internetConnected);
+    return;
+}
+app_start();
 
-async function requestNotificationPermission() {
+async function requestNotificationPermission(onlineMap: boolean) {
     // Check the current status
     let permStatus = await LocalNotifications.checkPermissions();
     // If not already granted, request it
@@ -145,6 +160,9 @@ async function requestNotificationPermission() {
         }
     } else {
         permissions_granted = true;
+    }
+    if (onlineMap && permissions_granted) {
+        onlineLocation(map, olatlng);
     }
     return;
 };
@@ -182,6 +200,8 @@ document.addEventListener('gestureend', (e) => e.preventDefault());
 /**
  * ----------------- Modals -----------------
  */
+//const startup = document.getElementById('start_info') as HTMLDivElement;
+//const startupModal = new bootstrap.Modal(startup);
 const saverDiv = document.getElementById('save_type') as HTMLDivElement;
 const save_type_modal = new bootstrap.Modal(saverDiv);
 const drawingRect = document.getElementById('draw_setup') as HTMLDivElement;
@@ -295,8 +315,8 @@ async function loadSelectedMap(mapname: string):Promise<void>  {
         map = null!;
     }
     tileDownloader.writeSessionText(mapname); // indicates current offline map
-    $('#next_map').text(mapname);
     if (await hybridCheck()) {
+        $('#next_map').text(mapname);
         hybridDisposition.show();
     } else {
         displayMap(mapname); // will set offline_loaded
@@ -315,7 +335,6 @@ var permissions_granted = false;
 var leafletGeo = false;
 var capgoGeo = false;
 var sizes: number[] = [];
-var hybrid_info = { map: '', qty: 0, size: 0 } as HybridSize;
 var sessionChecked = false;
 var following = false;
 const tile_server = "usgs"; // current tile server for ktesa_app
@@ -341,6 +360,7 @@ var marker: L.Marker; // global for geolocation marker only
 var zooming = false;
 var offline_loaded = false;
 var zctrl: HTMLElement;
+var olatlng: L.LatLng;
 // 'zoomend' isn't working, use this debouncer for 'zoom' listener
 const zoom_handler = () => {
     if (!zooming) {
@@ -358,9 +378,9 @@ var marker_svg = `<svg xmlns="http://w3.org" viewBox="0 0 24 24" width="46" heig
                     <circle fill="#FFFFFF" cx="12" cy="9" r="2.5"/></svg>`;
 var wayptMarker = L.divIcon({
     html: marker_svg,
-    iconSize: [24, 37],       // Matches your SVG viewBox dimensions perfectly
-    iconAnchor: [12, 37],     // Sets anchor point to the exact bottom-center tip of the pin
-    popupAnchor: [0, -37],    // Shifts the popup 37px up so it rests on the pin tip
+    iconSize: [24, 24],       // Matches your SVG viewBox dimensions perfectly
+    iconAnchor: [23, 46],     // Sets anchor point to the exact bottom-center tip of the pin
+    popupAnchor: [0, -24],    // Shifts the popup 37px up so it rests on the pin tip
     className: 'custom-svg-marker' // Removes default Leaflet background styling
 });
 function zoomctl_setup(start_zoom: number) {
@@ -391,30 +411,67 @@ function markerUpdate(e: L.LocationEvent) {
     marker.setLatLng(new_latlng);
     return; 
 }
+/** 
+ * On app open, save a set of 'base' tiles to display when 
+ * selecting an offline map (until a map is chosen); arbitrarily
+ * save 2 tiles in each direction of center tile. Done in
+ * background asynchronously.
+ */
+/*
+function saveStatic(latlng: L.LatLng) {
+    let ctr_tile = getTileURL(latlng.lat, latlng.lng, 7);
+    let eastmost = ctr_tile[1] - 2;
+    let westmost = ctr_tile[1] + 2
+    let northmost = ctr_tile[0] -2;
+    let southmost = ctr_tile[0] +2;
+
+
+
+}
+*/
+function onlineLocation(map: L.Map, latlng: L.LatLng) {
+    map.locate({enableHighAccuracy: true, watch: true});
+    map.on('locationfound', markerUpdate);
+    map.once('locationfound', async function (e) {
+        latlng = e.latlng;
+        map.panTo(latlng);
+        marker.setLatLng(latlng);
+        const new_latlng = JSON.stringify(latlng);
+        Preferences.set({key: 'startloc', value: new_latlng})
+        //saveStatic(latlng);
+    });
+    leafletGeo = true;
+}
 //      ----------ONLINE MAP ----------
-export async function initMap(showTypes: boolean) {
+async function initMap(showTypes: boolean) {
     /**
      * Similar to the offline condition, if a user is leaving an offline
      * map to go back to the online map state, hybridCheck will look for any
      * stored tmpFiles, and offer the user the chance to keep them or not.
-     *  */ 
-    $('#next_map').text('online');
-    if (showTypes) {
-        $('#show_types').text('yes');
-    } else {
-        $('#show_types').text('no');
-    }
+     */
+    console.log("initMap invoked");
     if (await hybridCheck()) {
+        $('#next_map').text('online');
+        if (showTypes) {
+            $('#show_types').text('yes');
+        } else {
+            $('#show_types').text('no');
+        }
         hybridDisposition.show();
     } else {
-        continueOnline(showTypes);
+        await continueOnline(showTypes);
     }
     return;
 }
-export function continueOnline(showTypes: boolean) {
-    var latlng = L.latLng(35.2, -106.345);
+export async function continueOnline(showTypes: boolean) {
+    console.log("Times continueOnline invoked", onlineCount++);
+    olatlng = L.latLng(35.2, -106.345); // ABQ default
+    const {value} = await Preferences.get({key: 'startloc'});
+    if (value !== null) {
+        olatlng = JSON.parse(value);
+    }
     map = L.map('map', {
-        center: latlng,
+        center: olatlng,
         minZoom: 5,
         maxZoom: 17,
         zoom: zoom_level,
@@ -422,15 +479,10 @@ export function continueOnline(showTypes: boolean) {
     });
     L.tileLayer(ONLINE_TILE_URL, ONLINE_LAYER_OPTIONS)
         .addTo(map); // standard leaflet tile layer
-    marker = L.marker(latlng, { icon: pulseIcon }).addTo(map);
-    map.locate({enableHighAccuracy: true, watch: true});
-    map.on('locationfound', markerUpdate);
-    map.once('locationfound', function (e) {
-        latlng = e.latlng;
-        map.panTo(latlng);
-        marker.setLatLng(latlng);
-    });
-    leafletGeo = true;
+    marker = L.marker(olatlng, { icon: pulseIcon }).addTo(map);
+    if (permissions_granted) {
+        onlineLocation(map, olatlng);
+    }
     zoomctl_setup(zoom_level);
     // some async's don't require 'wait'...
     tileDownloader.writeSessionText(''); // indicates online, no map name
@@ -729,14 +781,20 @@ $('#menu_trigger').on('click', () => {
     return;
 });
 /**
- * 'Create' map can be called when either online or offline. 
- * If offline, the user must be placed back on the online map.
- * 'Create' will trigger a modal allowing the user to pick a
- * map-capturing type from 'save_type_modal'. Also, if 'create 
- * map' is called from the menu, menu needs to be closed, if
- * called from maps_available, that needs to be hidden.
+ * 'Create' map [menu_create] can be invoked when either online or
+ * offline. If offline, the user must be placed back on the online
+ * map, implying that he must be connected to the internet. 'Create'
+ * will trigger a modal allowing the user to pick a map-capturing type
+ * from 'save_type_modal'. If 'create map' is called from the menu, the
+ * menu needs to be closed, and if called from the 'maps_available'
+ * modal, that needs to be hidden.
  */
-$('body').on('click', '.save_display', async () => {
+const create_row = document.getElementById('menu_create') as HTMLTableRowElement;
+create_row.addEventListener("click", () => {
+    showDisplayTypes();
+});
+$('#save_display').on("click", showDisplayTypes);
+async function showDisplayTypes() {
     if (internetConnected) {
         if (tracking) {
             notice("Tracking must be stopped before creating new map");
@@ -764,8 +822,9 @@ $('body').on('click', '.save_display', async () => {
         notice("Cannot create new maps without internet connection");
     }
     return;
-});
-$('body').on('click', '#off_goto', () => {
+}
+const menu_offline = document.getElementById('menu_offline') as HTMLTableRowElement;
+menu_offline.addEventListener("click", () => {
     if (tracking) {
         notice("Tracking must be stopped before switching to offline map");
         return false;
@@ -900,16 +959,21 @@ $('body').on('click', '#clear_track', () => {
     createAndDownloadGPX(gpx_name, action);
     return;    
 });
+$('body').on('click', '#kill_save', () => {
+    trackSaveModal.hide();
+});
 
 // ----------------- Importing / Saving Offline Map -----------------
 var save_type: string;
 var map_center: L.LatLng;
 var track_string: string;
 var trackTooBig = false;
-
 /**
  * 1. Import a site hike (imports map center, bounds, and gpx file)
  */
+$('body').on('click', '#clear', function () {
+    $('#search').val("");
+});
 $('body').on('click', '#site', () => {
     clearPrevious();
     let hikename = $('#search').val() as string;
@@ -939,6 +1003,7 @@ const importHike = async (hike: string) => {
     siteHike(map_string);
 };
 const ui_sources = async () => {
+    console.log("Fct: ui_souces");
     var hikeSources: autoObject[];
     const autosources = await CapacitorHttp.get({
         url: 'https://nmhikes.com/ktesa_app/appSiteHikes.php',
@@ -946,7 +1011,7 @@ const ui_sources = async () => {
     });
     hikeSources = JSON.parse(autosources.data);
     ($('#search') as JQuery<HTMLInputElement>).autocomplete({
-        appendTo: '.modal-body',
+        appendTo: '#save_type.modal-body',
         source: hikeSources,
         minLength: 2
     });
@@ -954,11 +1019,10 @@ const ui_sources = async () => {
         event.preventDefault();
         var hike = ui.item.value;
         $('#search').val(hike);
+        $('#search').trigger('blur');
         $('#site').prop('disabled', false);
     });
-    $('body').on('click', '#clear', function () {
-        $('#search').val("").trigger("focus");
-    });
+    console.log("Exit ui_sources");
 }
 ui_sources();
 function siteHike(map_data: string) {
@@ -988,7 +1052,6 @@ function siteHike(map_data: string) {
         return;
     }
 }
-
 /** 
  * 2. Import a GPX file (same imports a site hike)
  */
@@ -2001,8 +2064,9 @@ export async function checkLastSession() {
         } else {
             $('#usmap').text('Online');
         }
-      restoreModal.show();
+        restoreModal.show();
     }
+    return;
 }
 // On app start — check if last session ended cleanly
 var prevent_bs_modal_close = false;  // re-initialized every app open

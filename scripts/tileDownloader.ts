@@ -53,7 +53,7 @@ class TileDownloader {
                 encoding: Encoding.UTF8
             });
             return true;
-        }
+        } 
         catch (error) {
             return false;
         }

@@ -47081,7 +47081,6 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   checkConnectivity: () => (/* binding */ checkConnectivity),
 /* harmony export */   checkLastSession: () => (/* binding */ checkLastSession),
 /* harmony export */   continueOnline: () => (/* binding */ continueOnline),
-/* harmony export */   initMap: () => (/* binding */ initMap),
 /* harmony export */   markSessionClean: () => (/* binding */ markSessionClean),
 /* harmony export */   markSessionDirty: () => (/* binding */ markSessionDirty),
 /* harmony export */   saveSessionState: () => (/* binding */ saveSessionState)
@@ -47133,12 +47132,15 @@ __webpack_require__.r(__webpack_exports__);
  * Owing to file size of this app, some exports are utilized and use of arrow
  * functions is reduced to force typescript to handle them properly.
  *
- * @version 2.2 Stable minus tmpFile storage
+ * @version 2.4 Revised for efficiency, added save start loc and don't save track
  */
 /**
  * ----------------- Internet connectivity -----------------
  */
-var internetConnected = navigator.onLine ? true : false;
+let internetConnected = navigator.onLine ? true : false;
+// critical timing of declaration for app_start: [later results in undefined]
+let hybrid_info = { map: '', qty: 0, size: 0 };
+let onlineCount = 1;
 async function checkConnectivity() {
     try {
         const response = await _capacitor_core__WEBPACK_IMPORTED_MODULE_8__.CapacitorHttp.request({
@@ -47182,23 +47184,35 @@ ok.addEventListener('click', () => {
  * properly sequenced. For this reason, the initPermissions function is used.
  * BackgroundGeolocation permissions are requested when that mode is enabled.
  */
-async function initAllPermissions() {
+async function initAllPermissions(onlineMap) {
     const locResult = await _capacitor_geolocation__WEBPACK_IMPORTED_MODULE_12__.Geolocation.requestPermissions();
     console.log('Foreground location:', locResult.location);
-    await requestNotificationPermission();
+    await requestNotificationPermission(onlineMap);
 }
-initAllPermissions()
-    .then(() => {
+async function app_start() {
     // Map loading on initial page load:
     if (internetConnected) {
-        initMap(false); // normal situation
+        await initMap(false); // normal situation
     }
     else {
         offlineSelect();
     }
+    /**
+     * Not ready yet...
+     *
+    const { value } = await Preferences.get({key: 'mapinfo'});
+    if (value !== null) {
+        const showMapModal = value as string;
+        if (showMapModal === 'show') {
+            startupModal.show();
+        }
+    }
+    */
+    await initAllPermissions(internetConnected);
     return;
-});
-async function requestNotificationPermission() {
+}
+app_start();
+async function requestNotificationPermission(onlineMap) {
     // Check the current status
     let permStatus = await _capacitor_local_notifications__WEBPACK_IMPORTED_MODULE_14__.LocalNotifications.checkPermissions();
     // If not already granted, request it
@@ -47215,6 +47229,9 @@ async function requestNotificationPermission() {
     }
     else {
         permissions_granted = true;
+    }
+    if (onlineMap && permissions_granted) {
+        onlineLocation(map, olatlng);
     }
     return;
 }
@@ -47252,6 +47269,8 @@ document.addEventListener('gestureend', (e) => e.preventDefault());
 /**
  * ----------------- Modals -----------------
  */
+//const startup = document.getElementById('start_info') as HTMLDivElement;
+//const startupModal = new bootstrap.Modal(startup);
 const saverDiv = document.getElementById('save_type');
 const save_type_modal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(saverDiv);
 const drawingRect = document.getElementById('draw_setup');
@@ -47316,7 +47335,7 @@ async function hybridModalWrapup(btn, last, next) {
     else {
         await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.removeData('tmpFiles');
     }
-    var modal_status = (jquery__WEBPACK_IMPORTED_MODULE_0___default()('#show_create_types').text() === 'yes') ? true : false;
+    var modal_status = (jquery__WEBPACK_IMPORTED_MODULE_0___default()('#show_types').text() === 'yes') ? true : false;
     hybridDisposition.hide();
     hybrid_info = { map: '', qty: 0, size: 0 };
     if (next === 'online') {
@@ -47368,8 +47387,8 @@ async function loadSelectedMap(mapname) {
         map = null;
     }
     _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeSessionText(mapname); // indicates current offline map
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#next_map').text(mapname);
     if (await hybridCheck()) {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#next_map').text(mapname);
         hybridDisposition.show();
     }
     else {
@@ -47388,7 +47407,6 @@ var permissions_granted = false;
 var leafletGeo = false;
 var capgoGeo = false;
 var sizes = [];
-var hybrid_info = { map: '', qty: 0, size: 0 };
 var sessionChecked = false;
 var following = false;
 const tile_server = "usgs"; // current tile server for ktesa_app
@@ -47414,6 +47432,7 @@ var marker; // global for geolocation marker only
 var zooming = false;
 var offline_loaded = false;
 var zctrl;
+var olatlng;
 // 'zoomend' isn't working, use this debouncer for 'zoom' listener
 const zoom_handler = () => {
     if (!zooming) {
@@ -47431,9 +47450,9 @@ var marker_svg = `<svg xmlns="http://w3.org" viewBox="0 0 24 24" width="46" heig
                     <circle fill="#FFFFFF" cx="12" cy="9" r="2.5"/></svg>`;
 var wayptMarker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().divIcon({
     html: marker_svg,
-    iconSize: [24, 37], // Matches your SVG viewBox dimensions perfectly
-    iconAnchor: [12, 37], // Sets anchor point to the exact bottom-center tip of the pin
-    popupAnchor: [0, -37], // Shifts the popup 37px up so it rests on the pin tip
+    iconSize: [24, 24], // Matches your SVG viewBox dimensions perfectly
+    iconAnchor: [23, 46], // Sets anchor point to the exact bottom-center tip of the pin
+    popupAnchor: [0, -24], // Shifts the popup 37px up so it rests on the pin tip
     className: 'custom-svg-marker' // Removes default Leaflet background styling
 });
 function zoomctl_setup(start_zoom) {
@@ -47464,31 +47483,69 @@ function markerUpdate(e) {
     marker.setLatLng(new_latlng);
     return;
 }
+/**
+ * On app open, save a set of 'base' tiles to display when
+ * selecting an offline map (until a map is chosen); arbitrarily
+ * save 2 tiles in each direction of center tile. Done in
+ * background asynchronously.
+ */
+/*
+function saveStatic(latlng: L.LatLng) {
+    let ctr_tile = getTileURL(latlng.lat, latlng.lng, 7);
+    let eastmost = ctr_tile[1] - 2;
+    let westmost = ctr_tile[1] + 2
+    let northmost = ctr_tile[0] -2;
+    let southmost = ctr_tile[0] +2;
+
+
+
+}
+*/
+function onlineLocation(map, latlng) {
+    map.locate({ enableHighAccuracy: true, watch: true });
+    map.on('locationfound', markerUpdate);
+    map.once('locationfound', async function (e) {
+        latlng = e.latlng;
+        map.panTo(latlng);
+        marker.setLatLng(latlng);
+        const new_latlng = JSON.stringify(latlng);
+        _capacitor_preferences__WEBPACK_IMPORTED_MODULE_17__.Preferences.set({ key: 'startloc', value: new_latlng });
+        //saveStatic(latlng);
+    });
+    leafletGeo = true;
+}
 //      ----------ONLINE MAP ----------
 async function initMap(showTypes) {
     /**
      * Similar to the offline condition, if a user is leaving an offline
      * map to go back to the online map state, hybridCheck will look for any
      * stored tmpFiles, and offer the user the chance to keep them or not.
-     *  */
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#next_map').text('online');
-    if (showTypes) {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#show_create_types').text('yes');
-    }
-    else {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#show_create_types').text('no');
-    }
+     */
+    console.log("initMap invoked");
     if (await hybridCheck()) {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#next_map').text('online');
+        if (showTypes) {
+            jquery__WEBPACK_IMPORTED_MODULE_0___default()('#show_types').text('yes');
+        }
+        else {
+            jquery__WEBPACK_IMPORTED_MODULE_0___default()('#show_types').text('no');
+        }
         hybridDisposition.show();
     }
     else {
-        continueOnline(showTypes);
+        await continueOnline(showTypes);
     }
+    return;
 }
-function continueOnline(showTypes) {
-    var latlng = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(35.2, -106.345);
+async function continueOnline(showTypes) {
+    console.log("Times continueOnline invoked", onlineCount++);
+    olatlng = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(35.2, -106.345); // ABQ default
+    const { value } = await _capacitor_preferences__WEBPACK_IMPORTED_MODULE_17__.Preferences.get({ key: 'startloc' });
+    if (value !== null) {
+        olatlng = JSON.parse(value);
+    }
     map = leaflet__WEBPACK_IMPORTED_MODULE_3___default().map('map', {
-        center: latlng,
+        center: olatlng,
         minZoom: 5,
         maxZoom: 17,
         zoom: zoom_level,
@@ -47496,15 +47553,10 @@ function continueOnline(showTypes) {
     });
     leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer(ONLINE_TILE_URL, ONLINE_LAYER_OPTIONS)
         .addTo(map); // standard leaflet tile layer
-    marker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(latlng, { icon: pulseIcon }).addTo(map);
-    map.locate({ enableHighAccuracy: true, watch: true });
-    map.on('locationfound', markerUpdate);
-    map.once('locationfound', function (e) {
-        latlng = e.latlng;
-        map.panTo(latlng);
-        marker.setLatLng(latlng);
-    });
-    leafletGeo = true;
+    marker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(olatlng, { icon: pulseIcon }).addTo(map);
+    if (permissions_granted) {
+        onlineLocation(map, olatlng);
+    }
     zoomctl_setup(zoom_level);
     // some async's don't require 'wait'...
     _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeSessionText(''); // indicates online, no map name
@@ -47807,14 +47859,20 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('#menu_trigger').on('click', () =>
     return;
 });
 /**
- * 'Create' map can be called when either online or offline.
- * If offline, the user must be placed back on the online map.
- * 'Create' will trigger a modal allowing the user to pick a
- * map-capturing type from 'save_type_modal'. Also, if 'create
- * map' is called from the menu, menu needs to be closed, if
- * called from maps_available, that needs to be hidden.
+ * 'Create' map [menu_create] can be invoked when either online or
+ * offline. If offline, the user must be placed back on the online
+ * map, implying that he must be connected to the internet. 'Create'
+ * will trigger a modal allowing the user to pick a map-capturing type
+ * from 'save_type_modal'. If 'create map' is called from the menu, the
+ * menu needs to be closed, and if called from the 'maps_available'
+ * modal, that needs to be hidden.
  */
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '.save_display', async () => {
+const create_row = document.getElementById('menu_create');
+create_row.addEventListener("click", () => {
+    showDisplayTypes();
+});
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('#save_display').on("click", showDisplayTypes);
+async function showDisplayTypes() {
     if (internetConnected) {
         if (tracking) {
             notice("Tracking must be stopped before creating new map");
@@ -47844,8 +47902,9 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '.save_display
         notice("Cannot create new maps without internet connection");
     }
     return;
-});
-jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#off_goto', () => {
+}
+const menu_offline = document.getElementById('menu_offline');
+menu_offline.addEventListener("click", () => {
     if (tracking) {
         notice("Tracking must be stopped before switching to offline map");
         return false;
@@ -47978,6 +48037,9 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#clear_track'
     createAndDownloadGPX(gpx_name, action);
     return;
 });
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#kill_save', () => {
+    trackSaveModal.hide();
+});
 // ----------------- Importing / Saving Offline Map -----------------
 var save_type;
 var map_center;
@@ -47986,6 +48048,9 @@ var trackTooBig = false;
 /**
  * 1. Import a site hike (imports map center, bounds, and gpx file)
  */
+jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#clear', function () {
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#search').val("");
+});
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#site', () => {
     clearPrevious();
     let hikename = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#search').val();
@@ -48015,6 +48080,7 @@ const importHike = async (hike) => {
     siteHike(map_string);
 };
 const ui_sources = async () => {
+    console.log("Fct: ui_souces");
     var hikeSources;
     const autosources = await _capacitor_core__WEBPACK_IMPORTED_MODULE_8__.CapacitorHttp.get({
         url: 'https://nmhikes.com/ktesa_app/appSiteHikes.php',
@@ -48022,7 +48088,7 @@ const ui_sources = async () => {
     });
     hikeSources = JSON.parse(autosources.data);
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#search').autocomplete({
-        appendTo: '.modal-body',
+        appendTo: '#save_type.modal-body',
         source: hikeSources,
         minLength: 2
     });
@@ -48030,11 +48096,10 @@ const ui_sources = async () => {
         event.preventDefault();
         var hike = ui.item.value;
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#search').val(hike);
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#search').trigger('blur');
         jquery__WEBPACK_IMPORTED_MODULE_0___default()('#site').prop('disabled', false);
     });
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#clear', function () {
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#search').val("").trigger("focus");
-    });
+    console.log("Exit ui_sources");
 };
 ui_sources();
 function siteHike(map_data) {
@@ -49071,6 +49136,7 @@ async function checkLastSession() {
         }
         restoreModal.show();
     }
+    return;
 }
 // On app start — check if last session ended cleanly
 var prevent_bs_modal_close = false; // re-initialized every app open

@@ -213,7 +213,10 @@
 }
 #clear {
     position: relative;
-    left: -20px;
+    left: -4px;
+    z-index: 9500;
+    font-weight: bold;
+    cursor: pointer;
 }
 #gpxfile {
     width: 220px;
