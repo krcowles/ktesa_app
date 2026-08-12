@@ -129,17 +129,6 @@ async function app_start() {
     } else {
         offlineSelect();
     } 
-    /**
-     * Not ready yet...
-     * 
-    const { value } = await Preferences.get({key: 'mapinfo'});
-    if (value !== null) {
-        const showMapModal = value as string;
-        if (showMapModal === 'show') {
-            startupModal.show();
-        }
-    }
-    */
     await initAllPermissions(internetConnected);
     return;
 }
@@ -161,8 +150,9 @@ async function requestNotificationPermission(onlineMap: boolean) {
     } else {
         permissions_granted = true;
     }
-    if (onlineMap && permissions_granted) {
-        onlineLocation(map, olatlng);
+    if (onlineMap && permissions_granted) { // map is already established...
+        await tileDownloader.removeData('OFFLINE_BASE');
+        onlineLocation(map);
     }
     return;
 };
@@ -200,8 +190,6 @@ document.addEventListener('gestureend', (e) => e.preventDefault());
 /**
  * ----------------- Modals -----------------
  */
-//const startup = document.getElementById('start_info') as HTMLDivElement;
-//const startupModal = new bootstrap.Modal(startup);
 const saverDiv = document.getElementById('save_type') as HTMLDivElement;
 const save_type_modal = new bootstrap.Modal(saverDiv);
 const drawingRect = document.getElementById('draw_setup') as HTMLDivElement;
@@ -220,14 +208,48 @@ const restore_data = document.getElementById('restore') as HTMLDivElement;
 const restoreModal = new bootstrap.Modal(restore_data);
 const multiTrack = document.getElementById('multi') as HTMLDivElement;
 const multiModal = new bootstrap.Modal(multiTrack);
-//const unsavedGPX = document.getElementById('no_download') as HTMLDivElement;
-//const unsavedGpxModal = new bootstrap.Modal(unsavedGPX);
 const hybrid_tiles = document.getElementById('hybrid_save') as HTMLDivElement;
 const hybridDisposition = new bootstrap.Modal(hybrid_tiles);
 const save_progress = document.getElementById('stat') as HTMLDivElement;
 const save_status = new bootstrap.Modal(save_progress);
 const too_big = document.getElementById('too_big') as HTMLDivElement;
 const exceedsModal = new bootstrap.Modal(too_big);
+const hiking_info = document.getElementById('hiking_info') as HTMLDivElement;
+const tripModal = new bootstrap.Modal(hiking_info);
+
+// class for collecting hike times
+export class stopWatch {
+    elapsedSeconds: number;
+    startTime: number | null;
+    isRunning: boolean;
+    constructor() {
+        this.elapsedSeconds = 0;
+        this.startTime = null;
+        this.isRunning = false;
+    }
+    start() {
+        if (this.isRunning) return;
+        this.startTime = Date.now();
+        this.isRunning = true;
+    }
+    pause() {
+        if (!this.isRunning) return;
+        this.elapsedSeconds += Math.floor((Date.now() - (this.startTime as number)) / 1000);
+        this.startTime = null;
+        this.isRunning = false;
+    }
+    getSeconds() {
+        if (!this.isRunning) {
+            return this.elapsedSeconds;
+        }
+        const currentSession = Math.floor((Date.now() - (this.startTime as number)) / 1000);
+            return this.elapsedSeconds + currentSession;
+        }
+    reset() {
+        this.elapsedSeconds = 0;
+        this.startTime = this.isRunning ? Date.now() : null;
+    }
+}
 
 /**
  * ----------------- Main display page -----------------
@@ -399,8 +421,15 @@ function zoomctl_setup(start_zoom: number) {
     map.addEventListener("zoom", zoom_handler);
     return;
 }
+var etime = new stopWatch();
+var mtime = new stopWatch();
+var prev_elevation = 0;
+var hmin: number;
+var hmax: number;
+var up: number;
+var dwn: number;
 var track_pt: TrackPoint;
-var miles = 0;
+var miles: number;
 var gpx_pts = [] as TrackPoint[];
 var map_pt: L.LatLng;
 var map_line = [] as L.LatLng[];
@@ -413,32 +442,26 @@ function markerUpdate(e: L.LocationEvent) {
 }
 /** 
  * On app open, save a set of 'base' tiles to display when 
- * selecting an offline map (until a map is chosen); arbitrarily
- * save 2 tiles in each direction of center tile. Done in
- * background asynchronously.
+ * selecting an offline map in offline mode (until a map is chosen); 
  */
-/*
-function saveStatic(latlng: L.LatLng) {
-    let ctr_tile = getTileURL(latlng.lat, latlng.lng, 7);
-    let eastmost = ctr_tile[1] - 2;
-    let westmost = ctr_tile[1] + 2
-    let northmost = ctr_tile[0] -2;
-    let southmost = ctr_tile[0] +2;
-
-
-
+function saveStatic() {
+    let bounds = map.getBounds();
+    let base_bounds = { n: bounds.getNorth(), w: bounds.getWest(),
+        s: bounds.getSouth(), e: bounds.getEast() } as MapBounds
+    tileDownloader.downloadRegion('OFFLINE_BASE', base_bounds, [7], "usgs");
 }
-*/
-function onlineLocation(map: L.Map, latlng: L.LatLng) {
+function onlineLocation(map: L.Map) {
     map.locate({enableHighAccuracy: true, watch: true});
     map.on('locationfound', markerUpdate);
     map.once('locationfound', async function (e) {
-        latlng = e.latlng;
-        map.panTo(latlng);
-        marker.setLatLng(latlng);
-        const new_latlng = JSON.stringify(latlng);
-        Preferences.set({key: 'startloc', value: new_latlng})
-        //saveStatic(latlng);
+        const startup = e.latlng;
+        map.panTo(startup);
+        marker.setLatLng(startup);
+        const new_start = JSON.stringify(startup);
+        // Don't need to 'await'
+        Preferences.set({key: 'startloc', value: new_start});
+        // Save maptiles for this start loc, to be used when app opens offline
+        saveStatic();
     });
     leafletGeo = true;
 }
@@ -481,7 +504,7 @@ export async function continueOnline(showTypes: boolean) {
         .addTo(map); // standard leaflet tile layer
     marker = L.marker(olatlng, { icon: pulseIcon }).addTo(map);
     if (permissions_granted) {
-        onlineLocation(map, olatlng);
+        onlineLocation(map);
     }
     zoomctl_setup(zoom_level);
     // some async's don't require 'wait'...
@@ -531,8 +554,35 @@ function appendFilesize() {
 $('body').on('change', '#select_map', () => {
     appendFilesize();
 });
+// Animated loader event handler:
+function endLoaderGif() {
+    start_modal.removeEventListener('shown.bs.modal', endLoaderGif);
+    $('#loader_gif').css('display', 'none');
+}
 // offlineSelect is invoked either at startup when no internet, or by menu click
 async function offlineSelect() {
+    if (!internetConnected) {
+        if (leafletGeo) {
+            map.stopLocate();
+        }
+        if (typeof map !== 'undefined') {
+            map.remove();
+            map = null!;
+        }
+        // The 'startloc' key is set when online and app opened
+        const savedLoc = (await Preferences.get({ key: 'startloc' })).value as string;
+        const prev_startloc = JSON.parse(savedLoc);
+        map = L.map('map', {
+            center: prev_startloc,
+            zoom: 7
+        });
+        L.tileLayer.offline('', {
+            mapname: "OFFLINE_BASE",
+            attribution: 'USGS The National Map'
+        } as OfflineTileLayerOptions
+        ).addTo(map);
+    }
+    start_modal.addEventListener('shown.bs.modal', endLoaderGif);
     await prepareMapNames();
     maps_available.show();
     appendFilesize();
@@ -572,6 +622,7 @@ let $play = $('#play');
 let $stop = $('#stop');
 let $pause = $('#pause');
 let $unpause = $('#unpause');
+let $paused_stop = $('#paused_stop');
 let $unfollow_icon = $('#unfollow_icon');
 $unfollow_icon.css('left', follow_pos)
 // Toggle sliders in menu
@@ -628,6 +679,15 @@ function cleanTrack() {
     wayMrkrs = [];
     map_line = [];
 }
+function resetTripData() {
+    $('.distance').text("0");
+    $('.feet').text("0");
+    $('#m2m').text("0");
+    $('#etime').text("0");
+    $('#mtime').text("0");
+    $('#accum_asc').text("0");
+    $('#accum_dsc').text("0");
+}
 $('body').on('click', '#play', () => {
     /**
      * When tracking is active, the 'Pause' and 'Waypoint' buttons
@@ -642,41 +702,81 @@ $('body').on('click', '#play', () => {
      * Tracking occurs independently of online or offline.
      */
     menu_close();
-    // show pause and green_marker [waypoint] icons:
+    tracking = true;
+    useBackgroundGeolocation(true);
     $('#row2').css('display', 'inline');
     $('#row3').css('display', 'inline');
     $play.replaceWith($stop);
     $stop.css('display', 'inline');
-    // begin ...
-    tracking = true;
-    useBackgroundGeolocation(true);
     $('#info').css('display', 'block'); // shows miles & elevation
+    // start w/clean data:
+    etime.reset();
+    mtime.reset()
+    etime.start();
+    mtime.start();
+    // destroys previous track:
+    gpx_pts = [];
+    map_line = [];
+    resetTripData();
     return;
 });
+function textTime() {
+    let minutes: number;
+    let hours: number;
+    let modal_etime: string;
+    let modal_mtime: string;
+    let elapsed_time = Math.round((etime as stopWatch).getSeconds()/60);
+    let moving_time = Math.round((mtime as stopWatch).getSeconds()/60);
+    if (elapsed_time >= 60) {
+        hours =  Math.floor(elapsed_time/60);
+        minutes = elapsed_time - (60*hours);
+        modal_etime = hours + " hrs, " + minutes + " min";
+    } else {
+        modal_etime = elapsed_time + " min";
+    }
+    $('#etime').text(modal_etime);
+    if (moving_time >= 60) {
+        hours =  Math.round(moving_time/60);
+        minutes = moving_time - Math.round(60*hours);
+        modal_mtime = hours + " hrs, " + minutes + " min";
+    }  else {
+        modal_mtime = moving_time + " min";
+    }
+    $('#mtime').text(modal_mtime);
+    return;
+}
 $('body').on('click', '#stop', () => {
     tracking = false;
+    useBackgroundGeolocation(false);
     $('#row2').css('display', 'none');
     $('#row3').css('display', 'none');
     $stop.replaceWith($play);
     $stop.css('display', 'none');
-    useBackgroundGeolocation(false);
     $('#info').css('display', 'none');
+    // don't reset tracking data until new track is started
     if (wayMrkrs.length === 0 && gpx_pts.length < 3) {
         notice("There is nothing to save");
     } else {
         trackSaveModal.show();
     }
+    return;
 });
 $('body').on('click', '#pause', () => {
+    tracking = false;
+    (mtime as stopWatch).pause();
     $pause.replaceWith($unpause);
     $unpause.css('display', 'inline');
-    tracking = false;
+    $stop.replaceWith($paused_stop);
+    $paused_stop.css('display', 'inline');
     return;
 });
 $('body').on('click', '#unpause', () => {
-    $unpause.css('display', 'none');
-    $unpause.replaceWith($pause);
     tracking = true;
+    (mtime as stopWatch).start();
+    $unpause.replaceWith($pause);
+    $unpause.css('display', 'none');
+    $paused_stop.replaceWith($stop);
+    $paused_stop.css('display', 'none');
     return;
 });
 $('body').on('click', '#green_marker', () => {
@@ -711,9 +811,11 @@ $('body').on('click', '#unfollow_icon', () => {
     return;
 });
 $('body').on('click', '#findme_icon', () => {
+    $('#loader_gif').css('display', 'block');
     map.locate({enableHighAccuracy: true, watch: false});
     map.once('locationfound', function(e) { 
         map.setView(e.latlng);
+        $('#loader_gif').css('display', 'none');
     });
     return;
 });
@@ -831,10 +933,14 @@ menu_offline.addEventListener("click", () => {
     }
     clearPrevious();
     menu_close();
+    $('#loader_gif').css('display', 'block');
     offlineSelect();
     return;
 });
-
+const menu_trip_data = document.getElementById('menu_hike_stats') as HTMLTableRowElement;
+menu_trip_data.addEventListener("click", () => {
+    tripModal.show();
+});
 // ----- Modal/Secondary Buttons -----
 $('body').on('click', '#use_map', () => {
     const user_map = $('#select_map').val() as string;
@@ -844,6 +950,7 @@ $('body').on('click', '#use_map', () => {
     }
     $('#select_map').off('click');
     maps_available.hide();
+    $('#loader_gif').css('display', 'block');
     loadSelectedMap(user_map);
     return;
 });
@@ -1637,7 +1744,7 @@ L.TileLayer.Offline = L.TileLayer.extend({
 L.tileLayer.offline = function(url: string, options?: OfflineTileLayerOptions) {
     return new L.TileLayer.Offline(url, options);
 };
-//L.tileLayer.offline = (url, options) => new L.TileLayer.Offline(url, options);
+L.tileLayer.offline = (url, options) => new L.TileLayer.Offline(url, options);
 
 // Create Hybrid to allow for online occurrences by extending L.TileLayer.Offline:
 L.TileLayer.Hybrid = L.TileLayer.Offline.extend({
@@ -1746,6 +1853,9 @@ async function displayMap(map_name: string) {
 }
 // Instantiate the offline map: arguments obtained when user selects map
 function offlineMap (mapname: string, map_ctr: L.LatLng, map_zoom: number, track: string) {
+    if ($('#loader_gif').css('display') !== 'none') {
+        $('#loader_gif').css('display', 'none');
+    }
     map = L.map('map', {
         center: map_ctr,
         minZoom: 10,
@@ -1900,8 +2010,8 @@ function tracker(lat: number, lng: number, ele: number) {
     gpx_pts.push(track_pt);
     map_pt = L.latLng(lat, lng); // => {lat: lat, lng: lng}
     map_line.push(map_pt);
-    let altitude = track_pt.elevation * 3.28084
-    $('#feet').text(altitude.toFixed(0));
+    let altitude = Math.round(ele * 3.28084);
+    $('.feet').text(altitude);
     let pts = map_line.length;
     if (pts > 1) {
         let dist_incr = distInMiles(
@@ -1909,11 +2019,34 @@ function tracker(lat: number, lng: number, ele: number) {
             map_line[pts-2].lat, map_line[pts-2].lng
         )
         miles += dist_incr;
-        $('#distance').text(miles.toFixed(2));
+        $('.distance').text(miles.toFixed(2));
         if (pts > 2) {
             map.removeLayer(hike);
         }
         hike = L.polyline(map_line, {color: 'red'}).addTo(map);
+        // Process hike data
+        if (altitude > hmax) {
+            hmax = altitude
+        }
+        if (altitude < hmin) {
+            hmin = altitude
+        }
+        let echange = altitude - prev_elevation; // whole number
+        // ignore echange === 0
+        if (echange > 0) {
+            up += echange;
+        } else if (echange < 0) {
+            dwn -= echange;
+        }
+        prev_elevation = altitude;
+        // write hike data:
+        $('#m2m').text(hmax-hmin);
+        textTime();
+        $('#accum_asc').text(up);
+        $('#accum_dsc').text(dwn);
+    } else { // first point
+        prev_elevation = hmax = hmin = altitude;
+        miles = up = dwn = 0;
     }
     saveSessionState();
     markSessionDirty();

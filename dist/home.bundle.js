@@ -47083,7 +47083,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   continueOnline: () => (/* binding */ continueOnline),
 /* harmony export */   markSessionClean: () => (/* binding */ markSessionClean),
 /* harmony export */   markSessionDirty: () => (/* binding */ markSessionDirty),
-/* harmony export */   saveSessionState: () => (/* binding */ saveSessionState)
+/* harmony export */   saveSessionState: () => (/* binding */ saveSessionState),
+/* harmony export */   stopWatch: () => (/* binding */ stopWatch)
 /* harmony export */ });
 /* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! jquery */ "./node_modules/jquery/dist/jquery.js");
 /* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(jquery__WEBPACK_IMPORTED_MODULE_0__);
@@ -47197,17 +47198,6 @@ async function app_start() {
     else {
         offlineSelect();
     }
-    /**
-     * Not ready yet...
-     *
-    const { value } = await Preferences.get({key: 'mapinfo'});
-    if (value !== null) {
-        const showMapModal = value as string;
-        if (showMapModal === 'show') {
-            startupModal.show();
-        }
-    }
-    */
     await initAllPermissions(internetConnected);
     return;
 }
@@ -47230,8 +47220,9 @@ async function requestNotificationPermission(onlineMap) {
     else {
         permissions_granted = true;
     }
-    if (onlineMap && permissions_granted) {
-        onlineLocation(map, olatlng);
+    if (onlineMap && permissions_granted) { // map is already established...
+        await _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.removeData('OFFLINE_BASE');
+        onlineLocation(map);
     }
     return;
 }
@@ -47269,8 +47260,6 @@ document.addEventListener('gestureend', (e) => e.preventDefault());
 /**
  * ----------------- Modals -----------------
  */
-//const startup = document.getElementById('start_info') as HTMLDivElement;
-//const startupModal = new bootstrap.Modal(startup);
 const saverDiv = document.getElementById('save_type');
 const save_type_modal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(saverDiv);
 const drawingRect = document.getElementById('draw_setup');
@@ -47289,14 +47278,49 @@ const restore_data = document.getElementById('restore');
 const restoreModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(restore_data);
 const multiTrack = document.getElementById('multi');
 const multiModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(multiTrack);
-//const unsavedGPX = document.getElementById('no_download') as HTMLDivElement;
-//const unsavedGpxModal = new bootstrap.Modal(unsavedGPX);
 const hybrid_tiles = document.getElementById('hybrid_save');
 const hybridDisposition = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(hybrid_tiles);
 const save_progress = document.getElementById('stat');
 const save_status = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(save_progress);
 const too_big = document.getElementById('too_big');
 const exceedsModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(too_big);
+const hiking_info = document.getElementById('hiking_info');
+const tripModal = new bootstrap__WEBPACK_IMPORTED_MODULE_5__.Modal(hiking_info);
+// class for collecting hike times
+class stopWatch {
+    elapsedSeconds;
+    startTime;
+    isRunning;
+    constructor() {
+        this.elapsedSeconds = 0;
+        this.startTime = null;
+        this.isRunning = false;
+    }
+    start() {
+        if (this.isRunning)
+            return;
+        this.startTime = Date.now();
+        this.isRunning = true;
+    }
+    pause() {
+        if (!this.isRunning)
+            return;
+        this.elapsedSeconds += Math.floor((Date.now() - this.startTime) / 1000);
+        this.startTime = null;
+        this.isRunning = false;
+    }
+    getSeconds() {
+        if (!this.isRunning) {
+            return this.elapsedSeconds;
+        }
+        const currentSession = Math.floor((Date.now() - this.startTime) / 1000);
+        return this.elapsedSeconds + currentSession;
+    }
+    reset() {
+        this.elapsedSeconds = 0;
+        this.startTime = this.isRunning ? Date.now() : null;
+    }
+}
 /**
  * ----------------- Main display page -----------------
  */
@@ -47471,8 +47495,15 @@ function zoomctl_setup(start_zoom) {
     map.addEventListener("zoom", zoom_handler);
     return;
 }
+var etime = new stopWatch();
+var mtime = new stopWatch();
+var prev_elevation = 0;
+var hmin;
+var hmax;
+var up;
+var dwn;
 var track_pt;
-var miles = 0;
+var miles;
 var gpx_pts = [];
 var map_pt;
 var map_line = [];
@@ -47485,32 +47516,26 @@ function markerUpdate(e) {
 }
 /**
  * On app open, save a set of 'base' tiles to display when
- * selecting an offline map (until a map is chosen); arbitrarily
- * save 2 tiles in each direction of center tile. Done in
- * background asynchronously.
+ * selecting an offline map in offline mode (until a map is chosen);
  */
-/*
-function saveStatic(latlng: L.LatLng) {
-    let ctr_tile = getTileURL(latlng.lat, latlng.lng, 7);
-    let eastmost = ctr_tile[1] - 2;
-    let westmost = ctr_tile[1] + 2
-    let northmost = ctr_tile[0] -2;
-    let southmost = ctr_tile[0] +2;
-
-
-
+function saveStatic() {
+    let bounds = map.getBounds();
+    let base_bounds = { n: bounds.getNorth(), w: bounds.getWest(),
+        s: bounds.getSouth(), e: bounds.getEast() };
+    _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadRegion('OFFLINE_BASE', base_bounds, [7], "usgs");
 }
-*/
-function onlineLocation(map, latlng) {
+function onlineLocation(map) {
     map.locate({ enableHighAccuracy: true, watch: true });
     map.on('locationfound', markerUpdate);
     map.once('locationfound', async function (e) {
-        latlng = e.latlng;
-        map.panTo(latlng);
-        marker.setLatLng(latlng);
-        const new_latlng = JSON.stringify(latlng);
-        _capacitor_preferences__WEBPACK_IMPORTED_MODULE_17__.Preferences.set({ key: 'startloc', value: new_latlng });
-        //saveStatic(latlng);
+        const startup = e.latlng;
+        map.panTo(startup);
+        marker.setLatLng(startup);
+        const new_start = JSON.stringify(startup);
+        // Don't need to 'await'
+        _capacitor_preferences__WEBPACK_IMPORTED_MODULE_17__.Preferences.set({ key: 'startloc', value: new_start });
+        // Save maptiles for this start loc, to be used when app opens offline
+        saveStatic();
     });
     leafletGeo = true;
 }
@@ -47555,7 +47580,7 @@ async function continueOnline(showTypes) {
         .addTo(map); // standard leaflet tile layer
     marker = leaflet__WEBPACK_IMPORTED_MODULE_3___default().marker(olatlng, { icon: pulseIcon }).addTo(map);
     if (permissions_granted) {
-        onlineLocation(map, olatlng);
+        onlineLocation(map);
     }
     zoomctl_setup(zoom_level);
     // some async's don't require 'wait'...
@@ -47606,8 +47631,34 @@ function appendFilesize() {
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('change', '#select_map', () => {
     appendFilesize();
 });
+// Animated loader event handler:
+function endLoaderGif() {
+    start_modal.removeEventListener('shown.bs.modal', endLoaderGif);
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#loader_gif').css('display', 'none');
+}
 // offlineSelect is invoked either at startup when no internet, or by menu click
 async function offlineSelect() {
+    if (!internetConnected) {
+        if (leafletGeo) {
+            map.stopLocate();
+        }
+        if (typeof map !== 'undefined') {
+            map.remove();
+            map = null;
+        }
+        // The 'startloc' key is set when online and app opened
+        const savedLoc = (await _capacitor_preferences__WEBPACK_IMPORTED_MODULE_17__.Preferences.get({ key: 'startloc' })).value;
+        const prev_startloc = JSON.parse(savedLoc);
+        map = leaflet__WEBPACK_IMPORTED_MODULE_3___default().map('map', {
+            center: prev_startloc,
+            zoom: 7
+        });
+        leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer.offline('', {
+            mapname: "OFFLINE_BASE",
+            attribution: 'USGS The National Map'
+        }).addTo(map);
+    }
+    start_modal.addEventListener('shown.bs.modal', endLoaderGif);
     await prepareMapNames();
     maps_available.show();
     appendFilesize();
@@ -47646,6 +47697,7 @@ let $play = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#play');
 let $stop = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#stop');
 let $pause = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#pause');
 let $unpause = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#unpause');
+let $paused_stop = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#paused_stop');
 let $unfollow_icon = jquery__WEBPACK_IMPORTED_MODULE_0___default()('#unfollow_icon');
 $unfollow_icon.css('left', follow_pos);
 // Toggle sliders in menu
@@ -47704,6 +47756,15 @@ function cleanTrack() {
     wayMrkrs = [];
     map_line = [];
 }
+function resetTripData() {
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('.distance').text("0");
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('.feet').text("0");
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#m2m').text("0");
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#etime').text("0");
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#mtime').text("0");
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#accum_asc').text("0");
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#accum_dsc').text("0");
+}
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#play', () => {
     /**
      * When tracking is active, the 'Pause' and 'Waypoint' buttons
@@ -47718,42 +47779,84 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#play', () =>
      * Tracking occurs independently of online or offline.
      */
     menu_close();
-    // show pause and green_marker [waypoint] icons:
+    tracking = true;
+    useBackgroundGeolocation(true);
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row2').css('display', 'inline');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row3').css('display', 'inline');
     $play.replaceWith($stop);
     $stop.css('display', 'inline');
-    // begin ...
-    tracking = true;
-    useBackgroundGeolocation(true);
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#info').css('display', 'block'); // shows miles & elevation
+    // start w/clean data:
+    etime.reset();
+    mtime.reset();
+    etime.start();
+    mtime.start();
+    // destroys previous track:
+    gpx_pts = [];
+    map_line = [];
+    resetTripData();
     return;
 });
+function textTime() {
+    let minutes;
+    let hours;
+    let modal_etime;
+    let modal_mtime;
+    let elapsed_time = Math.round(etime.getSeconds() / 60);
+    let moving_time = Math.round(mtime.getSeconds() / 60);
+    if (elapsed_time >= 60) {
+        hours = Math.floor(elapsed_time / 60);
+        minutes = elapsed_time - (60 * hours);
+        modal_etime = hours + " hrs, " + minutes + " min";
+    }
+    else {
+        modal_etime = elapsed_time + " min";
+    }
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#etime').text(modal_etime);
+    if (moving_time >= 60) {
+        hours = Math.round(moving_time / 60);
+        minutes = moving_time - Math.round(60 * hours);
+        modal_mtime = hours + " hrs, " + minutes + " min";
+    }
+    else {
+        modal_mtime = moving_time + " min";
+    }
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#mtime').text(modal_mtime);
+    return;
+}
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#stop', () => {
     tracking = false;
+    useBackgroundGeolocation(false);
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row2').css('display', 'none');
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#row3').css('display', 'none');
     $stop.replaceWith($play);
     $stop.css('display', 'none');
-    useBackgroundGeolocation(false);
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#info').css('display', 'none');
+    // don't reset tracking data until new track is started
     if (wayMrkrs.length === 0 && gpx_pts.length < 3) {
         notice("There is nothing to save");
     }
     else {
         trackSaveModal.show();
     }
+    return;
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#pause', () => {
+    tracking = false;
+    mtime.pause();
     $pause.replaceWith($unpause);
     $unpause.css('display', 'inline');
-    tracking = false;
+    $stop.replaceWith($paused_stop);
+    $paused_stop.css('display', 'inline');
     return;
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#unpause', () => {
-    $unpause.css('display', 'none');
-    $unpause.replaceWith($pause);
     tracking = true;
+    mtime.start();
+    $unpause.replaceWith($pause);
+    $unpause.css('display', 'none');
+    $paused_stop.replaceWith($stop);
+    $paused_stop.css('display', 'none');
     return;
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#green_marker', () => {
@@ -47788,9 +47891,11 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#unfollow_ico
     return;
 });
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#findme_icon', () => {
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#loader_gif').css('display', 'block');
     map.locate({ enableHighAccuracy: true, watch: false });
     map.once('locationfound', function (e) {
         map.setView(e.latlng);
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#loader_gif').css('display', 'none');
     });
     return;
 });
@@ -47911,8 +48016,13 @@ menu_offline.addEventListener("click", () => {
     }
     clearPrevious();
     menu_close();
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#loader_gif').css('display', 'block');
     offlineSelect();
     return;
+});
+const menu_trip_data = document.getElementById('menu_hike_stats');
+menu_trip_data.addEventListener("click", () => {
+    tripModal.show();
 });
 // ----- Modal/Secondary Buttons -----
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#use_map', () => {
@@ -47923,6 +48033,7 @@ jquery__WEBPACK_IMPORTED_MODULE_0___default()('body').on('click', '#use_map', ()
     }
     jquery__WEBPACK_IMPORTED_MODULE_0___default()('#select_map').off('click');
     maps_available.hide();
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#loader_gif').css('display', 'block');
     loadSelectedMap(user_map);
     return;
 });
@@ -48716,7 +48827,7 @@ var hike; // the polyline which captures user movements during tracking: on or o
 (leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer).offline = function (url, options) {
     return new (leaflet__WEBPACK_IMPORTED_MODULE_3___default().TileLayer).Offline(url, options);
 };
-//L.tileLayer.offline = (url, options) => new L.TileLayer.Offline(url, options);
+(leaflet__WEBPACK_IMPORTED_MODULE_3___default().tileLayer).offline = (url, options) => new (leaflet__WEBPACK_IMPORTED_MODULE_3___default().TileLayer).Offline(url, options);
 // Create Hybrid to allow for online occurrences by extending L.TileLayer.Offline:
 (leaflet__WEBPACK_IMPORTED_MODULE_3___default().TileLayer).Hybrid = leaflet__WEBPACK_IMPORTED_MODULE_3___default().TileLayer.Offline.extend({
     createTile: function (coords) {
@@ -48817,6 +48928,9 @@ async function displayMap(map_name) {
 }
 // Instantiate the offline map: arguments obtained when user selects map
 function offlineMap(mapname, map_ctr, map_zoom, track) {
+    if (jquery__WEBPACK_IMPORTED_MODULE_0___default()('#loader_gif').css('display') !== 'none') {
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#loader_gif').css('display', 'none');
+    }
     map = leaflet__WEBPACK_IMPORTED_MODULE_3___default().map('map', {
         center: map_ctr,
         minZoom: 10,
@@ -48970,17 +49084,42 @@ function tracker(lat, lng, ele) {
     gpx_pts.push(track_pt);
     map_pt = leaflet__WEBPACK_IMPORTED_MODULE_3___default().latLng(lat, lng); // => {lat: lat, lng: lng}
     map_line.push(map_pt);
-    let altitude = track_pt.elevation * 3.28084;
-    jquery__WEBPACK_IMPORTED_MODULE_0___default()('#feet').text(altitude.toFixed(0));
+    let altitude = Math.round(ele * 3.28084);
+    jquery__WEBPACK_IMPORTED_MODULE_0___default()('.feet').text(altitude);
     let pts = map_line.length;
     if (pts > 1) {
         let dist_incr = distInMiles(map_line[pts - 1].lat, map_line[pts - 1].lng, map_line[pts - 2].lat, map_line[pts - 2].lng);
         miles += dist_incr;
-        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#distance').text(miles.toFixed(2));
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('.distance').text(miles.toFixed(2));
         if (pts > 2) {
             map.removeLayer(hike);
         }
         hike = leaflet__WEBPACK_IMPORTED_MODULE_3___default().polyline(map_line, { color: 'red' }).addTo(map);
+        // Process hike data
+        if (altitude > hmax) {
+            hmax = altitude;
+        }
+        if (altitude < hmin) {
+            hmin = altitude;
+        }
+        let echange = altitude - prev_elevation; // whole number
+        // ignore echange === 0
+        if (echange > 0) {
+            up += echange;
+        }
+        else if (echange < 0) {
+            dwn -= echange;
+        }
+        prev_elevation = altitude;
+        // write hike data:
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#m2m').text(hmax - hmin);
+        textTime();
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#accum_asc').text(up);
+        jquery__WEBPACK_IMPORTED_MODULE_0___default()('#accum_dsc').text(dwn);
+    }
+    else { // first point
+        prev_elevation = hmax = hmin = altitude;
+        miles = up = dwn = 0;
     }
     saveSessionState();
     markSessionDirty();
@@ -49682,8 +49821,13 @@ class TileDownloader {
         const tiles = [];
         // expand lowest/highest zooms in array
         var zooms = [];
-        for (let i = 0; i < zoomLevels[1] - zoomLevels[0] + 1; i++) {
-            zooms.push(zoomLevels[0] + i);
+        if (zoomLevels.length === 1) { // only 1 level for OFFLNE_BASE
+            zooms[0] = zoomLevels[0];
+        }
+        else {
+            for (let i = 0; i < zoomLevels[1] - zoomLevels[0] + 1; i++) {
+                zooms.push(zoomLevels[0] + i);
+            }
         }
         zooms.forEach(z => {
             const minTile = this.latLngToTile(bounds.n, bounds.w, z);

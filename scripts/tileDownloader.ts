@@ -504,8 +504,12 @@ class TileDownloader {
         const tiles = [] as TileCoords[];
         // expand lowest/highest zooms in array
         var zooms = [] as number[];
-        for (let i=0; i<zoomLevels[1]-zoomLevels[0]+1; i++) {
-            zooms.push(zoomLevels[0] + i);
+        if (zoomLevels.length === 1) { // only 1 level for OFFLNE_BASE
+            zooms[0] = zoomLevels[0];
+        } else {
+            for (let i=0; i<zoomLevels[1]-zoomLevels[0]+1; i++) {
+                zooms.push(zoomLevels[0] + i);
+            }
         }
         zooms.forEach(z => {
             const minTile = this.latLngToTile(bounds.n, bounds.w, z);

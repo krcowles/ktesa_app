@@ -16,6 +16,9 @@
     <p id="msg"></p>
     <button id="ok" type="button" class="btn btn-sm btn-success">OK</button>
 </dialog>
+<div id="loader_gif">
+    <img src="images/sand.gif" />
+</div>
 
 <div id="map-container">
     <div id="map"></div>
@@ -68,6 +71,12 @@
         <svg id="stop" width="36px" height="36px" viewbox="0 0 36 36">
             <circle cx="18" cy="18" r="18" stroke="red" stroke-width="1" fill="gray" />
             <rect x="11" y="11" width="14" height="14" fill="white"/>
+
+        </svg>
+        <svg id="paused_stop" width="36px" height="36px" viewbox="0 0 36 36">
+            <circle cx="18" cy="18" r="18" stroke="red" stroke-width="1" fill="gray" />
+            <rect x="11" y="11" width="14" height="14" fill="white"/>
+            <line x1="0" y1="36" x2="36" y2="0" style="stroke:red;stroke-width:3" />
         </svg>
         <svg id="unpause" width="36px" height="36px" viewbox="0 0 36 36">
             <circle cx="18" cy="18" r="18" stroke="red" stroke-width="1" fill="gray" />
@@ -104,7 +113,7 @@
         <button id="rect" class="btn btn-sm btn-success">Draw</button>
     </div>
     <div id="info">
-        <span id="distance">0</span> mis,&nbsp;&nbsp;alt: <span id="feet">0</span> ft.
+        <span class="distance">0</span> mis,&nbsp;&nbsp;alt: <span class="feet">0</span> ft.
     </div>
 
     <!-- The Menu -->
@@ -156,7 +165,15 @@
                     </td>
                     <td class="tbl_txt">Location Icon</td>
                 </tr>
-                
+            </table>
+        </div>
+        <span class="line_override">Trip Statistics</span>
+        <div class="surround">
+            <table class="menu-table">
+                <tr id="menu_hike_stats">
+                    <td><img id="trip_stats" src="images/trip_data.png" /></td>
+                    <td class="tbl_txt">Trip Data</td>
+                </tr>
             </table>
         </div>
     </div>
@@ -532,6 +549,56 @@
                </p>
                <button id="keep_tmp" class="btn btn-sm btn-success">Keep</button><br /><br />
                <button id="kill_tmp" class="btn btn-sm btn-primary">Discard</button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Hiking Info -->
+<div id="hiking_info" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Tracking Activity</h5>
+                <button type="button" class="btn-close"
+                    data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <table id="active_stats">
+                    <tbody>
+                        <tr>
+                            <td>Distance</td>
+                            <td class="break"><span class="distance">0</span> mis</td>
+                        </tr>
+                        <tr>
+                            <td>Elevation</td>
+                            <td class="break"><span class="feet">0</span> ft</tr>
+                        </tr>
+                        <tr>
+                            <td>Max to Min</td>
+                            <td class="break" id="m2m">0</td>
+                        </tr>
+                        <tr>
+                            <td>Elasped Time</td>
+                            <td class="break" id="etime">0</td>
+                        </tr>
+                        <tr>
+                            <td>Moving Time</td>
+                            <td class="break" id="mtime">0</td>
+                        </tr>
+                        <tr>
+                            <td>Accum ascent</td>
+                            <td class="break"><span id="accum_asc">0</span> ft</td>
+                        </tr>
+                        <tr>
+                            <td>Accum descent</td>
+                            <td class="break"><span id="accum_dsc">0</span> ft</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-sm btn-secondary"
