@@ -47133,7 +47133,9 @@ __webpack_require__.r(__webpack_exports__);
  * Owing to file size of this app, some exports are utilized and use of arrow
  * functions is reduced to force typescript to handle them properly.
  *
- * @version 2.4 Revised for efficiency, added save start loc and don't save track
+ * @version 2.4 Revised for efficiency, added 'save start loc' and 'don't save track'
+ * @version 3.0 UI changes
+ * @version 3.1 Added distance scale
  */
 /**
  * ----------------- Internet connectivity -----------------
@@ -47196,7 +47198,7 @@ async function app_start() {
         await initMap(false); // normal situation
     }
     else {
-        offlineSelect();
+        await offlineSelect();
     }
     await initAllPermissions(internetConnected);
     return;
@@ -47523,6 +47525,7 @@ function saveStatic() {
     let base_bounds = { n: bounds.getNorth(), w: bounds.getWest(),
         s: bounds.getSouth(), e: bounds.getEast() };
     _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.downloadRegion('OFFLINE_BASE', base_bounds, [7], "usgs");
+    return;
 }
 function onlineLocation(map) {
     map.locate({ enableHighAccuracy: true, watch: true });
@@ -47536,6 +47539,7 @@ function onlineLocation(map) {
         _capacitor_preferences__WEBPACK_IMPORTED_MODULE_17__.Preferences.set({ key: 'startloc', value: new_start });
         // Save maptiles for this start loc, to be used when app opens offline
         saveStatic();
+        return;
     });
     leafletGeo = true;
 }
@@ -47583,6 +47587,12 @@ async function continueOnline(showTypes) {
         onlineLocation(map);
     }
     zoomctl_setup(zoom_level);
+    leaflet__WEBPACK_IMPORTED_MODULE_3___default().control.scale({
+        position: 'bottomleft',
+        metric: true,
+        imperial: true,
+        maxWidth: 100
+    }).addTo(map);
     // some async's don't require 'wait'...
     _tileDownloader__WEBPACK_IMPORTED_MODULE_9__.tileDownloader.writeSessionText(''); // indicates online, no map name
     map.invalidateSize(); // needed when switching from offline
@@ -47976,6 +47986,7 @@ const create_row = document.getElementById('menu_create');
 create_row.addEventListener("click", () => {
     showDisplayTypes();
 });
+// Save a new map (from maps_available modal):
 jquery__WEBPACK_IMPORTED_MODULE_0___default()('#save_display').on("click", showDisplayTypes);
 async function showDisplayTypes() {
     if (internetConnected) {
@@ -48949,6 +48960,12 @@ function offlineMap(mapname, map_ctr, map_zoom, track) {
         const latlng_arr = JSON.parse(track);
         leaflet__WEBPACK_IMPORTED_MODULE_3___default().polyline(latlng_arr, { color: 'blue' }).addTo(map);
     }
+    leaflet__WEBPACK_IMPORTED_MODULE_3___default().control.scale({
+        position: 'bottomleft',
+        metric: true,
+        imperial: true,
+        maxWidth: 100
+    }).addTo(map);
     map.invalidateSize();
     offline_loaded = true;
     /**
@@ -49009,7 +49026,7 @@ function useBackgroundGeolocation(capgo) {
                     backgroundTitle: "Tracking...",
                     requestPermissions: true,
                     stale: false, // Always get fresh data
-                    distanceFilter: 10 // Highest frequency updates
+                    distanceFilter: 14
                 };
                 const onPosition = (position, error) => {
                     if (error) {
@@ -49629,7 +49646,7 @@ class TileDownloader {
     async ensureDir(path) {
         try {
             await _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Filesystem.mkdir({
-                path,
+                path: path,
                 directory: _capacitor_filesystem__WEBPACK_IMPORTED_MODULE_0__.Directory.Data,
                 recursive: true
             });

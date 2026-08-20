@@ -63,7 +63,9 @@ import { Preferences } from '@capacitor/preferences';
  * Owing to file size of this app, some exports are utilized and use of arrow
  * functions is reduced to force typescript to handle them properly.
  * 
- * @version 2.4 Revised for efficiency, added save start loc and don't save track 
+ * @version 2.4 Revised for efficiency, added 'save start loc' and 'don't save track'
+ * @version 3.0 UI changes
+ * @version 3.1 Added distance scale
  */
 
 /**
@@ -127,7 +129,7 @@ async function app_start() {
     if (internetConnected) {
         await initMap(false); // normal situation
     } else {
-        offlineSelect();
+        await offlineSelect();
     } 
     await initAllPermissions(internetConnected);
     return;
@@ -449,6 +451,7 @@ function saveStatic() {
     let base_bounds = { n: bounds.getNorth(), w: bounds.getWest(),
         s: bounds.getSouth(), e: bounds.getEast() } as MapBounds
     tileDownloader.downloadRegion('OFFLINE_BASE', base_bounds, [7], "usgs");
+    return;
 }
 function onlineLocation(map: L.Map) {
     map.locate({enableHighAccuracy: true, watch: true});
@@ -462,6 +465,7 @@ function onlineLocation(map: L.Map) {
         Preferences.set({key: 'startloc', value: new_start});
         // Save maptiles for this start loc, to be used when app opens offline
         saveStatic();
+        return;
     });
     leafletGeo = true;
 }
@@ -507,6 +511,12 @@ export async function continueOnline(showTypes: boolean) {
         onlineLocation(map);
     }
     zoomctl_setup(zoom_level);
+    L.control.scale({
+        position: 'bottomleft',
+        metric: true,
+        imperial: true,
+        maxWidth: 100
+    }). addTo (map);
     // some async's don't require 'wait'...
     tileDownloader.writeSessionText(''); // indicates online, no map name
     map.invalidateSize(); // needed when switching from offline
@@ -895,6 +905,7 @@ const create_row = document.getElementById('menu_create') as HTMLTableRowElement
 create_row.addEventListener("click", () => {
     showDisplayTypes();
 });
+// Save a new map (from maps_available modal):
 $('#save_display').on("click", showDisplayTypes);
 async function showDisplayTypes() {
     if (internetConnected) {
@@ -1875,6 +1886,12 @@ function offlineMap (mapname: string, map_ctr: L.LatLng, map_zoom: number, track
         const latlng_arr = JSON.parse(track);
         L.polyline(latlng_arr, {color: 'blue'}).addTo(map);
     }
+    L.control.scale({
+        position: 'bottomleft',
+        metric: true,
+        imperial: true,
+        maxWidth: 100
+    }). addTo (map);
     map.invalidateSize();
     offline_loaded = true;
     /** 
@@ -1935,7 +1952,7 @@ function useBackgroundGeolocation(capgo: boolean) {
                     backgroundTitle: "Tracking...",
                     requestPermissions: true,
                     stale: false,  // Always get fresh data
-                    distanceFilter: 10  // Highest frequency updates
+                    distanceFilter: 14
                 };
                 const onPosition = (position?: Location | undefined, error?: CallbackError) => {
                     if (error) {

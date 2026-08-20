@@ -313,7 +313,7 @@ class TileDownloader {
     async ensureDir(path: string) {
         try {
             await Filesystem.mkdir({
-                path,
+                path: path,
                 directory: Directory.Data,
                 recursive: true
             });
